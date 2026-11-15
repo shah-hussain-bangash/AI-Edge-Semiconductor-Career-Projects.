@@ -1,5 +1,7 @@
 # Phase 08 — Security Hardening, MLOps, Production Deployment & Professional Portfolio Demonstration
 
+![Evaluation and deployment lifecycle](./assets/evaluation-deployment-lifecycle.svg)
+
 **Project:** Industrial Edge AI Predictive Maintenance & Autonomous Operations Platform  
 **Status:** Implementation blueprint; not evidence of deployed software, completed hardware experiments, certified safety, or measured performance.  
 **Prerequisites:** Phases 01–07.  
