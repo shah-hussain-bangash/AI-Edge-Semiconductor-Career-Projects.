@@ -29,3 +29,9 @@ Every implementation requires a reproducible setup, architecture diagram, source
 
 ## Suggested build order
 Phases 1 -> 2 -> 4 -> 3 -> 8 for the first flagship; then 5, 6, 7 for specialization. Use low-voltage lab hardware and synthetic industrial workflows.
+
+## Featured project — EDGEOPS
+
+**[Industrial Edge AI Predictive Maintenance & Autonomous Operations — Complete README](projects/industrial-edge-ai-predictive-maintenance/README.md)**
+
+End-to-end engineering roadmap spanning guarded motor sensors, ESP32, MQTT, Raspberry Pi 5, ONNX inference, FastAPI, PostgreSQL/TimescaleDB, an industrial monitoring dashboard, AI-assisted maintenance, digital twins, and human-approved work orders. Includes eight detailed phase guides, architecture diagrams, hardware requirements, starter firmware, acceptance tests, safety boundaries and an evidence-based implementation status. **Current state: documented architecture and starter code with a simulated dashboard prototype; not a validated production deployment.**
