@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1440" viewBox="0 0 1200 1440">
+<defs><style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#142b46}.title{font-size:36px;font-weight:700;fill:white}.subtitle{font-size:19px;fill:#dcecf9}.h{font-size:23px;font-weight:700}.b{font-size:17px}.small{font-size:15px}.num{font-size:20px;font-weight:bold;fill:white}
+</style></defs>
+<rect width="1200" height="1440" fill="#f6f9fe"/>
+<rect width="1200" height="116" fill="#082f63"/>
+<text x="600" y="52" text-anchor="middle" class="title">INDUSTRIAL EDGE AI — COMPLETE PROCESS</text>
+<text x="600" y="87" text-anchor="middle" class="subtitle">Physical Sensors → Edge AI → Operations → Human-Approved Maintenance</text>
+<g>
+<rect x="50" y="145" width="340" height="120" rx="16" fill="#e8f3ff" stroke="#3987c7" stroke-width="2"/>
+<text x="80" y="183" class="h">ADXL345</text><text x="80" y="215" class="b">3-axis vibration sensor</text><text x="80" y="242" class="small">Motor acceleration (X, Y, Z)</text>
+<rect x="430" y="145" width="340" height="120" rx="16" fill="#e8f3ff" stroke="#3987c7" stroke-width="2"/>
+<text x="460" y="183" class="h">DS18B20</text><text x="460" y="215" class="b">Temperature probe</text><text x="460" y="242" class="small">Motor housing temperature</text>
+<rect x="810" y="145" width="340" height="120" rx="16" fill="#e8f3ff" stroke="#3987c7" stroke-width="2"/>
+<text x="840" y="183" class="h">INA219</text><text x="840" y="215" class="b">DC electrical monitoring</text><text x="840" y="242" class="small">Voltage and current</text>
+<path d="M220 265 V295 H600 M600 265 V295 M980 265 V295 H600 V325" stroke="#2868b4" stroke-width="4" fill="none"/>
+<path d="M591 315 L600 332 L609 315" fill="#2868b4"/>
+</g>
+<g>
+<rect x="220" y="335" width="760" height="125" rx="18" fill="#dceeff" stroke="#2868b4" stroke-width="3"/>
+<circle cx="270" cy="372" r="23" fill="#1655b7"/><text x="270" y="379" text-anchor="middle" class="num">1</text>
+<text x="315" y="372" class="h">ESP32 — Sensor Acquisition</text>
+<text x="315" y="406" class="b">Read, validate and format measurements</text>
+<text x="315" y="433" class="small">GPIO / I²C / OneWire • Device identity • Telemetry</text>
+<path d="M600 460 V510" stroke="#2868b4" stroke-width="4"/><path d="M591 500 L600 517 L609 500" fill="#2868b4"/>
+<text x="622" y="490" class="small">Wi-Fi / MQTT</text>
+</g>
+<g>
+<rect x="220" y="520" width="760" height="125" rx="18" fill="#eee7ff" stroke="#744fc5" stroke-width="3"/>
+<circle cx="270" cy="557" r="23" fill="#744fc5"/><text x="270" y="564" text-anchor="middle" class="num">2</text>
+<text x="315" y="557" class="h">Raspberry Pi 5 — Edge AI</text>
+<text x="315" y="591" class="b">MQTT broker, ingestion and ONNX Runtime</text>
+<text x="315" y="618" class="small">Anomaly detection • Edge buffering • Model version</text>
+<path d="M600 645 V695" stroke="#2868b4" stroke-width="4"/><path d="M591 685 L600 702 L609 685" fill="#2868b4"/>
+<text x="622" y="674" class="small">Authenticated events</text>
+</g>
+<g>
+<rect x="220" y="705" width="760" height="125" rx="18" fill="#e2f8ed" stroke="#25976b" stroke-width="3"/>
+<circle cx="270" cy="742" r="23" fill="#23895d"/><text x="270" y="749" text-anchor="middle" class="num">3</text>
+<text x="315" y="742" class="h">FastAPI + PostgreSQL / TimescaleDB</text>
+<text x="315" y="776" class="b">Store sensor time series, incidents and asset records</text>
+<text x="315" y="803" class="small">Authenticated APIs • Role permissions • Audit events</text>
+<path d="M600 830 V877" stroke="#2868b4" stroke-width="4"/><path d="M591 867 L600 884 L609 867" fill="#2868b4"/>
+</g>
+<g>
+<rect x="220" y="888" width="760" height="120" rx="18" fill="#e8f3ff" stroke="#3987c7" stroke-width="3"/>
+<circle cx="270" cy="923" r="23" fill="#1655b7"/><text x="270" y="930" text-anchor="middle" class="num">4</text>
+<text x="315" y="923" class="h">Next.js — Operations Dashboard</text>
+<text x="315" y="958" class="b">Live trends, equipment health and alerts</text>
+<text x="315" y="983" class="small">Incident review • Maintenance workflow</text>
+<path d="M600 1008 V1050" stroke="#2868b4" stroke-width="4"/><path d="M591 1040 L600 1057 L609 1040" fill="#2868b4"/>
+</g>
+<g>
+<rect x="220" y="1060" width="760" height="120" rx="18" fill="#f2eaff" stroke="#744fc5" stroke-width="3"/>
+<circle cx="270" cy="1095" r="23" fill="#744fc5"/><text x="270" y="1102" text-anchor="middle" class="num">5</text>
+<text x="315" y="1095" class="h">RAG — Maintenance Recommendations</text>
+<text x="315" y="1130" class="b">Retrieve approved procedures and explain evidence</text>
+<text x="315" y="1155" class="small">LangGraph • pgvector • Cited SOPs • Draft only</text>
+<path d="M600 1180 V1220" stroke="#2868b4" stroke-width="4"/><path d="M591 1210 L600 1227 L609 1210" fill="#2868b4"/>
+</g>
+<g>
+<rect x="220" y="1230" width="760" height="125" rx="18" fill="#fff1d7" stroke="#d69216" stroke-width="3"/>
+<circle cx="270" cy="1267" r="23" fill="#b67c10"/><text x="270" y="1274" text-anchor="middle" class="num">6</text>
+<text x="315" y="1267" class="h">Human Approval + Audited Work Order</text>
+<text x="315" y="1301" class="b">Technician reviews; authorized approver decides</text>
+<text x="315" y="1328" class="small">Accountable work order • Immutable-intent audit trail</text>
+</g>
+<text x="600" y="1405" text-anchor="middle" class="small">Architecture illustration • No autonomous control of industrial machinery • Not a tested deployment</text>
+</svg>
