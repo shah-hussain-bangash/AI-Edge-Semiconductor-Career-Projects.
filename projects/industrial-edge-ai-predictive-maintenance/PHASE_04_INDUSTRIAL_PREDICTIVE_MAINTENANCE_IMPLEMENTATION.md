@@ -1,5 +1,7 @@
 # Phase 04 — Industrial Predictive Maintenance and Human-Approved Maintenance Workflows
 
+![Operations dashboard and human-approved maintenance](./assets/dashboard-maintenance-workflow.svg)
+
 **Project:** Industrial Edge AI Predictive Maintenance & Autonomous Operations Platform  
 **Status:** Practical implementation guide — no hardware tests or deployed workflows claimed.  
 **Prerequisites:** Phase 01 physical sensors, Phase 02 MQTT telemetry, Phase 03 validated ONNX anomaly inference.  
