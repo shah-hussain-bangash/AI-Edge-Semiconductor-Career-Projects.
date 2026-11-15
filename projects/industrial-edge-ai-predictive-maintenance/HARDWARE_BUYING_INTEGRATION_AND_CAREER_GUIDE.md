@@ -32,6 +32,11 @@ Build a guarded low-voltage DC motor monitoring prototype. An ESP32 reads vibrat
 
 ## 3. Hardware function in the end-to-end system
 
+![Complete Industrial Edge AI Process Flow](./assets/complete-process-flow.svg)
+
+*Vector flowchart of sensors, ESP32, Raspberry Pi, FastAPI/TimescaleDB, Next.js, RAG and human-approved work orders.*
+
+
 ```text
 ADXL345 vibration -----+
 DS18B20 temperature ---+--> ESP32 (sensor acquisition)
