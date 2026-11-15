@@ -1,0 +1,35 @@
+# Phase 01 — Runnable Sensor Acquisition Starter
+
+This is **starter source code**, not a claim of tested hardware. The firmware supports ESP32 + ADXL345 (I2C), INA219 (I2C), and DS18B20 (GPIO4). It prints one JSON Lines record per second. A laptop capture utility saves and validates the records.
+
+## Quick start
+1. Read [wiring and safety](docs/WIRING_AND_SAFETY.md) before powering anything. Keep the motor disconnected during initial tests.
+2. Install VS Code with PlatformIO. Open `firmware/` as a PlatformIO project.
+3. Check your board and sensor breakout voltages/pinouts. Build and upload: `pio run -t upload`.
+4. In a separate terminal install Python 3.11+, then `python -m pip install -r scripts/requirements.txt`.
+5. Identify serial port (macOS often `/dev/cu.usbserial-*`, Windows `COM3`, Linux `/dev/ttyUSB0`).
+6. Capture: `python scripts/capture_serial.py --port /dev/cu.usbserial-XXXX --seconds 600 --output data/baseline.csv` (replace port).
+7. Run offline tests: `python -m unittest discover -s tests -v`.
+8. Inspect valid-record rate, sample interval, invalid sensor flags, and save a test report.
+
+## Scope and limitations
+- One **1 Hz summary** record is emitted. It is not high-rate raw vibration acquisition, bearing-fault frequency analysis, or RUL prediction.
+- ADXL345 output is acceleration along 3 axes in m/s². Sensor orientation and mounting affect readings.
+- INA219 uses its library's default calibration: verify actual shunt and load limits; do **not** insert it into a motor path unless the entire module is rated for startup/stall current.
+- Motor power wiring is **not** provided. Do not route motor current through the breadboard, ESP32 or GPIO.
+- No Wi-Fi, MQTT or motor control in this phase. Those belong to later phases.
+- Records are timestamped on the laptop in UTC; `uptime_ms` is ESP32 time since boot.
+- Data may be incomplete when the serial port disconnects; capture errors are reported rather than silently hidden.
+
+## Record format
+```json
+{"schema_version":1,"device_id":"motor-001","seq":1,"uptime_ms":1234,"ax_mps2":0.12,"ay_mps2":0.03,"az_mps2":9.80,"temp_c":25.5,"bus_v":12.01,"current_ma":100.0,"adxl345_valid":true,"ds18b20_valid":true,"ina219_valid":true,"valid":true}
+```
+Numbers above are examples only.
+
+## Definition of done
+- [ ] All sensors detected and validated with motor disconnected
+- [ ] Ten-minute CSV recorded with valid timestamps and sequence IDs
+- [ ] Exact hardware part numbers, photos, electrical schematic and measurements documented
+- [ ] Safe motor test only after independent power/current/guarding review
+- [ ] Baseline measurements and known limitations recorded
