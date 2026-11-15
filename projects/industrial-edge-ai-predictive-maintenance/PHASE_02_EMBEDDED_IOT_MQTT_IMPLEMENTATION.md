@@ -1,5 +1,7 @@
 # Phase 02 — Embedded IoT, MQTT and Reliable Edge Telemetry
 
+![Real-time Edge AI data pipeline](./assets/edge-ai-data-pipeline.svg)
+
 **Project:** Industrial Edge AI Predictive Maintenance & Autonomous Operations Platform  
 **Status:** Implementation plan; no hardware or network tests claimed.  
 **Prerequisite:** Phase 01 ESP32 sensor acquisition validated.  
