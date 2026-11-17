@@ -22,6 +22,18 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 7. [Architecture decisions](07-ARCHITECTURE-DECISIONS.md) — proposals, alternatives, consequences.
 8. [Design reviews and implementation gates](08-DESIGN-REVIEWS-AND-READINESS.md) — required evidence, tests, acceptance and ownership.
 
+## Additional architecture assurance documents
+
+9. [Requirements traceability](09-REQUIREMENTS-TRACEABILITY-MATRIX.md) — unique FR/NFR IDs, owners, acceptance tests and evidence format.
+10. [API and event contract catalog](10-API-EVENT-AND-CONTRACT-CATALOG.md) — proposed MQTT topics, telemetry envelope, service APIs and compatibility.
+11. [Data architecture and governance](11-DATA-ARCHITECTURE-AND-GOVERNANCE.md) — logical data model, classification, lineage, retention and access.
+12. [Threat model and risk register](12-THREAT-MODEL-AND-RISK-REGISTER.md) — threat boundaries, treatment, stop conditions and review ownership.
+13. [AI evaluation and model governance](13-AI-EVALUATION-AND-MODEL-GOVERNANCE-PLAN.md) — held-out evaluation, Pi benchmarks, RAG and agent security tests.
+14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
+15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
+
+**Document-count note:** README plus 15 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+
 ## Enterprise architecture landscape
 
 ```mermaid
