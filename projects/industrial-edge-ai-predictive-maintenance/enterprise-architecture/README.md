@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 30 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 31 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -42,7 +42,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
-**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-30. Authored and committed does not mean stakeholder-approved or deployed.
+**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-31. Authored and committed does not mean stakeholder-approved or deployed.
 
 ## Source-level architecture conformance
 
@@ -124,6 +124,14 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 - [15 HTTP/SQLite persistence tests](security/live-sandbox/tests/test_durable_http.py)
 
 **EA-30 execution status: 15 tests authored, NOT YET EXECUTED.** Previously locally verified tests remain 105/105. EA-30 does not yet join the real MQTT gateway to the separate HTTP service, and local synthetic JWT/HTTP are not production IAM/TLS.
+
+## EA-31 real MQTT-to-independent HTTP-to-SQLite integration
+
+31. [Real MQTT-to-durable-HTTP gateway integration](31-REAL-MQTT-TO-DURABLE-HTTP-INTEGRATION.md) — real localhost Mosquitto mTLS delivery through an HTTP bridge to separately running Uvicorn/FastAPI and SQLite, with explicit replay after simulated downtime.
+- [EA-31 real MQTT-to-HTTP gateway](security/live-sandbox/mqtt_http_bridge.py)
+- [12 opt-in real broker/HTTP/SQLite tests](security/live-sandbox/tests/test_mqtt_http_durable_optin.py)
+
+**EA-31: 12 tests authored, NOT YET EXECUTED.** Baseline remains 120 previously verified tests. A broker PUBACK is not a database commit; EA-31 has no automatic offline queue, exactly-once delivery, production OIDC, network HTTPS or hardware safety approval.
 
 ## Enterprise architecture landscape
 
