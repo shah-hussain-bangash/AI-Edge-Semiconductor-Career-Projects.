@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 25 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 26 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -42,7 +42,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
-**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-24. Authored and committed does not mean stakeholder-approved or deployed.
+**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-26. Authored and committed does not mean stakeholder-approved or deployed.
 
 ## Source-level architecture conformance
 
@@ -83,6 +83,12 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 - [34 offline unit test cases](security/tests/test_zero_trust_policy.py)
 
 **Test status:** EA-25 is authored/committed, **not executed or validated on the user's computer**. No real OIDC, MQTT TLS, broker topic ACL or security review can be inferred from these offline tests. EA-23 has separately recorded 18 successful local telemetry contract checks.
+
+## Integration security design
+
+26. [Enterprise security integration architecture](26-ENTERPRISE-SECURITY-INTEGRATION-ARCHITECTURE.md) — identity handoffs and trust anchors for serial V1 versus proposed MQTT, gateway-to-API binding, OIDC/RBAC, RAG/agent restrictions, failure behaviors and **20 proposed, unexecuted** sandbox integration checks.
+
+**Verified local evidence:** EA-23 telemetry contract 18/18 and EA-25 offline policy 34/34 passed in the user's local PowerShell runs with evidence pushed. **Unverified:** live MQTT TLS, OIDC, FastAPI, database access and G4a independent security signoff. Physical safety G4b remains blocking.
 
 ## Enterprise architecture landscape
 
