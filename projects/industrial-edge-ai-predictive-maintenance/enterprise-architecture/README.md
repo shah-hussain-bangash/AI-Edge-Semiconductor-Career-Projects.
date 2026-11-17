@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 18 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 20 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -43,6 +43,13 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
 **Status:** README + 18 numbered design/assurance documents. Authored and committed does not mean stakeholder-approved, tested, or deployed.
+
+## Source-level architecture conformance
+
+19. [Architecture-to-code conformance review](19-ARCHITECTURE-TO-CODE-CONFORMANCE-REVIEW.md) — static review of actual ESP32 firmware, serial capture and tests versus the proposed enterprise interfaces.
+20. [Serial V1 to telemetry V2 migration and test plan](20-TELEMETRY-CONTRACT-MIGRATION-AND-TEST-PLAN.md) — field-level schema adapter, invalid/missing sensor handling, identities, unit mapping and test cases.
+
+**Important:** The legacy flat serial schema in `phase-01-hardware` is the **actual current source format**. The nested EA-10 schema and the proposed V2 migration are **design candidates**, not implemented, synchronized or tested contracts. Reconcile and approve a single canonical future schema before coding.
 
 ## Enterprise architecture landscape
 
