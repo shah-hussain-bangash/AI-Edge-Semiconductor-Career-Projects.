@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EDGEOPS Telemetry V2 design candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_type",
+    "source_type",
+    "site_id",
+    "asset_id",
+    "device_id",
+    "boot_id",
+    "sequence",
+    "timestamp",
+    "measurements",
+    "quality"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "event_type": {
+      "const": "telemetry.sample"
+    },
+    "source_type": {
+      "enum": [
+        "measured",
+        "synthetic",
+        "replayed"
+      ]
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "boot_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "null if boot session unverified; dedupe cannot claim cross-reboot correctness"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "timestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_uptime_ms",
+        "device_time_utc",
+        "gateway_received_utc",
+        "clock_quality"
+      ],
+      "properties": {
+        "device_uptime_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "device_time_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "gateway_received_utc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "clock_quality": {
+          "enum": [
+            "gateway_receipt_only",
+            "device_clock_verified",
+            "clock_unverified"
+          ]
+        }
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceleration_x_mps2",
+        "acceleration_y_mps2",
+        "acceleration_z_mps2",
+        "motor_case_temperature_c",
+        "bus_voltage_v",
+        "current_a"
+      ],
+      "properties": {
+        "acceleration_x_mps2": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "acceleration_y_mps2": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "acceleration_z_mps2": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "motor_case_temperature_c": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "bus_voltage_v": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "current_a": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adxl345",
+        "ds18b20",
+        "ina219",
+        "calibration",
+        "session_quality"
+      ],
+      "properties": {
+        "adxl345": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_connected",
+            "stale"
+          ]
+        },
+        "ds18b20": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_connected",
+            "stale"
+          ]
+        },
+        "ina219": {
+          "enum": [
+            "valid",
+            "invalid",
+            "not_connected",
+            "stale"
+          ]
+        },
+        "calibration": {
+          "enum": [
+            "verified",
+            "not_verified",
+            "expired",
+            "unknown"
+          ]
+        },
+        "session_quality": {
+          "enum": [
+            "verified",
+            "inferred",
+            "unavailable"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "quality": {
+            "properties": {
+              "adxl345": {
+                "enum": [
+                  "invalid",
+                  "not_connected",
+                  "stale"
+                ]
+              }
+            },
+            "required": [
+              "adxl345"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "measurements": {
+            "properties": {
+              "acceleration_x_mps2": {
+                "type": "null"
+              },
+              "acceleration_y_mps2": {
+                "type": "null"
+              },
+              "acceleration_z_mps2": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "quality": {
+            "properties": {
+              "ds18b20": {
+                "enum": [
+                  "invalid",
+                  "not_connected",
+                  "stale"
+                ]
+              }
+            },
+            "required": [
+              "ds18b20"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "measurements": {
+            "properties": {
+              "motor_case_temperature_c": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "quality": {
+            "properties": {
+              "ina219": {
+                "enum": [
+                  "invalid",
+                  "not_connected",
+                  "stale"
+                ]
+              }
+            },
+            "required": [
+              "ina219"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "measurements": {
+            "properties": {
+              "bus_voltage_v": {
+                "type": "null"
+              },
+              "current_a": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "quality": {
+            "properties": {
+              "session_quality": {
+                "const": "verified"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "boot_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "timestamp": {
+            "properties": {
+              "clock_quality": {
+                "const": "device_clock_verified"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "timestamp": {
+            "properties": {
+              "device_time_utc": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
