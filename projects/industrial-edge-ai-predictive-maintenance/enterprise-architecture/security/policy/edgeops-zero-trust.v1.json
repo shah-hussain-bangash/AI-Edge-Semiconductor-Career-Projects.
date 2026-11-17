@@ -1,0 +1,190 @@
+{
+  "$comment": "EA-25 offline demonstrator policy only. Not runtime IAM, MQTT broker ACL, OIDC verification or approved production controls.",
+  "policy_version": "0.1-candidate",
+  "default_decision": "deny",
+  "actions": {
+    "telemetry.publish": {
+      "principal_types": [
+        "device"
+      ],
+      "roles": [
+        "publisher"
+      ],
+      "resource_type": "telemetry",
+      "enforce_site": true,
+      "enforce_asset": true,
+      "enforce_own_device": true
+    },
+    "telemetry.ingest": {
+      "principal_types": [
+        "service"
+      ],
+      "roles": [
+        "ingestor"
+      ],
+      "resource_type": "telemetry",
+      "enforce_site": true,
+      "enforce_asset": true,
+      "enforce_own_device": false
+    },
+    "asset.read": {
+      "principal_types": [
+        "human"
+      ],
+      "roles": [
+        "operator",
+        "reviewer",
+        "admin"
+      ],
+      "resource_type": "asset",
+      "enforce_site": true,
+      "enforce_asset": true
+    },
+    "sop.read": {
+      "principal_types": [
+        "human",
+        "service"
+      ],
+      "roles": [
+        "operator",
+        "reviewer",
+        "rag_reader"
+      ],
+      "resource_type": "sop",
+      "enforce_site": true,
+      "enforce_asset": true
+    },
+    "workorder.draft": {
+      "principal_types": [
+        "human",
+        "agent"
+      ],
+      "roles": [
+        "operator",
+        "advisory_agent"
+      ],
+      "resource_type": "workorder",
+      "enforce_site": true,
+      "enforce_asset": true
+    },
+    "workorder.approve": {
+      "principal_types": [
+        "human"
+      ],
+      "roles": [
+        "reviewer"
+      ],
+      "resource_type": "workorder",
+      "enforce_site": true,
+      "enforce_asset": true,
+      "separation_of_duties": true,
+      "require_current_version": true
+    }
+  },
+  "forbidden_actions": [
+    "motor.start",
+    "motor.stop",
+    "plc.write",
+    "scada.command",
+    "shell.execute",
+    "admin.grant_role",
+    "credential.read",
+    "model.deploy_unreviewed"
+  ],
+  "fixtures": {
+    "principals": [
+      {
+        "id": "device-a",
+        "type": "device",
+        "roles": [
+          "publisher"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ],
+        "device_id": "device-a"
+      },
+      {
+        "id": "gateway-a",
+        "type": "service",
+        "roles": [
+          "ingestor"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ]
+      },
+      {
+        "id": "operator-a",
+        "type": "human",
+        "roles": [
+          "operator"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ]
+      },
+      {
+        "id": "reviewer-a",
+        "type": "human",
+        "roles": [
+          "reviewer"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ]
+      },
+      {
+        "id": "operator-b",
+        "type": "human",
+        "roles": [
+          "operator"
+        ],
+        "sites": [
+          "site-b"
+        ],
+        "assets": [
+          "motor-b"
+        ]
+      },
+      {
+        "id": "rag-a",
+        "type": "service",
+        "roles": [
+          "rag_reader"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ]
+      },
+      {
+        "id": "agent-a",
+        "type": "agent",
+        "roles": [
+          "advisory_agent"
+        ],
+        "sites": [
+          "site-a"
+        ],
+        "assets": [
+          "motor-a"
+        ]
+      }
+    ]
+  }
+}
