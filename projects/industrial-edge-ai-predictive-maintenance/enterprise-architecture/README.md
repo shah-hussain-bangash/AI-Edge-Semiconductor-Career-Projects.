@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 22 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 24 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -42,7 +42,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
-**Status:** README + 18 numbered design/assurance documents. Authored and committed does not mean stakeholder-approved, tested, or deployed.
+**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-24. Authored and committed does not mean stakeholder-approved or deployed.
 
 ## Source-level architecture conformance
 
@@ -66,6 +66,14 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 - [Synthetic partial-sensor fixture](contracts/examples/telemetry-v2.synthetic-partial.json)
 
 **Contract status:** candidate and unapproved. Earlier EA-10 and EA-20 remain historical proposals; no code or hardware change has been made. Runtime JSON Schema validation and integration tests are still required.
+
+## Contract verification and security assurance
+
+23. **Contract verification and test evidence** — [EA-23 automated test source](contracts/tests/test_telemetry_v2_contract.py), [local execution record](evidence/EA-23/README.txt), [local test output](evidence/EA-23/test-results.txt). The user executed 18 local contract tests successfully on Python 3.14.8 and committed their evidence at `98f7401`; this demonstrates schema/fixture checks only, not hardware or service integration. A numbered EA-23 prose document and an approved security test environment are not yet present.
+
+24. [Enterprise security and zero-trust verification](24-ENTERPRISE-SECURITY-AND-ZERO-TRUST-VERIFICATION.md) — identity boundaries, device/MQTT TLS, server-side site/asset isolation, RAG and agent restrictions, workflow approval checks, 25 proposed negative security tests and G4a gating.
+
+**Security disposition:** all EA-24 negative scenarios remain **unexecuted**. G4a remains open and physical safety review G4b remains blocking.
 
 ## Enterprise architecture landscape
 
