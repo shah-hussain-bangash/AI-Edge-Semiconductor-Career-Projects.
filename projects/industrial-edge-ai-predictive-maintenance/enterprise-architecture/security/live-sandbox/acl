@@ -1,0 +1,6 @@
+# TLS client certificate CN becomes username; no wildcards for publishers.
+user device-a
+topic write edgeops/v1/site-a/device-a/telemetry
+
+user gateway-a
+topic read edgeops/v1/site-a/device-a/telemetry
