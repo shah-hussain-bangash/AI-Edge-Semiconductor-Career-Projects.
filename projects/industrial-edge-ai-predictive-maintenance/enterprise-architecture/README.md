@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 27 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 28 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -42,7 +42,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
-**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-27. Authored and committed does not mean stakeholder-approved or deployed.
+**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-28. Authored and committed does not mean stakeholder-approved or deployed.
 
 ## Source-level architecture conformance
 
@@ -97,6 +97,17 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 - [24 sandbox integration tests](security/sandbox/tests/test_sandbox_security_integration.py)
 
 **Execution status:** EA-27's 24 new tests are authored and committed but **not yet executed locally or independently reviewed**. Verified earlier evidence remains 18/18 EA-23 schema checks and 34/34 EA-25 offline authorization checks. EA-26 actual broker/API integration scenarios remain unexecuted.
+
+## EA-28 software-only local MQTT and FastAPI security sandbox
+
+28. [Local MQTT mTLS and FastAPI security sandbox](28-LOCAL-MQTT-AND-FASTAPI-SECURITY-SANDBOX.md) — loopback Mosquitto TLS client-certificate ACL configuration, disposable test CA, in-process FastAPI with synthetic JWT/EA-25 policy and schema validation.
+- [Docker Compose and local broker configuration](security/live-sandbox/compose.yaml)
+- [FastAPI sandbox app](security/live-sandbox/api.py)
+- [14 in-process API test cases](security/live-sandbox/tests/test_api_contract.py)
+- [3 separately opt-in real-broker tests](security/live-sandbox/tests/test_broker_optin.py)
+- [Disposable local test PKI generator](security/live-sandbox/bootstrap_pki.py)
+
+**EA-28 execution status: NOT EXECUTED.** API tests and real broker tests must be run and recorded separately; Docker or cryptographic TLS/OIDC operational evidence is not established by committing code. Previously executed EA-23/EA-25/EA-27 synthetic or offline suites total 76/76.
 
 ## Enterprise architecture landscape
 
