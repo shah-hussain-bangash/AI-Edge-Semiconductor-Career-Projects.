@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 21 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 22 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -56,6 +56,16 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 21. [Implementation-readiness architecture review and decision pack](21-IMPLEMENTATION-READINESS-ARCHITECTURE-REVIEW.md) — consolidates G0–G6 readiness gates, twelve pending decisions, telemetry contract acceptance, security and AI negative test plans, source-to-design evidence, open blockers and signoff sheet.
 
 **Review outcome:** conditional **NO-GO** for motor energization or production claims. The document is a review packet, not evidence of completed design approvals.
+
+## Formal interface control
+
+22. [Interface control document (ICD)](22-INTERFACE-CONTROL-DOCUMENT.md) — proposed canonical telemetry V2, source V1 mapping, security, provenance, retries and 16 acceptance scenarios.
+
+- [Proposed JSON Schema V2](contracts/telemetry-v2.schema.json)
+- [Synthetic valid fixture](contracts/examples/telemetry-v2.synthetic-valid.json)
+- [Synthetic partial-sensor fixture](contracts/examples/telemetry-v2.synthetic-partial.json)
+
+**Contract status:** candidate and unapproved. Earlier EA-10 and EA-20 remain historical proposals; no code or hardware change has been made. Runtime JSON Schema validation and integration tests are still required.
 
 ## Enterprise architecture landscape
 
