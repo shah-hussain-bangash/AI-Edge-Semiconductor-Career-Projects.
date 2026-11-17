@@ -155,3 +155,11 @@ Only after successful local execution and careful redaction, commit `README.txt`
 | G4b physical safety review | qualified inspector sign-off | BLOCKING |
 
 **Next engineering milestone (EA-29):** Review and integrate broker subscriber → authenticated, provenance-preserving gateway → API using synthetic fixtures only; replace in-memory acceptance with controlled persistent store and a documented idempotency contract. Do not treat policy tests as proof of real edge-device identity or physically safe operation.
+
+## 8. MQTT v5 negative-case assertion correction — 2026-11-17
+
+Initial real-broker run after resolving Docker PID exhaustion showed 1/3 tests passing and 2/3 **failed assertions**. Both failed cases had `mosquitto_pub` process exit status zero. That status alone is **not evidence that Mosquitto accepted an unauthorized publish**; in MQTT, authorization may be communicated in the broker's QoS 1 PUBACK rather than as a CLI exit code.
+
+The opt-in test file was revised to use `paho-mqtt` with MQTT v5 and QoS 1, and to assert the actual PUBACK reason code: 0/16 for allowed publish; 135 (`Not authorized`) for denied publish. TLS handshake, CONNACK failure, PUBACK timeout and client errors are treated as errors instead of accepted denials. This is still local test-PKI evidence and not proof of production security.
+
+**Execution status following correction: NOT YET RE-RUN.** Do not report real MQTT tests passed until a new run shows **three executed, zero failures, zero skips**. Preserve the initial 1 pass / 2 failed assertion run as a useful verification-history note; never silently count it as three passes.
