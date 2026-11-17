@@ -1,0 +1,31 @@
+{
+  "schema_version": "2.0",
+  "event_type": "telemetry.sample",
+  "source_type": "synthetic",
+  "site_id": "demo-lab",
+  "asset_id": "motor-001",
+  "device_id": "esp32-demo-001",
+  "boot_id": null,
+  "sequence": 2,
+  "timestamp": {
+    "device_uptime_ms": 1000,
+    "device_time_utc": null,
+    "gateway_received_utc": "2026-11-17T07:00:00Z",
+    "clock_quality": "gateway_receipt_only"
+  },
+  "measurements": {
+    "acceleration_x_mps2": 0.1,
+    "acceleration_y_mps2": 0.2,
+    "acceleration_z_mps2": 9.8,
+    "motor_case_temperature_c": 25,
+    "bus_voltage_v": null,
+    "current_a": null
+  },
+  "quality": {
+    "adxl345": "valid",
+    "ds18b20": "valid",
+    "ina219": "not_connected",
+    "calibration": "not_verified",
+    "session_quality": "inferred"
+  }
+}
