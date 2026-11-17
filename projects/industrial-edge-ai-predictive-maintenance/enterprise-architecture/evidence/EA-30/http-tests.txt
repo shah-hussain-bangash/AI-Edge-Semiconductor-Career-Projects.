@@ -1,0 +1,20 @@
+test_01_accepted_new_record (test_durable_http.DurableHttpTests.test_01_accepted_new_record) ... ok
+test_02_duplicate_is_idempotent (test_durable_http.DurableHttpTests.test_02_duplicate_is_idempotent) ... ok
+test_03_store_survives_server_restart (test_durable_http.DurableHttpTests.test_03_store_survives_server_restart) ... ok
+test_04_distinct_sequences (test_durable_http.DurableHttpTests.test_04_distinct_sequences) ... ok
+test_05_missing_token_denied (test_durable_http.DurableHttpTests.test_05_missing_token_denied) ... ok
+test_06_invalid_signature_denied (test_durable_http.DurableHttpTests.test_06_invalid_signature_denied) ... ok
+test_07_wrong_role_denied (test_durable_http.DurableHttpTests.test_07_wrong_role_denied) ... ok
+test_08_cross_site_denied (test_durable_http.DurableHttpTests.test_08_cross_site_denied) ... ok
+test_09_missing_boot_id_rejected (test_durable_http.DurableHttpTests.test_09_missing_boot_id_rejected) ... ok
+test_10_invalid_schema_denied (test_durable_http.DurableHttpTests.test_10_invalid_schema_denied) ... ok
+test_11_measured_data_rejected_in_sandbox (test_durable_http.DurableHttpTests.test_11_measured_data_rejected_in_sandbox) ... ok
+test_12_asset_registry_mismatch_denied (test_durable_http.DurableHttpTests.test_12_asset_registry_mismatch_denied) ... ok
+test_13_wrong_audience_denied (test_durable_http.DurableHttpTests.test_13_wrong_audience_denied) ... ok
+test_14_anonymous_count_denied (test_durable_http.DurableHttpTests.test_14_anonymous_count_denied) ... ok
+test_15_operator_count_denied (test_durable_http.DurableHttpTests.test_15_operator_count_denied) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 1.577s
+
+OK
