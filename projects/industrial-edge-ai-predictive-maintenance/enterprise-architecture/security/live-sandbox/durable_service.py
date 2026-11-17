@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import jwt
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Response
 from jsonschema import Draft202012Validator, FormatChecker
 
 ARCH = Path(__file__).resolve().parents[2]
@@ -84,7 +84,7 @@ def health():
 
 
 @app.post("/telemetry", status_code=201)
-def telemetry(payload: dict, authorization: str | None = Header(default=None)):
+def telemetry(payload: dict, response: Response, authorization: str | None = Header(default=None)):
     principal = authenticate(authorization)
     if not VALIDATOR.is_valid(payload):
         raise HTTPException(422, "invalid telemetry contract")
@@ -116,10 +116,10 @@ def telemetry(payload: dict, authorization: str | None = Header(default=None)):
                  datetime.now(timezone.utc).isoformat()),
             )
             accepted = cursor.rowcount == 1
-        return_status = 201 if accepted else 200
+        response.status_code = 201 if accepted else 200
     finally:
         db.close()
-    # Return an explicit idempotent response via Response below in route wrapper.
+    # Ack follows SQLite transaction commit; no exactly-once external delivery claim.
     return {"stored": accepted, "duplicate": not accepted,
             "durable": True, "ack": "sqlite-committed"}
 
