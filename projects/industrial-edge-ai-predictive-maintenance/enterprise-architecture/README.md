@@ -32,7 +32,17 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 15 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 18 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+
+## Consolidated architecture and career evidence
+
+16. [Master enterprise solution architecture](16-MASTER-ENTERPRISE-SOLUTION-ARCHITECTURE.md) — canonical business-to-edge-to-enterprise architecture, C4 views, AI and agents, controls, operations, and delivery gates.
+17. [Architecture gap audit and review register](17-ARCHITECTURE-GAP-AUDIT-AND-REVIEW-REGISTER.md) — explicit open design risks, documentation fixes, unverified claims and reviewer actions.
+18. [Six-role competency and interview evidence map](18-ROLE-COMPETENCY-AND-INTERVIEW-EVIDENCE-MAP.md) — maps artifacts to Enterprise AI Architect, AI Solutions Architect, Agentic AI Architect, Senior GenAI Architect, AI Technical Lead, and Security/AI Governance.
+
+**Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
+
+**Status:** README + 18 numbered design/assurance documents. Authored and committed does not mean stakeholder-approved, tested, or deployed.
 
 ## Enterprise architecture landscape
 
