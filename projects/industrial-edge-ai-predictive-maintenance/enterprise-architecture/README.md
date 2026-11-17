@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 28 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 29 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -42,7 +42,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 
 **Navigation guidance:** Read EA-16 first for the end-to-end architecture, EA-17 for the unresolved readiness work, and EA-18 for portfolio presentation. EA-01 through EA-15 remain the detailed domain-specific source documents.
 
-**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-28. Authored and committed does not mean stakeholder-approved or deployed.
+**Status note:** This 01–18 reading sequence is foundational; the complete index currently includes EA-01 through EA-29. Authored and committed does not mean stakeholder-approved or deployed.
 
 ## Source-level architecture conformance
 
@@ -108,6 +108,14 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 - [Disposable local test PKI generator](security/live-sandbox/bootstrap_pki.py)
 
 **EA-28 execution status: NOT EXECUTED.** API tests and real broker tests must be run and recorded separately; Docker or cryptographic TLS/OIDC operational evidence is not established by committing code. Previously executed EA-23/EA-25/EA-27 synthetic or offline suites total 76/76.
+
+## EA-29 real localhost MQTT-to-FastAPI gateway integration
+
+29. [MQTT-to-FastAPI gateway integration slice](29-MQTT-TO-FASTAPI-GATEWAY-INTEGRATION.md) — real local mutual-TLS MQTT delivery into a synthetic telemetry gateway, V2 validation, device registry binding, volatile deduplication and in-process authenticated FastAPI TestClient.
+- [Gateway implementation](security/live-sandbox/gateway.py)
+- [12 real-broker opt-in gateway tests](security/live-sandbox/tests/test_gateway_integration_optin.py)
+
+**EA-29 tests: 12 authored, NOT EXECUTED.** Previous verified baseline remains 93 locally passed tests (EA-23/25/27/28). EA-29 is not a separately deployed HTTP server, durable ingestion or production security evidence.
 
 ## Enterprise architecture landscape
 
