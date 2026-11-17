@@ -1,0 +1,19 @@
+C:\Users\Gaming PC i9 3080\AppData\Roaming\Python\Python314\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_01_broker_to_api_valid_synthetic_telemetry (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_01_broker_to_api_valid_synthetic_telemetry) ... ok
+test_02_duplicate_sequence_rejected_in_gateway (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_02_duplicate_sequence_rejected_in_gateway) ... ok
+test_03_invalid_json_rejected_before_api (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_03_invalid_json_rejected_before_api) ... ok
+test_04_invalid_schema_rejected_before_api (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_04_invalid_schema_rejected_before_api) ... ok
+test_05_cross_site_identity_in_message_rejected (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_05_cross_site_identity_in_message_rejected) ... ok
+test_06_unregistered_asset_rejected (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_06_unregistered_asset_rejected) ... ok
+test_07_invalid_sensor_flag_numeric_reading_rejected (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_07_invalid_sensor_flag_numeric_reading_rejected) ... ok
+test_08_wrong_gateway_api_role_denied (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_08_wrong_gateway_api_role_denied) ... ok
+test_09_two_distinct_sequences_accepted (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_09_two_distinct_sequences_accepted) ... ok
+test_10_non_synthetic_source_rejected (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_10_non_synthetic_source_rejected) ... ok
+test_11_gateway_rejects_unexpected_topic_without_network (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_11_gateway_rejects_unexpected_topic_without_network) ... ok
+test_12_gateway_rejects_oversize_without_network (test_gateway_integration_optin.LocalGatewayIntegrationTests.test_12_gateway_rejects_oversize_without_network) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 53.483s
+
+OK
