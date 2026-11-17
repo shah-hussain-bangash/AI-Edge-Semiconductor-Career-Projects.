@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 20 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 21 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -50,6 +50,12 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 20. [Serial V1 to telemetry V2 migration and test plan](20-TELEMETRY-CONTRACT-MIGRATION-AND-TEST-PLAN.md) — field-level schema adapter, invalid/missing sensor handling, identities, unit mapping and test cases.
 
 **Important:** The legacy flat serial schema in `phase-01-hardware` is the **actual current source format**. The nested EA-10 schema and the proposed V2 migration are **design candidates**, not implemented, synchronized or tested contracts. Reconcile and approve a single canonical future schema before coding.
+
+## Implementation-readiness architecture review
+
+21. [Implementation-readiness architecture review and decision pack](21-IMPLEMENTATION-READINESS-ARCHITECTURE-REVIEW.md) — consolidates G0–G6 readiness gates, twelve pending decisions, telemetry contract acceptance, security and AI negative test plans, source-to-design evidence, open blockers and signoff sheet.
+
+**Review outcome:** conditional **NO-GO** for motor energization or production claims. The document is a review packet, not evidence of completed design approvals.
 
 ## Enterprise architecture landscape
 
