@@ -32,7 +32,7 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 14. [Governance and technical leadership](14-GOVERNANCE-OPERATING-MODEL-RACI.md) — proposed accountabilities, architecture review and change policy.
 15. [Portfolio case study and evidence register](15-PORTFOLIO-CASE-STUDY-AND-EVIDENCE.md) — recruiter-oriented narrative, accurate status and proof requirements.
 
-**Document-count note:** README plus 24 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
+**Document-count note:** README plus 25 numbered architecture documents. All artifacts are design proposals requiring review and measured implementation evidence; created documents are not equivalent to approved architecture.
 
 ## Consolidated architecture and career evidence
 
@@ -74,6 +74,15 @@ EDGEOPS is a proposed predictive-maintenance platform that integrates a guarded 
 24. [Enterprise security and zero-trust verification](24-ENTERPRISE-SECURITY-AND-ZERO-TRUST-VERIFICATION.md) — identity boundaries, device/MQTT TLS, server-side site/asset isolation, RAG and agent restrictions, workflow approval checks, 25 proposed negative security tests and G4a gating.
 
 **Security disposition:** all EA-24 negative scenarios remain **unexecuted**. G4a remains open and physical safety review G4b remains blocking.
+
+## Offline zero-trust authorization policy
+
+25. [Executable zero-trust policy contract and tests](25-EXECUTABLE-ZERO-TRUST-POLICY-AND-TESTS.md) — mock-only deny-by-default role, site/asset, device and workflow authorization semantics with 34 Python tests.
+- [Proposed authorization JSON policy](security/policy/edgeops-zero-trust.v1.json)
+- [Offline policy evaluator](security/policy/edgeops_policy.py)
+- [34 offline unit test cases](security/tests/test_zero_trust_policy.py)
+
+**Test status:** EA-25 is authored/committed, **not executed or validated on the user's computer**. No real OIDC, MQTT TLS, broker topic ACL or security review can be inferred from these offline tests. EA-23 has separately recorded 18 successful local telemetry contract checks.
 
 ## Enterprise architecture landscape
 
