@@ -173,3 +173,8 @@ flowchart TD
 ## Professional portfolio interpretation
 
 This package demonstrates enterprise AI solution design, embedded/edge architecture, integration, agent safety, risk management and verification discipline. It **does not** establish industrial safety certification, live factory deployment, measured performance or formal TOGAF certification. Review and revise after real measurement.
+
+
+## EDGEOPS dashboard — Phase 1 synthetic UI
+
+[Open dashboard source and local run guide](../dashboard/README.md) — responsive, browser-local industrial overview, telemetry chart visualizations, simulated asset registry, alerts, illustrative AI insight cards and architecture assurance summary. **No real API integration, live telemetry, model, motor control or production security approval.** The new dashboard source-structure checks are authored but unverified until executed in the user's local checkout. Verified EA-23 to EA-31 baseline remains 132 locally passed tests (separate from dashboard).
