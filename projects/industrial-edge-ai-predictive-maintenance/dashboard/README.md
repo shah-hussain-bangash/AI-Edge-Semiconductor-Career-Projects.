@@ -232,3 +232,18 @@ Pull `dashboard-live-edit` while the optional Git auto-sync watcher is paused. W
 ```
 
 This UI and its source checks establish a reviewable architecture portfolio narrative, not a deployable enterprise solution or independently audited safety system.
+
+
+## Interface completion hardening — reliability and navigation
+
+Prior to further architectural phases, the signed-in dashboard now includes:
+- Visible local API health status and session identity/expiry in the Security & Audit tab
+- Authenticated, read-only local audit-event viewer with refresh and clear empty/error/access-denied states
+- Hardware inventory loading, retry, fail-closed empty state and metrics calculated from authenticated API results
+- 12-second bounded API requests and explicit session-expiry navigation to sign-in
+- Shareable navigation fragments (e.g. `/app#architecture`, `/app#security`) with Back/Forward support
+- Additional structural regression coverage for these interface behaviors
+
+**UI QA checklist:** sign in, verify Overview, all 12 sidebar sections, search, asset filters, alert filters and acknowledgment behavior, architecture tabs, report export, session/audit display, inventory refresh, sign out, and 390px/768px/1440px layouts. The local API health chip is not live plant health.
+
+**Readiness boundary:** this is UI implementation and static/API regression hardening, not production readiness. Real infrastructure, SaaS tenancy, live telemetry, model inference, industrial safety and deployment evidence remain separate later phases.
