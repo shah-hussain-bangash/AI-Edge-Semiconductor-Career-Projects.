@@ -12,18 +12,18 @@
   <div class="brand"><span class="brand-gear">⚙</span><span><strong>EDGE<span class="brand-accent">OPS</span></strong><small>INDUSTRIAL EDGE AI PLATFORM</small></span></div>
   <div class="nav-label">OPERATIONS WORKSPACE</div>
   <nav class="nav" aria-label="Dashboard sections">
-    <button class="nav-item active" data-page="overview" aria-current="page"><span class="nav-symbol">⌂</span>Overview</button>
-    <button class="nav-item" data-page="assets"><span class="nav-symbol">▱</span>Assets</button>
-    <button class="nav-item" data-page="telemetry"><span class="nav-symbol">∿</span>Telemetry<span class="nav-note">SIM</span></button>
-    <button class="nav-item" data-page="architecture"><span class="nav-symbol">⬡</span>Architecture<span class="nav-note">LAB</span></button>
-    <button class="nav-item" data-page="insights"><span class="nav-symbol">✧</span>AI Copilot<span class="nav-note">DEMO</span></button>
-    <button class="nav-item" data-page="hardware"><span class="nav-symbol">▣</span>Inventory<span class="nav-note">30</span></button>
-    <button class="nav-item" data-page="alerts"><span class="nav-symbol">⚠</span>Alerts<span class="nav-count" id="nav-alert-count">3</span></button>
-    <button class="nav-item" data-page="maintenance"><span class="nav-symbol">⚒</span>Maintenance</button>
-    <button class="nav-item" data-page="security"><span class="nav-symbol">⬡</span>Security</button>
-    <button class="nav-item" data-page="governance"><span class="nav-symbol">⚖</span>Governance</button>
-    <button class="nav-item" data-page="reports"><span class="nav-symbol">▥</span>Reports</button>
-    <button class="nav-item" data-page="settings"><span class="nav-symbol">⚙</span>Settings</button>
+    <button class="nav-item active" data-page="overview" aria-current="page"><span class="nav-symbol" aria-hidden="true">⌂</span>Overview</button>
+    <button class="nav-item" data-page="assets"><span class="nav-symbol" aria-hidden="true">▱</span>Assets</button>
+    <button class="nav-item" data-page="telemetry"><span class="nav-symbol" aria-hidden="true">∿</span>Telemetry<span class="nav-note" aria-hidden="true">SIM</span></button>
+    <button class="nav-item" data-page="architecture"><span class="nav-symbol" aria-hidden="true">⬡</span>Architecture<span class="nav-note" aria-hidden="true">LAB</span></button>
+    <button class="nav-item" data-page="insights"><span class="nav-symbol" aria-hidden="true">✧</span>AI Copilot<span class="nav-note" aria-hidden="true">DEMO</span></button>
+    <button class="nav-item" data-page="hardware"><span class="nav-symbol" aria-hidden="true">▣</span>Inventory<span class="nav-note" aria-hidden="true">30</span></button>
+    <button class="nav-item" data-page="alerts"><span class="nav-symbol" aria-hidden="true">⚠</span>Alerts<span class="nav-count" id="nav-alert-count" aria-hidden="true">3</span></button>
+    <button class="nav-item" data-page="maintenance"><span class="nav-symbol" aria-hidden="true">⚒</span>Maintenance</button>
+    <button class="nav-item" data-page="security"><span class="nav-symbol" aria-hidden="true">⬡</span>Security</button>
+    <button class="nav-item" data-page="governance"><span class="nav-symbol" aria-hidden="true">⚖</span>Governance</button>
+    <button class="nav-item" data-page="reports"><span class="nav-symbol" aria-hidden="true">▥</span>Reports</button>
+    <button class="nav-item" data-page="settings"><span class="nav-symbol" aria-hidden="true">⚙</span>Settings</button>
   </nav>
   <div class="sidebar-illustration" aria-hidden="true"><img src="/static/edgeops-factory-backdrop.jpg" alt="" data-fallback="/static/industrial-plant.svg"></div>
   <div class="sidebar-foot"><span class="environment-dot"></span> SYSTEM MODE <strong>SYNTHETIC LAB</strong></div>
@@ -32,7 +32,7 @@
 <div class="workspace">
 <header class="topbar">
   <div class="topbar-left"><button id="menu-toggle" class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button><div class="topbar-title"><span class="topbar-line"></span><strong>Executive Operations Dashboard</strong></div></div>
-  <div class="topbar-right"><span class="connection-chip" id="connection-chip" role="status" aria-live="polite"><span class="connection-indicator"></span><span id="connection-label">Connecting…</span></span>
+  <div class="topbar-right"><span class="connection-chip" id="connection-chip" role="status" aria-live="polite"><span class="connection-indicator" aria-hidden="true"></span><span id="connection-label">Connecting…</span></span>
     <label class="search-label"><span>⌕</span><input id="global-search" type="search" placeholder="Search assets, alerts, components..." aria-label="Search assets and alerts"></label>
     <span class="topbar-select">▦ &nbsp; Architecture Demo</span><button class="focus-toggle" id="focus-toggle" type="button" aria-pressed="false" title="Toggle wide workspace focus mode">⤢ &nbsp; Focus</button>
     <button class="topbar-site" id="site-filter" type="button" title="Single fixed synthetic demonstration site">▤ &nbsp; Site: Plant A (Demo)⌄</button>
@@ -40,8 +40,8 @@
     <span class="top-avatar">EA</span>
   </div>
 </header>
-<main id="main">
- <div class="top-heading"><div><div class="eyebrow" id="breadcrumb-page">OVERVIEW / SYNTHETIC OPERATIONS</div><h1 id="page-title">Industrial Command Center</h1><p id="page-subtitle">Predictive maintenance architecture showcase across simulated equipment and hardware.</p></div><div class="top-actions"><span class="demo-flag">● SYNTHETIC DEMONSTRATION</span><button id="export-btn" class="action-outline" type="button">↓ Export Demo Data</button></div></div>
+<main id="main" tabindex="-1">
+ <div class="top-heading"><div><div class="eyebrow" id="breadcrumb-page">OVERVIEW / SYNTHETIC OPERATIONS</div><h1 id="page-title" tabindex="-1">Industrial Command Center</h1><p id="page-subtitle">Predictive maintenance architecture showcase across simulated equipment and hardware.</p></div><div class="top-actions"><span class="demo-flag">● SYNTHETIC DEMONSTRATION</span><button id="export-btn" class="action-outline" type="button">↓ Export Demo Data</button></div></div>
  <div class="disclosure"><span class="disclosure-mark">ⓘ</span><div><strong>Architecture demonstration, not production monitoring.</strong> All displayed telemetry, assets, health percentages, predictions, and events are simulated. No real devices are connected. Actual hardware connections, trained AI models, and live device operation are not enabled.</div></div>
  <section id="page-overview" class="page-section active" aria-label="Industrial overview">
    <div class="kpi-grid">
