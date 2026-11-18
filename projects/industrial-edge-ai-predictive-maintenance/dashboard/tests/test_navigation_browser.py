@@ -10,6 +10,7 @@ Run:     python -m unittest discover -s tests -p test_navigation_browser.py -v
 from __future__ import annotations
 
 import os
+import json
 import secrets
 import sqlite3
 import socket
@@ -278,6 +279,66 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         search.fill("impossible-search-query-xyz")
         search.press("Enter")
         self.assertIn("No matching simulated", self.page.locator("#toast").inner_text())
+        self.assertFalse(self.errors, repr(self.errors))
+
+
+    def test_11_architecture_stages_security_and_failure_views(self):
+        self.page.locator('.nav-item[data-page="architecture"]').click()
+        stages = {
+            "sensors": ("Sensors & Bench Rig", "PLANNED"),
+            "esp32": ("ESP32 Acquisition", "PLANNED"),
+            "mqtt": ("MQTT / Mutual TLS", "LAB TESTED"),
+            "gateway": ("Edge API Gateway", "LAB TESTED"),
+            "pipeline": ("Data Pipeline & Persistence", "LAB TESTED"),
+            "ai": ("AI / Agentic Intelligence", "NOT DEPLOYED"),
+            "api": ("Enterprise API & Access", "LOCAL DEMO"),
+            "dashboard": ("Human Operations Console", "LOCAL DEMO"),
+        }
+        for key, (title, status) in stages.items():
+            with self.subTest(component=key):
+                button = self.page.locator(f'[data-arch-node="{key}"]')
+                button.click()
+                self.assertEqual(button.get_attribute("aria-pressed"), "true")
+                self.assertEqual(self.page.locator("#arch-detail-title").inner_text(), title)
+                self.assertEqual(self.page.locator("#arch-detail-badge").inner_text(), status)
+                for detail in ("tech", "security", "failure", "evidence", "decision"):
+                    self.assertGreater(
+                        len(self.page.locator(f"#arch-detail-{detail}").inner_text().strip()),
+                        15,
+                    )
+                self.assertEqual(self.page.locator('.arch-node[aria-pressed="true"]').count(), 1)
+        views = {
+            "security": "TRUST BOUNDARIES",
+            "failure": "FAILURE PATHS",
+            "overview": "8 SYSTEM STAGES",
+        }
+        for mode, heading in views.items():
+            button = self.page.locator(f'[data-arch-mode="{mode}"]')
+            button.click()
+            self.assertEqual(button.get_attribute("aria-pressed"), "true")
+            self.assertEqual(self.page.locator("#arch-map-status").inner_text(), heading)
+            self.assertEqual(self.page.locator("#arch-pipeline").get_attribute("data-mode"), mode)
+            self.assertEqual(self.page.locator('.arch-tab[aria-pressed="true"]').count(), 1)
+            self.assertGreater(len(self.page.locator("#arch-view-help").inner_text()), 20)
+        self.assertIn("read-only", self.page.locator("#page-architecture").inner_text().lower())
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_12_report_export_download_is_valid_disclosed_synthetic_json(self):
+        self.page.locator('.nav-item[data-page="reports"]').click()
+        with self.page.expect_download() as transfer:
+            self.page.locator("#report-export").click()
+        download = transfer.value
+        self.assertEqual(download.suggested_filename, "edgeops-synthetic-dashboard-snapshot.json")
+        path = download.path()
+        with open(path, "r", encoding="utf-8") as handle:
+            exported = json.load(handle)
+        self.assertEqual(exported["product"], "EDGEOPS")
+        self.assertEqual(exported["mode"], "synthetic-ui-prototype")
+        self.assertIn("NOT live", exported["provenance"])
+        self.assertEqual(len(exported["assets"]), 12)
+        self.assertEqual(len(exported["alerts"]), 3)
+        self.assertIn("No production safety approval", exported["disclaimers"])
+        self.assertIn("not an operational data report", self.page.locator("#toast").inner_text().lower())
         self.assertFalse(self.errors, repr(self.errors))
 
 
