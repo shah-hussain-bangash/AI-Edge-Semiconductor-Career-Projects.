@@ -18,7 +18,6 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parent
@@ -33,7 +32,13 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory=str(ROOT)), name="static")
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js"}
+
+@app.get("/static/{asset}")
+def public_asset(asset: str):
+    if asset not in PUBLIC_ASSETS:
+        raise HTTPException(404, "Not found")
+    return FileResponse(ROOT / asset)
 
 # Only hardware explicitly identified in prior user-provided inventory is named.
 # Slots 15–30 are NOT confirmed purchases or engineering-approved parts.
