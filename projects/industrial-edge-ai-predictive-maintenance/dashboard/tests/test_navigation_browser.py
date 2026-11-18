@@ -442,5 +442,57 @@ class NavigationBrowserAcceptance(unittest.TestCase):
             guest.close()
 
 
+    def test_17_inventory_error_and_retry_recover_without_stale_data(self):
+        """A failed inventory request clears stale content; retry restores it."""
+        self.page.locator('.nav-item[data-page="hardware"]').click()
+        self.assertEqual(self.page.locator("#hardware-table tr").count(), 30)
+        def fail_inventory(route):
+            route.fulfill(status=503, content_type="application/json", body='{"detail":"simulated outage"}')
+        self.page.route("**/api/hardware",fail_inventory)
+        self.page.locator("#refresh-hardware").click()
+        self.assertEqual(self.page.locator("#hardware-feedback").get_attribute("data-state"),"error")
+        self.assertIn("Inventory could not be loaded",self.page.locator("#hardware-table").inner_text())
+        self.assertEqual(self.page.locator("#hardware-metrics").inner_text().strip(),"")
+        self.page.unroute("**/api/hardware",fail_inventory)
+        self.page.locator("#refresh-hardware").click()
+        self.assertEqual(self.page.locator("#hardware-feedback").get_attribute("data-state"),"ok")
+        self.assertEqual(self.page.locator("#hardware-table tr").count(),30)
+        self.assertFalse(self.errors,repr(self.errors))
+
+    def test_18_audit_access_denied_then_retry_restores_history(self):
+        self.page.locator('.nav-item[data-page="security"]').click()
+        def deny_audit(route):
+            route.fulfill(status=403, content_type="application/json", body='{"detail":"restricted"}')
+        self.page.route("**/api/audit?limit=30",deny_audit)
+        self.page.locator("#refresh-audit").click()
+        self.assertEqual(self.page.locator("#audit-feedback").get_attribute("data-state"),"error")
+        self.assertIn("Access restricted",self.page.locator("#audit-feedback").inner_text())
+        self.assertIn("Audit history unavailable",self.page.locator("#audit-entries").inner_text())
+        self.page.unroute("**/api/audit?limit=30",deny_audit)
+        self.page.locator("#refresh-audit").click()
+        self.assertEqual(self.page.locator("#audit-feedback").get_attribute("data-state"),"ok")
+        self.assertGreater(self.page.locator("#audit-entries tr").count(),0)
+        self.assertFalse(self.errors,repr(self.errors))
+
+    def test_19_api_health_outage_global_banner_and_reconnect(self):
+        def fail_health(route):
+            route.fulfill(status=503, content_type="application/json", body='{"detail":"simulated outage"}')
+        self.page.route("**/api/system/health",fail_health)
+        self.page.reload()
+        self.page.locator('#connection-chip[data-state="error"]').wait_for(timeout=10000)
+        banner=self.page.locator("#api-recovery")
+        self.assertTrue(banner.is_visible())
+        self.assertIn("Service returned 503",banner.inner_text())
+        self.assertIn("Inventory unavailable",self.page.locator("#hardware-table").inner_text())
+        self.assertIn("Audit history unavailable",self.page.locator("#audit-entries").inner_text())
+        self.page.unroute("**/api/system/health",fail_health)
+        self.page.locator("#retry-connection").click()
+        self.page.locator('#connection-chip[data-state="ok"]').wait_for(timeout=10000)
+        self.assertTrue(banner.is_hidden())
+        self.assertEqual(self.page.locator("#hardware-table tr").count(),30)
+        self.assertEqual(self.page.locator("#audit-feedback").get_attribute("data-state"),"ok")
+        self.assertFalse(self.errors,repr(self.errors))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
