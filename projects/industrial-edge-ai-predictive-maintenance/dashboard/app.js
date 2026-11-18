@@ -104,8 +104,10 @@ function renderInsights(){
   ];
   $("insight-cards").innerHTML=cards.map(c=>'<article class="panel insight-card"><div class="insight-top"><span class="insight-label">'+escapeText(c.tag)+'</span><span class="small-pill">'+escapeText(c.score)+'</span></div><h3 class="insight-title">'+escapeText(c.title)+'</h3><p>'+escapeText(c.body)+'</p><span class="small-pill">ILLUSTRATIVE · NOT MODEL OUTPUT</span></article>').join("");
 }
-function navigate(page){
+function navigate(page, updateHistory=true){
   if(!headings[page])return;
+  if(updateHistory && window.location.hash!=="#"+page)window.history.pushState({edgeopsPage:page},"","#"+page);
+  document.title="EDGEOPS | "+headings[page][0];
   document.querySelectorAll(".page-section").forEach(s=>s.classList.toggle("active",s.id==="page-"+page));
   document.querySelectorAll(".nav-item").forEach(btn=>{
     const active=btn.dataset.page===page;btn.classList.toggle("active",active);
@@ -145,6 +147,10 @@ document.addEventListener("DOMContentLoaded",()=>{
     const open=$("sidebar").classList.toggle("open");$("menu-toggle").setAttribute("aria-expanded",String(open));
   });
   $("export-btn").addEventListener("click",exportSnapshot);
+  const current=window.location.hash.slice(1);
+  if(headings[current])navigate(current,false);
+  window.addEventListener("popstate",()=>navigate(headings[window.location.hash.slice(1)]?window.location.hash.slice(1):"overview",false));
+  window.addEventListener("hashchange",()=>navigate(headings[window.location.hash.slice(1)]?window.location.hash.slice(1):"overview",false));
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("sidebar").classList.remove("open");$("menu-toggle").setAttribute("aria-expanded","false");}});
 });
 
