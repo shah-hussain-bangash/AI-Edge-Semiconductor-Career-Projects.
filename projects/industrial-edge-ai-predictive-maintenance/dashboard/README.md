@@ -1,73 +1,122 @@
-# EDGEOPS Industrial Intelligence Console — Dashboard Phase 1
+# EDGEOPS — Industrial Intelligence Platform
 
-**Status:** UI foundation authored and committed to GitHub; browser execution, accessibility review, and visual QA **NOT YET VERIFIED ON THE USER'S COMPUTER**.
+**Status: production-oriented development foundation, NOT production-ready.** This directory now includes a responsive sign-in page, authenticated Python API, industrial dashboard UI, a proposed 30-slot hardware catalog, local audit records, and a safe optional Git sync workflow.
 
-**Scope:** Read-only and browser-local visual prototype. No backend API call, no MQTT subscription, no saved login, no physical sensor, no real trained AI model, and no motor/actuator controls. Every chart, health score, alert and telemetry display is **synthetic**.
+**Previous verification:** The enterprise-architecture laboratory phases EA-23 through EA-31 have 132 tests reported passed on the user's Windows computer. Dashboard backend tests and visual browser tests are **new and have not yet been executed in that environment**.
 
-## Purpose
+## High-level system
 
-Create a visually strong, portfolio-ready industrial operations interface aligned with the EDGEOPS EA-01 through EA-31 architecture and previously committed verification evidence. Dashboard Phase 1 intentionally does not claim the production system exists.
-
-## Files
-
-| File | Contents |
-|---|---|
-| [index.html](index.html) | Semantic HTML5 application shell, accessible navigation, screens, alert view, SVG chart placeholders |
-| [styles.css](styles.css) | Responsive dark industrial visual system, cards, tables, mobile sidebar, status treatments |
-| [app.js](app.js) | Browser-local demo dataset, safe text rendering, chart rendering, navigation, session-only alert acknowledgment, JSON export |
+- Frontend: HTML5, responsive custom CSS, vanilla JavaScript, SVG telemetry charts.
+- Backend: FastAPI with PBKDF2-HMAC-SHA256 credential hashing, an eight-hour server-side opaque session stored by SHA-256 hash, same-site cookies, per-session double-submit CSRF validation and basic security headers.
+- Development database: SQLite stores users, session metadata and local audit records. Existing EA-30 SQLite telemetry data is **not automatically linked**.
+- Hardware planning: read-only inventory with 30 catalog slots; 14 known names, 16 unconfirmed. No real physical device is marked connected or purchased.
+- Application controls: no equipment actuator commands, no live production telemetry, no model training/inference, no critical control path.
+- Authentication: a single explicit local bootstrap admin, never a default password; this starter is not enterprise SSO/OIDC.
 
 ## Screens
 
-1. **Overview:** asset count, simulated fleet health, alert summary, synthetic ingestion rate, telemetry trend and recent alarms.
-2. **Live telemetry:** expressly marked simulated sensor readings (vibration, motor-case temperature, current and voltage) with selectable charts.
-3. **Assets & devices:** a 12-item fixture asset registry, health bars and severity classification.
-4. **Alerts:** synthetic incidents; acknowledge button only mutates in-memory browser UI, not backend.
-5. **AI insights:** illustrative narrative cards labeled *not model output*.
-6. **Security & audit:** previously reported EA test evidence count and unapproved security/physical gates.
+1. Attractive responsive **Sign In** screen: branded industrial artwork, account authentication and visible local-development scope.
+2. **Overview**: 12 synthetic demonstration asset cards, performance counters, health distribution and alerts.
+3. **Live telemetry**: clearly labeled synthetic vibration, temperature, current and voltage trends.
+4. **Assets**: sample asset table and synthetic health status.
+5. **Alerts**: browser-local demonstration alert acknowledgment. A separate authenticated backend endpoint can audit *demo* acknowledgments; it does not change real alarm state.
+6. **AI insights**: illustrative human-readable cards, explicitly NOT trained AI model output.
+7. **Hardware inventory**: all 30 planning slots, with 14 named items and 16 unconfirmed; secure read-only same-origin API.
+8. **Security & audit**: status/gates summary; protected API audit endpoint available to admin/auditor, not yet a complete audit UI.
+9. **Account session**: authenticated session details, sign-out with CSRF protection.
 
-The dashboard makes **zero network requests**, avoiding accidental calls to existing NAWA, Finagent, EDGEOPS test, or other running services.
+## Run from Cursor / VS Code on Windows
 
-## Run locally — Windows PowerShell
-
-Open your existing checkout and pull changes:
+Open the existing Git checkout in Cursor or VS Code, then run **PowerShell** in the integrated terminal:
 
 ~~~powershell
-cd "C:\Users\Gaming PC i9 3080\edgeops-workspace\projects\industrial-edge-ai-predictive-maintenance\enterprise-architecture"
+cd "C:\Users\Gaming PC i9 3080\edgeops-workspace\projects\industrial-edge-ai-predictive-maintenance\dashboard"
 git pull --ff-only origin main
-Start-Process "..\dashboard\index.html"
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ~~~
 
-This opens a static page in the default browser. It requires **no Docker, Node.js, npm, Python packages or server**.
-
-Optional repository structural verification:
+Create a strong local development password (do **not** save it in source code, screenshots or Git). The following prompt reads the password securely without displaying it in your terminal:
 
 ~~~powershell
-python ..\dashboard\tests\test_structure.py
+$env:EDGEOPS_ADMIN_EMAIL = "admin@example.invalid"
+$secure = Read-Host "New EDGEOPS local admin password (14+ chars)" -AsSecureString
+$handle = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+try {
+  $env:EDGEOPS_ADMIN_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($handle)
+} finally {
+  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($handle)
+  Remove-Variable secure
+}
+.\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8765
 ~~~
 
-That script only checks source-file structure; it does not prove responsive browser rendering or API compatibility. Review in Chrome/Edge at desktop and mobile widths and verify menu navigation, chart selector, local alert acknowledgment, export, keyboard focus and simulated-data warnings.
+**Open:** http://127.0.0.1:8765/signin
 
-## Visual and UX intent
+The first run creates the local admin and development database in the ignored `.local/` directory. Restarting the same database will not change the original admin password merely by changing the environment variables. Setting `EDGEOPS_HTTPS_ONLY=1` requires HTTPS (typically at an authenticated reverse proxy) or cookies will not work over HTTP. This setup is strictly localhost-only; do not bind 0.0.0.0 or expose the development server to the internet.
 
-- Dark navy industrial surfaces, mint-green telemetry accents, muted blue analytics, amber watch conditions, red critical alerts.
-- Responsive desktop/compact navigation; a mobile menu with keyboard-accessible controls and labeled sections.
-- Monitoring **only**: no remotely operable start/stop button or other unsafe actuation.
-- Visible simulated-data disclosure at the top and in export contents.
-- Client-only export of demo metrics, asset list and telemetry fixture as a JSON file. Export is not evidence of real sensor events or server-side logging.
+**Verification from another terminal:**
 
-## Known limitations and future phases
+~~~powershell
+cd "C:\Users\Gaming PC i9 3080\edgeops-workspace\projects\industrial-edge-ai-predictive-maintenance\dashboard"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_server.py" -v
+~~~
 
-- No real API integration, authentication, role-based application session, persistent alert state or timestamped live stream.
-- The labels *Live telemetry* and *AI insights* are navigation taxonomy only: both are prominent demo placeholders.
-- User-facing charts show fixed samples, not sensor readings or inferred failure predictions.
-- UI security panel summarizes previous code/test evidence; it is **not** a compliance dashboard or security accreditation.
-- **Dashboard Phase 2 proposal:** integrate read-only API endpoints for device and aggregate telemetry, use event provenance badges, schema validation, loading/error/offline states and accessible chart descriptions; do not expose any motor controls.
-- **Dashboard Phase 3 proposal:** real alert acknowledgment service with authorization, audit logging and persistent state, plus supervised model-evaluation readout after valid model evidence exists.
-- **EA-32 reliability project** can proceed separately from dashboard UI development.
+This suite has **12 authored API tests**: redirects, login rejection, session, catalog, no static server-source access, CSRF, logout, audit, safe state and synthetic-only acknowledgment.
 
-## Safety and truthfulness
+**Compatibility:** The original Phase 1 static structure test intentionally expects relative `./styles.css` and `./app.js`; those paths have changed to protected-server routes. Update and rerun that legacy test as a future maintenance action; it does not yet provide a verified green CI gate for the new server.
 
-- G4a independent cybersecurity approval: **OPEN**.
-- G4b physical/electrical motor safety: **BLOCKING**.
-- All example sensor values and alerts are synthetic.
-- Do not call the dashboard production-ready or connect it to live industrial equipment.
+## GitHub + Cursor/VS Code automatic synchronization
+
+**Git principle:** Editing and saving a file locally does *not* automatically update GitHub. Saving, staging, committing and pushing are separate operations. Automatically pushing every keystroke to `main` would risk publishing untested code and secrets.
+
+Recommended human-review workflow:
+
+~~~powershell
+git status
+git diff -- projects/industrial-edge-ai-predictive-maintenance/dashboard
+git add projects/industrial-edge-ai-predictive-maintenance/dashboard
+git commit -m "feat(edgeops): improve dashboard"
+git push origin main
+~~~
+
+These commands are written for running from the **repository root**. For simple day-to-day work from this dashboard folder use `git add index.html styles.css app.js signin.html signin.css signin.js server.py` with only the files you actually reviewed; do not stage local `.env` or `.local/` data.
+
+**Optional continuous auto-commit and push:** Only if you explicitly enable it, `sync-dashboard.ps1` can watch for edits every 20 seconds, commit an allowlist of dashboard source files and push to a **separate `dashboard-live-edit` branch** (never directly to `main`). Before starting:
+
+~~~powershell
+git fetch origin
+git switch -c dashboard-live-edit
+git push -u origin dashboard-live-edit
+.\sync-dashboard.ps1 -Watch -IntervalSeconds 20
+~~~
+
+This is a convenience workflow, not CI. Stop with Ctrl+C. It refuses unrelated staged files and aborts when push fails. **Review the diff and run tests before merging that branch into main.** Do not save tokens or secrets in source files, since even a temporary commit can expose them remotely. The monitor uses the existing Git credentials configured in Cursor or VS Code; do not paste GitHub personal access tokens into scripts.
+
+## What remains before a truthful production claim
+
+| Area | Current implementation | Required before production |
+|---|---|---|
+| Sign-in | Local bootstrap admin and session cookies | Enterprise identity (OIDC/SSO), MFA, provisioning, recovery and account policies |
+| Authorization | Fixed local roles for read-only/audit endpoints | Tenant/site/asset authorization and policy integration |
+| UI | Responsive code committed | Actual multi-browser visual QA, accessibility audit and UX acceptance |
+| Data | Synthetic fixtures and isolated SQLite auth/audit | PostgreSQL/TimescaleDB, migrations, retention, recovery, integrations |
+| MQTT | EA-31 localhost mTLS lab separate from dashboard | Durable retries/queue, proven delivery semantics, hardening, certificate lifecycle |
+| Analytics | Synthetic static charts | Live read-only API with provenance, pagination and error states |
+| Predictive AI | Illustrative cards only | Trained/evaluated models, drift monitoring, calibrated explanations and human review |
+| Device operations | Proposed 30-slot catalog | Bill of materials approval, physical provisioning, certificates and calibration |
+| Security | Local CSRF, session and headers starter | Independent pen test, OIDC, distributed rate limiting, secure deployment, secrets manager, SIEM |
+| Safety | No actuator UI, G4b BLOCKING | Independent electrical safety/guard/E-stop approval before physical testing |
+| Reliability | Some EA-30/31 lab evidence | EA-32 spool/retry/dead-letter design and failure-injection proof |
+| Governance | Architecture and test documents | Change control, runbooks, disaster recovery tests, threat model sign-off |
+
+**Do not deploy this local starter as an internet-facing production identity service or connect real industrial equipment.**
+
+## Source
+
+- `signin.html`, `signin.css`, `signin.js`: login experience.
+- `index.html`, `styles.css`, `app.js`: existing multi-page dashboard.
+- `dashboard-auth.js`: authenticated inventory loading and logout.
+- `server.py`: local API, session storage, auth and audit.
+- `tests/test_server.py`: authored security/API tests; local execution pending.
+- `sync-dashboard.ps1`: opt-in Git sync for dedicated development branch.
