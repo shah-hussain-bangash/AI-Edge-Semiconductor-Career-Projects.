@@ -14,6 +14,9 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from typing import Literal
+
+import telemetry_store
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -184,6 +187,16 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class SyntheticTelemetryInput(BaseModel):
+    """Explicit synthetic-only event; real sensor ingestion is not supported."""
+    event_id: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    asset_id: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    captured_at: datetime
+    vibration_mm_s: float = Field(ge=0, le=500, allow_inf_nan=False)
+    temperature_c: float = Field(ge=-40, le=180, allow_inf_nan=False)
+    current_a: float = Field(ge=0, le=100, allow_inf_nan=False)
+    provenance: Literal["synthetic-demo"]
+
 class AlertAction(BaseModel):
     alert_id: str = Field(pattern=r"^AL-[0-9]{4}$", max_length=7)
     note: str = Field(default="", max_length=200)
@@ -321,3 +334,29 @@ def acknowledge(request: Request, body: AlertAction):
     with database() as db:
         record_audit(db, current["email"], "demo_alert_ack", body.alert_id)
     return {"ok": True, "mode": "demo-audit-only", "persistent_alarm_state": False}
+
+
+@app.post("/api/synthetic-telemetry", status_code=201)
+def ingest_synthetic_telemetry(request: Request, event: SyntheticTelemetryInput, response: Response):
+    """Authenticated local fixture ingestion only; no hardware or model outputs."""
+    current = require_user(request)
+    require_csrf(request, current)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Admin role required for synthetic fixture ingestion")
+    if event.captured_at.tzinfo is None or event.captured_at.utcoffset() is None:
+        raise HTTPException(422, "captured_at must contain a timezone offset")
+    try:
+        created, stored = telemetry_store.append_event(event)
+    except ValueError as error:
+        raise HTTPException(409, str(error))
+    response.status_code = 201 if created else 200
+    return {"inserted": created, "event": stored, "mode": "synthetic-demo", "model_deployed": False}
+
+
+@app.get("/api/synthetic-telemetry")
+def list_synthetic_telemetry(request: Request, asset_id: str | None = None, limit: int = 100):
+    require_user(request)
+    if asset_id is not None and (len(asset_id) > 64 or not asset_id.replace("_", "").replace("-", "").isalnum()):
+        raise HTTPException(422, "Invalid asset_id")
+    return {"events": telemetry_store.read_events(asset_id=asset_id, limit=limit),
+            "provenance": "synthetic-demo", "model_deployed": False, "hardware_connected": False}
