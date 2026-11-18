@@ -376,5 +376,71 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         self.assertFalse(self.errors,repr(self.errors))
 
 
+    def test_14_keyboard_navigation_skip_link_and_focus_management(self):
+        """The signed-in dashboard must remain usable without pointer input."""
+        self.page.keyboard.press("Tab")
+        skip = self.page.locator('a.skip[href="#main"]')
+        self.assertTrue(skip.is_focused())
+        self.page.keyboard.press("Enter")
+        self.assertEqual(self.page.locator("#main").get_attribute("tabindex"), "-1")
+        nav = self.page.locator('.nav-item[data-page="architecture"]')
+        nav.focus()
+        self.page.keyboard.press("Enter")
+        self.assert_stage("architecture")
+        self.assertTrue(self.page.locator("#page-title").is_focused())
+        self.page.locator('[data-arch-node="ai"]').focus()
+        self.page.keyboard.press("Enter")
+        self.assertEqual(self.page.locator("#arch-detail-badge").inner_text(), "NOT DEPLOYED")
+        self.page.locator('[data-arch-mode="security"]').focus()
+        self.page.keyboard.press("Space")
+        self.assertEqual(self.page.locator("#arch-map-status").inner_text(), "TRUST BOUNDARIES")
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_15_accessible_names_labels_landmarks_and_visible_focus(self):
+        """Check core semantics and style presence; not a full WCAG audit."""
+        self.assertEqual(self.page.locator("main#main").count(), 1)
+        self.assertEqual(self.page.locator('nav[aria-label="Dashboard sections"]').count(), 1)
+        self.assertEqual(self.page.locator('button[data-page]').count(), len(STAGES))
+        self.assertEqual(self.page.locator('button[data-page][aria-current="page"]').count(), 1)
+        self.assertEqual(self.page.locator('button[data-page] .nav-symbol[aria-hidden="true"]').count(), len(STAGES))
+        for control in ("global-search", "asset-search", "asset-filter", "alert-filter"):
+            self.assertTrue(self.page.locator("#"+control).evaluate("""el => !!(
+                el.getAttribute('aria-label') ||
+                (el.labels && el.labels.length) ||
+                document.querySelector('label[for="'+el.id+'"]')
+            )"""), "Missing accessible input label: "+control)
+        button=self.page.locator('.nav-item[data-page="assets"]')
+        button.focus()
+        style=button.evaluate("""el => ({
+            width:getComputedStyle(el).outlineWidth,
+            color:getComputedStyle(el).outlineColor,
+            style:getComputedStyle(el).outlineStyle
+        })""")
+        self.assertNotEqual(style["style"], "none")
+        self.assertGreaterEqual(float(style["width"].replace("px","")), 2)
+        self.assertNotEqual(style["color"], "rgba(0, 0, 0, 0)")
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_16_signin_form_has_keyboard_operable_labels_and_feedback(self):
+        guest=self.browser.new_context()
+        page=guest.new_page()
+        try:
+            page.goto(self.base+"/signin")
+            self.assertEqual(page.locator('a.skip[href="#signin-form"]').count(), 1)
+            for field in ("email", "password"):
+                self.assertGreater(page.locator('label[for="'+field+'"]').count(), 0)
+            page.locator("#toggle-password").focus()
+            page.keyboard.press("Enter")
+            self.assertEqual(page.locator("#password").get_attribute("type"), "text")
+            page.keyboard.press("Enter")
+            self.assertEqual(page.locator("#password").get_attribute("type"), "password")
+            page.locator("#forgot-password").focus()
+            page.keyboard.press("Enter")
+            self.assertIn("not configured", page.locator("#access-note").inner_text())
+            self.assertEqual(page.locator("#form-error").get_attribute("role"), "alert")
+        finally:
+            guest.close()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
