@@ -179,5 +179,25 @@ class DashboardApiTests(unittest.TestCase):
                                                headers=headers).status_code, 422)
 
 
+    def test_17_offline_threshold_evaluation_no_training_claim(self):
+        from ml_evaluation import evaluate_scores
+        result = evaluate_scores([1, 0, 1, 0], [0.9, 0.3, 0.4, 0.6], threshold=0.5)
+        self.assertEqual((result.tp, result.tn, result.fp, result.fn), (1, 1, 1, 1))
+        self.assertEqual(result.precision, 0.5)
+        self.assertEqual(result.recall, 0.5)
+        self.assertEqual(result.f1, 0.5)
+        with self.assertRaises(ValueError):
+            evaluate_scores([1], [float("nan")], threshold=0.5)
+
+    def test_18_chronological_holdout_prevents_random_shuffling(self):
+        from ml_evaluation import chronological_holdout
+        values = [(t, t % 2, float(t)/10) for t in (5, 1, 4, 2, 3, 6)]
+        train, test = chronological_holdout(values, holdout_fraction=0.33)
+        self.assertEqual([row[0] for row in train], [1, 2, 3, 4])
+        self.assertEqual([row[0] for row in test], [5, 6])
+        with self.assertRaises(ValueError):
+            chronological_holdout(values, holdout_fraction=1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
