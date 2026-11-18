@@ -133,7 +133,7 @@ function exportSnapshot(){
 }
 document.addEventListener("DOMContentLoaded",()=>{
   renderAssets();renderAlerts();renderTelemetry();renderInsights();plot("trend-chart","vibration");
-  document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
+  document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",event=>{navigate(b.dataset.page);if(event.detail===0)$("page-title").focus({preventScroll:true});}));
   document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.go)));
   $("signal-select").addEventListener("change",e=>{plot("trend-chart",e.target.value);$("signal-label").textContent=signalSeries[e.target.value].label;});
   $("signal-select-secondary").addEventListener("change",e=>plot("telemetry-chart",e.target.value));
