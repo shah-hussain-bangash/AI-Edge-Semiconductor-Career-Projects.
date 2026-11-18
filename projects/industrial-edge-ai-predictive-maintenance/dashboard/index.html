@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="EDGEOPS industrial edge AI dashboard prototype. All displayed telemetry is synthetic.">
+  <title>EDGEOPS | Industrial Intelligence Console</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="logo"><span class="logo-mark" aria-hidden="true">◈</span><span>EDGE<span class="logo-light">OPS</span><small>INDUSTRIAL INTELLIGENCE</small></span></div>
+      <div class="environment"><span class="status-dot"></span><span><strong>Demo workspace</strong><small>Local synthetic mode</small></span></div>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="nav" aria-label="Dashboard sections">
+        <button class="nav-item active" data-page="overview" aria-current="page"><span aria-hidden="true">▦</span> Overview</button>
+        <button class="nav-item" data-page="telemetry"><span aria-hidden="true">〰</span> Live telemetry <span class="nav-note">SIM</span></button>
+        <button class="nav-item" data-page="assets"><span aria-hidden="true">▤</span> Assets & devices</button>
+        <button class="nav-item" data-page="alerts"><span aria-hidden="true">♢</span> Alerts <span class="nav-count" id="nav-alert-count">3</span></button>
+        <button class="nav-item" data-page="insights"><span aria-hidden="true">✳</span> AI insights <span class="nav-note">DEMO</span></button>
+        <button class="nav-item" data-page="security"><span aria-hidden="true">⬡</span> Security & audit</button>
+      </nav>
+      <div class="nav-label lower">OPERATIONS</div>
+      <div class="sidebar-info"><div class="info-icon">i</div><div><strong>Safety boundary</strong><p>Monitoring prototype only. No actuator or motor controls are enabled.</p></div></div>
+      <div class="sidebar-bottom"><span class="avatar">EA</span><span><strong>Architecture sandbox</strong><small>Dashboard Phase 1 · v0.1</small></span></div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="top-left"><button class="mobile-menu" id="menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="sidebar">☰</button><div class="breadcrumbs">Workspace <span>/</span> <strong id="breadcrumb-page">Overview</strong></div></div>
+        <div class="top-right"><span class="pill outlined"><span class="status-dot blue"></span> LOCAL PROTOTYPE</span><span class="top-divider"></span><button class="icon-btn" id="notifications" aria-label="Show alerts">♧<span class="notify-dot"></span></button><span class="avatar avatar-top">EA</span></div>
+      </header>
+
+      <main id="main">
+        <div class="page-heading"><div><div class="eyebrow">EDGE INTELLIGENCE / OPERATIONS</div><h1 id="page-title">Industrial overview</h1><p id="page-subtitle">Monitor equipment health, telemetry signals and maintenance risk in one place.</p></div><div class="heading-actions"><span class="pill warning">● SYNTHETIC DATA</span><button class="primary-btn" id="export-btn">↓ Export demo snapshot</button></div></div>
+        <div class="notice" role="status"><span class="notice-icon">ℹ</span><span><strong>Simulation-only preview.</strong> Values are generated fixtures; no real devices, production monitoring, deployed predictive models or safety approvals are represented.</span></div>
+
+        <section class="page-section active" id="page-overview" aria-label="Overview">
+          <div class="metrics">
+            <article class="metric"><div class="metric-label">Monitored assets <span class="metric-icon">▤</span></div><div class="metric-number">12<span class="metric-unit">assets</span></div><div class="metric-foot"><span class="soft-teal">8 nominal</span> · 3 watch · 1 critical</div></article>
+            <article class="metric"><div class="metric-label">Average health score <span class="metric-icon">♡</span></div><div class="metric-number">87<span class="metric-unit">/ 100</span></div><div class="metric-foot"><span class="soft-teal">↗ +2.4</span> vs synthetic prior period</div></article>
+            <article class="metric"><div class="metric-label">Open alerts <span class="metric-icon">♧</span></div><div class="metric-number" id="alerts-metric">3<span class="metric-unit">active</span></div><div class="metric-foot"><span class="soft-red">1 critical</span> · 2 warnings</div></article>
+            <article class="metric"><div class="metric-label">Telemetry ingestion <span class="metric-icon">≋</span></div><div class="metric-number">98.6<span class="metric-unit">%</span></div><div class="metric-foot"><span class="muted">Illustrative synthetic fixture</span></div></article>
+          </div>
+
+          <div class="two-col main-columns">
+            <article class="panel chart-panel"><div class="panel-header"><div><span class="panel-kicker">SIGNAL ANALYTICS</span><h2>Machine telemetry trends</h2><p>Motor-A · Synthetic sensor streams</p></div><div class="chart-actions"><label class="sr-only" for="signal-select">Select signal</label><select id="signal-select"><option value="vibration">Vibration (m/s²)</option><option value="temperature">Temperature (°C)</option><option value="current">Current (A)</option><option value="voltage">Voltage (V)</option></select></div></div><div class="chart-legend"><span><i class="legend-line"></i><span id="signal-label">Vibration</span></span><span class="right-muted">12 synthetic samples</span></div><div class="chart-container"><svg id="trend-chart" role="img" aria-label="Synthetic vibration trend line chart" viewBox="0 0 650 250" preserveAspectRatio="none"></svg></div><div class="chart-axis"><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>13:00</span></div></article>
+            <article class="panel health-panel"><div class="panel-header"><div><span class="panel-kicker">FLEET HEALTH</span><h2>Asset health distribution</h2><p>Demo operating status</p></div><span class="small-pill">12 assets</span></div><div class="donut-wrap"><div class="donut"><div class="donut-inner"><strong>87</strong><span>AVG SCORE</span></div></div><div class="donut-legend"><div><span><i class="dot nominal"></i> Nominal</span><strong>8 <small>67%</small></strong></div><div><span><i class="dot watch"></i> Watch</span><strong>3 <small>25%</small></strong></div><div><span><i class="dot critical"></i> Critical</span><strong>1 <small>8%</small></strong></div></div></div><div class="health-footer">Illustrative scores only; not a calibrated equipment condition assessment.</div></article>
+          </div>
+
+          <div class="two-col lower-columns">
+            <article class="panel"><div class="panel-header"><div><span class="panel-kicker">ASSET OPERATIONS</span><h2>Equipment requiring attention</h2><p>Ranked by simulated health score</p></div><button class="text-link" data-go="assets">View all assets ↗</button></div><div class="table-wrap"><table><thead><tr><th>Asset</th><th>Location</th><th>Health</th><th>Status</th></tr></thead><tbody id="attention-assets"></tbody></table></div></article>
+            <article class="panel"><div class="panel-header"><div><span class="panel-kicker">EVENT CENTER</span><h2>Recent alerts</h2><p>Generated demonstration events</p></div><button class="text-link" data-go="alerts">View alerts ↗</button></div><div id="recent-alerts" class="alert-list"></div></article>
+          </div>
+        </section>
+
+        <section class="page-section" id="page-telemetry" aria-label="Telemetry">
+          <div class="section-head"><div><h2>Telemetry explorer</h2><p>Synthetic sensor samples, based on the proposed telemetry V2 contract.</p></div><span class="small-pill">FIXTURE DATA</span></div>
+          <div class="metrics telemetry-cards" id="telemetry-cards"></div>
+          <article class="panel"><div class="panel-header"><div><span class="panel-kicker">SENSOR HISTORY</span><h2>Signal explorer</h2></div><select id="signal-select-secondary" aria-label="Select telemetry signal"><option value="vibration">Vibration</option><option value="temperature">Temperature</option><option value="current">Current</option><option value="voltage">Voltage</option></select></div><div class="chart-container"><svg id="telemetry-chart" role="img" aria-label="Synthetic telemetry signal history" viewBox="0 0 650 250" preserveAspectRatio="none"></svg></div><p class="small-note">These are generated demonstration samples, not a continuous broker connection.</p></article>
+        </section>
+
+        <section class="page-section" id="page-assets" aria-label="Assets and devices"><div class="section-head"><div><h2>Asset registry</h2><p>Illustrative equipment catalog. No live device pairing is provided.</p></div><span class="small-pill">12 DEMO ASSETS</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Equipment</th><th>Area</th><th>Type</th><th>Health score</th><th>Status</th></tr></thead><tbody id="all-assets"></tbody></table></div></article></section>
+        <section class="page-section" id="page-alerts" aria-label="Alerts"><div class="section-head"><div><h2>Alert management</h2><p>Demonstration events only. Acknowledgments are local to this browser session.</p></div><span class="small-pill" id="alert-summary">3 OPEN</span></div><div class="panel"><div id="all-alerts" class="full-alert-list"></div></div></section>
+        <section class="page-section" id="page-insights" aria-label="AI insights"><div class="section-head"><div><h2>AI maintenance insights</h2><p>Illustrative decision-support cards, not outputs from a deployed predictive model.</p></div><span class="small-pill">RULE-BASED DEMO</span></div><div class="insights-grid" id="insight-cards"></div><div class="notice bottom-notice"><span class="notice-icon">!</span><span>No trained AI model is integrated in Dashboard Phase 1. These recommendations are authored examples and must not be used for safety or maintenance decisions.</span></div></section>
+        <section class="page-section" id="page-security" aria-label="Security and audit"><div class="section-head"><div><h2>Security & audit</h2><p>Architecture evidence and readiness controls. This dashboard does not implement user login.</p></div><span class="small-pill">DESIGN PREVIEW</span></div><div class="security-grid"><div class="panel security-tile"><span class="panel-kicker">LOCAL VERIFIED EVIDENCE</span><div class="security-big">132 <small>tests</small></div><p>Previously reported as passed across EA-23, 25, 27, 28, 29, 30 and 31.</p></div><div class="panel security-tile"><span class="panel-kicker">DATA PROVENANCE</span><div class="security-big">SYN <small>only</small></div><p>Dashboard fixtures have no physical sensor provenance or operational status.</p></div><div class="panel security-tile"><span class="panel-kicker">CYBERSECURITY SIGN-OFF</span><div class="security-big warn-text">OPEN</div><p>Independent production IAM, transport security and risk acceptance remain required.</p></div><div class="panel security-tile"><span class="panel-kicker">PHYSICAL SAFETY GATE</span><div class="security-big warn-text">BLOCKED</div><p>Physical motor tests require independent guard and electrical safety review.</p></div></div></section>
+      </main>
+      <footer class="footer"><span>EDGEOPS · Architecture Sandbox v0.1</span><span>Local demonstration · No live hardware or production connectivity</span></footer>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
