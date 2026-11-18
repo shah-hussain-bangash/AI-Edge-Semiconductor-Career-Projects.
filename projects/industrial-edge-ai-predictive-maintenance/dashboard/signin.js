@@ -3,6 +3,7 @@
    SSO, remote reset and external signup require a configured identity provider. */
 document.addEventListener("DOMContentLoaded",()=>{
  const form=document.getElementById("signin-form");
+ document.querySelectorAll("img[data-fallback]").forEach(image=>image.addEventListener("error",()=>{const backup=image.dataset.fallback;if(backup&&image.getAttribute("src")!==backup)image.src=backup;}));
  const error=document.getElementById("form-error");
  const submit=document.getElementById("submit");
  const pass=document.getElementById("password");
