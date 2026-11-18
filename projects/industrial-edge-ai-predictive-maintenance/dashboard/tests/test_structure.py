@@ -36,7 +36,7 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertNotRegex(self.html.lower(), r'(start motor|stop motor|energize)')
 
     def test_06_accessible_region_structure(self):
-        for snippet in ('<main id="main">', 'aria-label="Main navigation"', 'class="skip"', 'aria-live="polite"'):
+        for snippet in ('<main id="main" tabindex="-1">', 'aria-label="Main navigation"', 'class="skip"', 'aria-live="polite"'):
             self.assertIn(snippet, self.html)
 
     def test_07_responsive_layout_declared(self):
