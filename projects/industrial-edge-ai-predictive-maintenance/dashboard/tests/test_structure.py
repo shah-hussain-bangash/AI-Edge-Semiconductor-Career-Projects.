@@ -87,7 +87,21 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertIn("NOT DEPLOYED", arch)
         self.assertIn("No remote actuation", arch)
 
-    def test_14_fixture_dataset_has_twelve_assets(self):
+    def test_14_ui_reliability_and_navigation(self):
+        auth = (ROOT / "dashboard-auth.js").read_text(encoding="utf-8")
+        for marker in ('id="connection-chip"', 'id="refresh-hardware"',
+                       'id="refresh-audit"', 'id="session-user"',
+                       'id="session-role"', 'id="session-expiry"',
+                       'id="audit-entries"'):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.html)
+        self.assertIn('"/api/audit?limit=30"', auth)
+        self.assertIn('"/api/system/health"', auth)
+        self.assertIn('AbortController()', auth)
+        self.assertIn('window.history.pushState', self.js)
+        self.assertIn('"popstate"', self.js)
+
+    def test_15_fixture_dataset_has_twelve_assets(self):
         assets_match = re.search(r'const assets = \[(.*?)\];', self.js, re.S)
         self.assertIsNotNone(assets_match)
         self.assertEqual(len(re.findall(r'id:"[^"]+",name:', assets_match.group(1))), 12)
