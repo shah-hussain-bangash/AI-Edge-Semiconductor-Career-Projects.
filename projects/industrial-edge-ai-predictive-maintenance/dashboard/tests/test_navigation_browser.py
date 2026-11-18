@@ -494,5 +494,71 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         self.assertFalse(self.errors,repr(self.errors))
 
 
+    def test_20_release_gate_synthetic_disclosure_and_assets(self):
+        """Final review: the UI must never present simulated data as live control."""
+        for section in ("overview", "insights", "hardware", "architecture", "alerts", "reports"):
+            with self.subTest(section=section):
+                self.page.locator(f'.nav-item[data-page="{section}"]').click()
+                disclosure=self.page.locator(".disclosure")
+                self.assertTrue(disclosure.is_visible())
+                self.assertIn("simulated", disclosure.inner_text().lower())
+                self.assertIn("no real devices", disclosure.inner_text().lower())
+                self.assertFalse(self.page.get_by_role("button",name="Start motor").count())
+                self.assertFalse(self.page.get_by_role("button",name="Stop motor").count())
+        images=self.page.locator("img")
+        for idx in range(images.count()):
+            image=images.nth(idx)
+            self.assertTrue(image.evaluate("el => el.complete && el.naturalWidth > 0"),
+                            "Broken dashboard image: "+str(image.get_attribute("src")))
+        self.assertFalse(self.errors,repr(self.errors))
+
+    def test_21_release_gate_security_headers_and_private_api(self):
+        """These checks are local-prototype safeguards, not a penetration test."""
+        responses={
+            "/app":self.page.request.get(self.base+"/app"),
+            "/api/me":self.page.request.get(self.base+"/api/me"),
+            "/static/app.js":self.page.request.get(self.base+"/static/app.js"),
+        }
+        for path,response in responses.items():
+            self.assertEqual(response.status,200,path)
+            headers=response.headers
+            self.assertEqual(headers.get("cache-control"),"no-store")
+            self.assertEqual(headers.get("x-frame-options"),"DENY")
+            self.assertEqual(headers.get("x-content-type-options"),"nosniff")
+            self.assertIn("frame-ancestors 'none'",headers.get("content-security-policy",""))
+        anonymous=self.browser.new_context()
+        try:
+            response=anonymous.request.get(self.base+"/api/hardware")
+            self.assertEqual(response.status,401)
+            response=anonymous.request.get(self.base+"/api/audit")
+            self.assertEqual(response.status,401)
+            response=anonymous.request.get(self.base+"/static/server.py")
+            self.assertEqual(response.status,404)
+            response=anonymous.request.get(self.base+"/app",max_redirects=0)
+            self.assertEqual(response.status,303)
+            self.assertEqual(response.headers.get("location"),"/signin")
+        finally:
+            anonymous.close()
+
+    def test_22_release_gate_visual_capture_and_readability(self):
+        """Create reproducible screenshots for manual visual review in CI artifacts."""
+        screenshots=Path(__file__).parent/".."/".acceptance-captures"
+        screenshots.mkdir(parents=True,exist_ok=True)
+        for width,height in ((1440,900),(390,844)):
+            self.page.set_viewport_size({"width":width,"height":height})
+            for name in ("overview","architecture","hardware","reports"):
+                if width<=800:
+                    self.page.locator("#menu-toggle").click()
+                self.page.locator(f'.nav-item[data-page="{name}"]').click()
+                heading=self.page.locator("#page-title")
+                self.assertTrue(heading.is_visible())
+                self.assertGreater(len(heading.inner_text().strip()),4)
+                self.page.screenshot(
+                    path=str(screenshots/f"edgeops-{width}-{name}.png"),
+                    full_page=True,animations="disabled"
+                )
+        self.assertFalse(self.errors,repr(self.errors))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
