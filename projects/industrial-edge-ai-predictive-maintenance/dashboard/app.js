@@ -54,14 +54,19 @@ function healthCell(item){
 }
 function renderAssets(){
   $("attention-assets").innerHTML=assets.filter(a=>a.status!=="nominal").map(a=>'<tr><td><strong>'+escapeText(a.name)+'</strong><br><small>'+escapeText(a.id)+'</small></td><td>'+escapeText(a.area)+'</td><td>'+healthCell(a)+'</td><td>'+statusTag(a.status)+'</td></tr>').join("");
-  $("all-assets").innerHTML=assets.map(a=>'<tr><td><strong>'+escapeText(a.name)+'</strong><br><small>'+escapeText(a.id)+'</small></td><td>'+escapeText(a.area)+'</td><td>'+escapeText(a.type)+'</td><td>'+healthCell(a)+'</td><td>'+statusTag(a.status)+'</td></tr>').join("");
+  const filter=$("asset-filter")?.value||"all", term=($("asset-search")?.value||"").trim().toLowerCase();
+  const visible=assets.filter(a=>(filter==="all"||a.status===filter)&&[a.id,a.name,a.area,a.type].some(v=>v.toLowerCase().includes(term)));
+  if($("asset-result-count"))$("asset-result-count").textContent=visible.length+" of "+assets.length+" assets";
+  $("all-assets").innerHTML=visible.map(a=>'<tr><td><strong>'+escapeText(a.name)+'</strong><br><small>'+escapeText(a.id)+'</small></td><td>'+escapeText(a.area)+'</td><td>'+escapeText(a.type)+'</td><td>'+healthCell(a)+'</td><td>'+statusTag(a.status)+'</td></tr>').join("");
 }
 function alertMarkup(a,withButton){
   return '<div class="alert-item"><div class="alert-icon '+a.severity+'" aria-hidden="true">'+(a.severity==="critical"?"!":"↗")+'</div><div class="alert-body"><div class="alert-title">'+escapeText(a.title)+'</div><p class="alert-description">'+escapeText(a.detail)+'</p><span class="alert-time">'+escapeText(a.time)+'</span></div>'+(withButton?'<button class="ack-btn" data-ack="'+escapeText(a.id)+'"'+(a.ack?' disabled':'')+'>'+(a.ack?'Acknowledged':'Acknowledge')+'</button>':'')+'</div>';
 }
 function renderAlerts(){
   $("recent-alerts").innerHTML=alerts.map(a=>alertMarkup(a,false)).join("");
-  $("all-alerts").innerHTML=alerts.map(a=>alertMarkup(a,true)).join("");
+  const filter=$("alert-filter")?.value||"all";
+  const visible=alerts.filter(a=>filter==="all"||(filter==="open"&&!a.ack)||(filter==="acknowledged"&&a.ack)||(filter==="critical"&&a.severity==="critical"));
+  $("all-alerts").innerHTML=visible.length?visible.map(a=>alertMarkup(a,true)).join(""):'<p class="empty-state">No demo alerts match this filter.</p>';
   const open=alerts.filter(a=>!a.ack).length;
   $("alert-summary").textContent=open+" OPEN · DEMO";
   $("nav-alert-count").textContent=open;
@@ -149,9 +154,25 @@ document.addEventListener("DOMContentLoaded",()=>{
     const button=document.getElementById(id);
     if(button)button.addEventListener("click",exportSnapshot);
   }
+  for(const id of ["asset-filter","asset-search"])document.getElementById(id)?.addEventListener(id==="asset-search"?"input":"change",renderAssets);
+  document.getElementById("alert-filter")?.addEventListener("change",renderAlerts);
+  const focus=document.getElementById("focus-toggle");
+  focus?.addEventListener("click",()=>{
+    const active=document.body.classList.toggle("focus-mode");
+    focus.setAttribute("aria-pressed",String(active));
+    focus.textContent=active?"⤡ Exit focus":"⤢ Focus";
+    showToast(active?"Expanded workspace for focused review.":"Restored navigation.");
+  });
+  const scrim=document.getElementById("mobile-scrim");
+  const closeMenu=()=>{document.getElementById("sidebar").classList.remove("open");document.getElementById("menu-toggle").setAttribute("aria-expanded","false");if(scrim)scrim.hidden=true;};
+  scrim?.addEventListener("click",closeMenu);
+  document.getElementById("menu-toggle")?.addEventListener("click",()=>{if(scrim)scrim.hidden=!document.getElementById("sidebar").classList.contains("open");});
+  document.querySelectorAll(".nav-item").forEach(btn=>btn.addEventListener("click",()=>{if(scrim)scrim.hidden=true;}));
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMenu()});
   const site=document.getElementById("site-filter");
   if(site)site.addEventListener("click",()=>showToast("Plant A is a fixed synthetic demonstration site; live site switching is not configured."));
   const search=document.getElementById("global-search");
+  if(search)search.title="Press Enter to search local demo assets, alerts and sections";
   if(search)search.addEventListener("keydown",event=>{
     if(event.key!=="Enter")return;
     event.preventDefault();
