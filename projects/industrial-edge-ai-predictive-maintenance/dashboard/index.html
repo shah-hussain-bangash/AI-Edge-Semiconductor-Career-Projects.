@@ -6,8 +6,9 @@
   <meta name="color-scheme" content="dark">
   <meta name="description" content="EDGEOPS industrial edge AI dashboard prototype. All displayed telemetry is synthetic.">
   <title>EDGEOPS | Industrial Intelligence Console</title>
-  <link rel="stylesheet" href="./styles.css">
-  <script src="./app.js" defer></script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+<script src="/static/dashboard-auth.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to main content</a>
@@ -22,11 +23,12 @@
         <button class="nav-item" data-page="assets"><span aria-hidden="true">▤</span> Assets & devices</button>
         <button class="nav-item" data-page="alerts"><span aria-hidden="true">♢</span> Alerts <span class="nav-count" id="nav-alert-count">3</span></button>
         <button class="nav-item" data-page="insights"><span aria-hidden="true">✳</span> AI insights <span class="nav-note">DEMO</span></button>
+        <button class="nav-item" data-page="hardware"><span aria-hidden="true">▣</span> Hardware inventory <span class="nav-note">30</span></button>
         <button class="nav-item" data-page="security"><span aria-hidden="true">⬡</span> Security & audit</button>
       </nav>
       <div class="nav-label lower">OPERATIONS</div>
       <div class="sidebar-info"><div class="info-icon">i</div><div><strong>Safety boundary</strong><p>Monitoring prototype only. No actuator or motor controls are enabled.</p></div></div>
-      <div class="sidebar-bottom"><span class="avatar">EA</span><span><strong>Architecture sandbox</strong><small>Dashboard Phase 1 · v0.1</small></span></div>
+      <div class="sidebar-bottom"><span class="avatar">EA</span><span><strong id="account-label">Authenticated workspace</strong><small>Signed in · local lab</small></span><button id="logout" class="text-link" aria-label="Sign out">Sign out</button></div>
     </aside>
 
     <div class="workspace">
@@ -67,6 +69,7 @@
         <section class="page-section" id="page-assets" aria-label="Assets and devices"><div class="section-head"><div><h2>Asset registry</h2><p>Illustrative equipment catalog. No live device pairing is provided.</p></div><span class="small-pill">12 DEMO ASSETS</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Equipment</th><th>Area</th><th>Type</th><th>Health score</th><th>Status</th></tr></thead><tbody id="all-assets"></tbody></table></div></article></section>
         <section class="page-section" id="page-alerts" aria-label="Alerts"><div class="section-head"><div><h2>Alert management</h2><p>Demonstration events only. Acknowledgments are local to this browser session.</p></div><span class="small-pill" id="alert-summary">3 OPEN</span></div><div class="panel"><div id="all-alerts" class="full-alert-list"></div></div></section>
         <section class="page-section" id="page-insights" aria-label="AI insights"><div class="section-head"><div><h2>AI maintenance insights</h2><p>Illustrative decision-support cards, not outputs from a deployed predictive model.</p></div><span class="small-pill">RULE-BASED DEMO</span></div><div class="insights-grid" id="insight-cards"></div><div class="notice bottom-notice"><span class="notice-icon">!</span><span>No trained AI model is integrated in Dashboard Phase 1. These recommendations are authored examples and must not be used for safety or maintenance decisions.</span></div></section>
+        <section class="page-section" id="page-hardware" aria-label="Hardware inventory"><div class="section-head"><div><h2>Hardware and engineering inventory</h2><p>30 catalog slots. Only 14 item names are previously specified; purchase and physical connection status are unverified.</p></div><span class="small-pill">DESIGN CATALOG · 30 SLOTS</span></div><div class="notice"><span class="notice-icon">i</span><span>This is a planning inventory, not a connected fleet. No equipment controls or actuator commands exist.</span></div><div class="metrics" id="hardware-metrics"></div><div class="panel"><div class="panel-header"><div><span class="panel-kicker">ENGINEERING BILL OF MATERIALS</span><h2>Components, sensors and safeguards</h2><p>Authorized users only · obtained from same-origin read-only API</p></div></div><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Component</th><th>Purpose</th><th>Category</th><th>Connection</th></tr></thead><tbody id="hardware-table"><tr><td colspan="5">Loading inventory…</td></tr></tbody></table></div></div></section>
         <section class="page-section" id="page-security" aria-label="Security and audit"><div class="section-head"><div><h2>Security & audit</h2><p>Architecture evidence and readiness controls. This dashboard does not implement user login.</p></div><span class="small-pill">DESIGN PREVIEW</span></div><div class="security-grid"><div class="panel security-tile"><span class="panel-kicker">LOCAL VERIFIED EVIDENCE</span><div class="security-big">132 <small>tests</small></div><p>Previously reported as passed across EA-23, 25, 27, 28, 29, 30 and 31.</p></div><div class="panel security-tile"><span class="panel-kicker">DATA PROVENANCE</span><div class="security-big">SYN <small>only</small></div><p>Dashboard fixtures have no physical sensor provenance or operational status.</p></div><div class="panel security-tile"><span class="panel-kicker">CYBERSECURITY SIGN-OFF</span><div class="security-big warn-text">OPEN</div><p>Independent production IAM, transport security and risk acceptance remain required.</p></div><div class="panel security-tile"><span class="panel-kicker">PHYSICAL SAFETY GATE</span><div class="security-big warn-text">BLOCKED</div><p>Physical motor tests require independent guard and electrical safety review.</p></div></div></section>
       </main>
       <footer class="footer"><span>EDGEOPS · Architecture Sandbox v0.1</span><span>Local demonstration · No live hardware or production connectivity</span></footer>
