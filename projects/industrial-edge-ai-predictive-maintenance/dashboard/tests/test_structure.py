@@ -63,7 +63,17 @@ class DashboardStructureTests(unittest.TestCase):
             with self.subTest(item=item):
                 self.assertIn(item, html)
 
-    def test_12_fixture_dataset_has_twelve_assets(self):
+    def test_12_operational_filters_and_focus(self):
+        for snippet in ('id="asset-filter"', 'id="asset-search"',
+                        'id="alert-filter"', 'id="focus-toggle"',
+                        'id="mobile-scrim"'):
+            with self.subTest(snippet=snippet):
+                self.assertIn(snippet, self.html)
+        for snippet in ('renderAssets', 'renderAlerts', 'focus-mode', 'asset-result-count'):
+            with self.subTest(snippet=snippet):
+                self.assertIn(snippet, self.js)
+
+    def test_13_fixture_dataset_has_twelve_assets(self):
         assets_match = re.search(r'const assets = \[(.*?)\];', self.js, re.S)
         self.assertIsNotNone(assets_match)
         self.assertEqual(len(re.findall(r'id:"[^"]+",name:', assets_match.group(1))), 12)
