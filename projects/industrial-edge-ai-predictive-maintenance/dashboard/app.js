@@ -58,7 +58,7 @@ function renderAssets(){
   const filter=$("asset-filter")?.value||"all", term=($("asset-search")?.value||"").trim().toLowerCase();
   const visible=assets.filter(a=>(filter==="all"||a.status===filter)&&[a.id,a.name,a.area,a.type].some(v=>v.toLowerCase().includes(term)));
   if($("asset-result-count"))$("asset-result-count").textContent=visible.length+" of "+assets.length+" assets";
-  $("all-assets").innerHTML=visible.map(a=>'<tr><td><strong>'+escapeText(a.name)+'</strong><br><small>'+escapeText(a.id)+'</small></td><td>'+escapeText(a.area)+'</td><td>'+escapeText(a.type)+'</td><td>'+healthCell(a)+'</td><td>'+statusTag(a.status)+'</td></tr>').join("");
+  $("all-assets").innerHTML=visible.length?visible.map(a=>'<tr><td><strong>'+escapeText(a.name)+'</strong><br><small>'+escapeText(a.id)+'</small></td><td>'+escapeText(a.area)+'</td><td>'+escapeText(a.type)+'</td><td>'+healthCell(a)+'</td><td>'+statusTag(a.status)+'</td></tr>').join(""):'<tr><td colspan="5" class="empty-state">No demo assets match this search and status filter.</td></tr>';
 }
 function alertMarkup(a,withButton){
   return '<div class="alert-item"><div class="alert-icon '+a.severity+'" aria-hidden="true">'+(a.severity==="critical"?"!":"↗")+'</div><div class="alert-body"><div class="alert-title">'+escapeText(a.title)+'</div><p class="alert-description">'+escapeText(a.detail)+'</p><span class="alert-time">'+escapeText(a.time)+'</span></div>'+(withButton?'<button class="ack-btn" data-ack="'+escapeText(a.id)+'"'+(a.ack?' disabled':'')+'>'+(a.ack?'Acknowledged':'Acknowledge')+'</button>':'')+'</div>';
