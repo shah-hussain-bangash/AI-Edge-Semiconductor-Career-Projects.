@@ -133,7 +133,7 @@ class NavigationBrowserAcceptance(unittest.TestCase):
                     self.page.locator("#hardware-table tr").first.wait_for()
                     self.assertGreater(self.page.locator("#hardware-table tr").count(), 10)
                 if name == "security":
-                    self.page.locator("#session-role").get_by_text("admin").wait_for()
+                    self.assertEqual(self.page.locator("#session-role").inner_text(), "admin")
                     self.assertGreater(self.page.locator("#audit-entries tr").count(), 0)
         self.assertFalse(self.errors, "Uncaught JS errors: " + repr(self.errors))
 
