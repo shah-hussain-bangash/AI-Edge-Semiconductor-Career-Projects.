@@ -30,6 +30,7 @@ const signalSeries = {
 };
 const headings = {
   overview:["Industrial Command Center","Predictive maintenance architecture showcase across simulated equipment and hardware.","OVERVIEW / SYNTHETIC OPERATIONS"],
+  architecture:["Enterprise Architecture Explorer","Interactive system blueprint: device acquisition, mTLS delivery, edge validation, persistence, AI and human review.","ARCHITECTURE / LAB + DESIGN"],
   telemetry:["Telemetry explorer","Inspect synthetic vibration, temperature, voltage and current sensor signals.","Live telemetry"],
   assets:["Asset registry","Browse the synthetic equipment and demo health classifications.","Assets & devices"],
   alerts:["Alert management","Review local demonstration events and browser-only acknowledgments.","Alerts"],
