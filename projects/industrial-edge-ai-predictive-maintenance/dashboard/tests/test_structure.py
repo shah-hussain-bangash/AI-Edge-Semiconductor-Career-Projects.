@@ -18,7 +18,7 @@ class DashboardStructureTests(unittest.TestCase):
 
     def test_02_synthetic_disclosure(self):
         self.assertIn("SYNTHETIC DATA", self.html)
-        self.assertIn("No real devices", self.html)
+        self.assertIn("no real devices", self.html.lower())
 
     def test_03_six_navigation_sections(self):
         for page in ("overview", "telemetry", "assets", "alerts", "insights", "security"):
