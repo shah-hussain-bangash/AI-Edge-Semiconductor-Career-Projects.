@@ -166,3 +166,21 @@ With `--reload`, the server may restart due to Python source changes. **Use Ctrl
 ### Verification scope
 
 The dashboard is not pixel-identical to generated mockup images: the approved composition, contrast, features and colors have been translated into maintainable HTML/CSS/JS, with local vector machinery artwork rather than the mockup's photorealistic pixels. Source changes are committed to the GitHub branch, but no actual browser screenshot or new test output has been verified yet. Do not count new checks as passed until the test log and UI are inspected.
+
+
+## Approved reference photographs (November 18)
+
+The dashboard and login now reference two JPG images extracted/cropped from the user-approved EDGEOPS mockup:
+- `edgeops-motor-photo.jpg`: photographed industrial motor with existing cyan sensor overlays.
+- `edgeops-factory-backdrop.jpg`: wider factory environment used behind the sign-in showcase.
+
+**The binary JPGs must be copied into this directory locally**, then added and pushed from the user's checkout. They are not bundled in this branch by GitHub's text-file connector. Until installed, an error handler falls back to the original vector SVG illustrations. The backend serves both JPGs only through its static allowlist. This is intentional and avoids a broken image or a silent claim that the image was uploaded.
+
+Copy both files into `dashboard/` and in PowerShell:
+```powershell
+git add -- edgeops-motor-photo.jpg edgeops-factory-backdrop.jpg
+git commit -m "assets(edgeops): add approved industrial photographic artwork"
+git push origin dashboard-live-edit
+```
+
+Run `python -m unittest discover -s tests -p "test_server.py" -v`, reload the page and check the browser's Network panel for 200 responses on both image URLs. Do not publish the entire reference screenshot as a user background with the simulated login form duplicated on top.
