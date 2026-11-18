@@ -5,6 +5,8 @@ Run from dashboard dir: python -m unittest discover -s tests -p test_server.py -
 import importlib
 import os
 import secrets
+import sqlite3
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
@@ -197,6 +199,32 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual([row[0] for row in test], [5, 6])
         with self.assertRaises(ValueError):
             chronological_holdout(values, holdout_fraction=1)
+
+
+    def test_19_synthetic_sqlite_connections_are_explicitly_closed(self):
+        """Context-manager exit must close handles, not only commit transactions."""
+        import telemetry_store
+
+        opened = []
+        original_connect = sqlite3.connect
+
+        class ObservedConnection(sqlite3.Connection):
+            def close(self):
+                super().close()
+
+        def tracked_connect(*args, **kwargs):
+            connection = original_connect(*args, factory=ObservedConnection, **kwargs)
+            opened.append(connection)
+            return connection
+
+        with patch.object(telemetry_store.sqlite3, "connect", side_effect=tracked_connect):
+            telemetry_store.init_store()
+            telemetry_store.read_events(limit=1)
+        self.assertGreaterEqual(len(opened), 2)
+        for connection in opened:
+            with self.subTest(connection=id(connection)):
+                with self.assertRaises(sqlite3.ProgrammingError):
+                    connection.execute("SELECT 1")
 
 
 if __name__ == "__main__":
