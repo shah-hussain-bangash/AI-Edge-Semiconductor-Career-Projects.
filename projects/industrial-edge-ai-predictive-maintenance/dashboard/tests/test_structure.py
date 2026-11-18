@@ -21,7 +21,7 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertIn("no real devices", self.html.lower())
 
     def test_03_complete_navigation_sections(self):
-        for page in ("overview", "telemetry", "assets", "alerts", "insights", "hardware", "maintenance", "security", "governance", "reports", "settings"):
+        for page in ("overview", "telemetry", "assets", "alerts", "insights", "hardware", "architecture", "maintenance", "security", "governance", "reports", "settings"):
             with self.subTest(page=page):
                 self.assertIn('data-page="'+page+'"', self.html)
                 self.assertIn('id="page-'+page+'"', self.html)
@@ -73,7 +73,21 @@ class DashboardStructureTests(unittest.TestCase):
             with self.subTest(snippet=snippet):
                 self.assertIn(snippet, self.js)
 
-    def test_13_fixture_dataset_has_twelve_assets(self):
+    def test_13_enterprise_architecture_explorer(self):
+        arch = (ROOT / "architecture.js").read_text(encoding="utf-8")
+        self.assertIn('src="/static/architecture.js"', self.html)
+        self.assertIn('data-page="architecture"', self.html)
+        self.assertIn('id="arch-detail-security"', self.html)
+        self.assertIn('id="arch-detail-failure"', self.html)
+        self.assertIn('id="arch-detail-evidence"', self.html)
+        for node in ("sensors", "esp32", "mqtt", "gateway", "pipeline", "ai", "api", "dashboard"):
+            with self.subTest(node=node):
+                self.assertIn('data-arch-node="'+node+'"', self.html)
+                self.assertIn(node+':{', arch)
+        self.assertIn("NOT DEPLOYED", arch)
+        self.assertIn("No remote actuation", arch)
+
+    def test_14_fixture_dataset_has_twelve_assets(self):
         assets_match = re.search(r'const assets = \[(.*?)\];', self.js, re.S)
         self.assertIsNotNone(assets_match)
         self.assertEqual(len(re.findall(r'id:"[^"]+",name:', assets_match.group(1))), 12)
