@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import sqlite3
 import socket
 import subprocess
 import sys
@@ -164,6 +165,51 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         menu.click()
         self.page.keyboard.press("Escape")
         self.assertEqual(menu.get_attribute("aria-expanded"), "false")
+        self.assertFalse(self.errors, repr(self.errors))
+
+
+    def test_04_invalid_password_is_rejected_and_protected_app_redirects(self):
+        guest = self.browser.new_context()
+        page = guest.new_page()
+        try:
+            page.goto(self.base + "/app")
+            page.wait_for_url("**/signin")
+            page.locator("#email").fill(self.email)
+            page.locator("#password").fill("not-the-real-test-password")
+            page.locator("#submit").click()
+            page.locator("#form-error").get_by_text("Invalid email or password.").wait_for()
+            self.assertIn("/signin", page.url)
+            page.goto(self.base + "/api/me")
+            self.assertIn("Authentication required", page.locator("body").inner_text())
+        finally:
+            guest.close()
+
+    def test_05_logout_revokes_browser_session_and_back_is_protected(self):
+        self.page.locator("#logout").click()
+        self.page.wait_for_url("**/signin")
+        self.page.go_back()
+        # Even when the browser restores a cached document, a protected
+        # navigation must not return authenticated application content.
+        self.page.goto(self.base + "/app")
+        self.page.wait_for_url("**/signin")
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_06_expired_server_session_requires_new_login(self):
+        database_path = Path(self.temp.name) / "isolated.sqlite3"
+        with sqlite3.connect(database_path, timeout=10) as db:
+            db.execute("UPDATE sessions SET expires_at = 1")
+            db.commit()
+        self.page.goto(self.base + "/app", wait_until="domcontentloaded")
+        self.page.wait_for_url("**/signin")
+        self.assertTrue(self.page.locator("#signin-form").is_visible())
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_07_session_metadata_and_authenticated_app_content(self):
+        self.assertEqual(self.page.locator("#session-user").inner_text(), self.email)
+        self.assertEqual(self.page.locator("#session-role").inner_text(), "admin")
+        self.assertNotEqual(self.page.locator("#session-expiry").inner_text(), "Unavailable")
+        self.assertEqual(self.page.locator("#connection-chip").get_attribute("data-state"), "ok")
+        self.assertTrue(self.page.locator("#page-overview").is_visible())
         self.assertFalse(self.errors, repr(self.errors))
 
 
