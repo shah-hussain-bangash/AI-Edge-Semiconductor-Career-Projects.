@@ -32,13 +32,16 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
     if asset not in PUBLIC_ASSETS:
         raise HTTPException(404, "Not found")
-    return FileResponse(ROOT / asset)
+    candidate = ROOT / asset
+    if not candidate.is_file():
+        raise HTTPException(404, "Asset not installed")
+    return FileResponse(candidate)
 
 # Only hardware explicitly identified in prior user-provided inventory is named.
 # Slots 15–30 are NOT confirmed purchases or engineering-approved parts.
