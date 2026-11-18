@@ -24,6 +24,7 @@ class DashboardApiTests(unittest.TestCase):
         cls.email = "local-tester@example.invalid"
         cls.password = secrets.token_urlsafe(24)
         os.environ["EDGEOPS_DASHBOARD_DB"] = cls.db
+        os.environ["EDGEOPS_SYNTHETIC_TELEMETRY_DB"] = str(Path(cls.temp.name) / "synthetic-telemetry.sqlite3")
         os.environ["EDGEOPS_ADMIN_EMAIL"] = cls.email
         os.environ["EDGEOPS_ADMIN_PASSWORD"] = cls.password
         import server
@@ -33,7 +34,7 @@ class DashboardApiTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.temp.cleanup()
-        for key in ("EDGEOPS_DASHBOARD_DB", "EDGEOPS_ADMIN_EMAIL", "EDGEOPS_ADMIN_PASSWORD"):
+        for key in ("EDGEOPS_DASHBOARD_DB", "EDGEOPS_SYNTHETIC_TELEMETRY_DB", "EDGEOPS_ADMIN_EMAIL", "EDGEOPS_ADMIN_PASSWORD"):
             os.environ.pop(key, None)
 
     def setUp(self):
@@ -117,6 +118,65 @@ class DashboardApiTests(unittest.TestCase):
                                 headers={"x-edgeops-csrf": csrf})
         self.assertEqual(result.status_code, 200)
         self.assertFalse(result.json()["persistent_alarm_state"])
+
+
+    def test_13_synthetic_telemetry_endpoint_requires_authentication(self):
+        self.assertEqual(self.http.get("/api/synthetic-telemetry").status_code, 401)
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json={}).status_code, 401)
+
+    def test_14_synthetic_telemetry_requires_csrf_and_explicit_provenance(self):
+        self.sign_in()
+        event = self.synthetic_event("evt-csrf-1")
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json=event).status_code, 403)
+        csrf = self.http.cookies["edgeops_csrf"]
+        event["provenance"] = "real-hardware"
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json=event,
+                                       headers={"x-edgeops-csrf": csrf}).status_code, 422)
+
+    @staticmethod
+    def synthetic_event(event_id):
+        return {
+            "event_id": event_id, "asset_id": "MTR-001",
+            "captured_at": "2026-01-01T01:02:03+00:00",
+            "vibration_mm_s": 2.6, "temperature_c": 41.2, "current_a": 1.7,
+            "provenance": "synthetic-demo",
+        }
+
+    def test_15_synthetic_telemetry_durable_insert_and_idempotent_replay(self):
+        self.sign_in()
+        csrf = self.http.cookies["edgeops_csrf"]
+        event = self.synthetic_event("evt-durable-1")
+        response = self.http.post("/api/synthetic-telemetry", json=event,
+                                  headers={"x-edgeops-csrf": csrf})
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertTrue(response.json()["inserted"])
+        self.assertFalse(response.json()["model_deployed"])
+        again = self.http.post("/api/synthetic-telemetry", json=event,
+                               headers={"x-edgeops-csrf": csrf})
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertFalse(again.json()["inserted"])
+        result = self.http.get("/api/synthetic-telemetry?asset_id=MTR-001")
+        self.assertEqual(result.status_code, 200)
+        matches = [x for x in result.json()["events"] if x["event_id"] == "evt-durable-1"]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["provenance"], "synthetic-demo")
+
+    def test_16_synthetic_telemetry_rejects_conflicts_and_invalid_values(self):
+        self.sign_in()
+        csrf = self.http.cookies["edgeops_csrf"]
+        headers = {"x-edgeops-csrf": csrf}
+        event = self.synthetic_event("evt-conflict-1")
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json=event,
+                                       headers=headers).status_code, 201)
+        conflict = {**event, "temperature_c": 99.0}
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json=conflict,
+                                       headers=headers).status_code, 409)
+        for edited in ({**event, "event_id": "evt-bad-nan", "vibration_mm_s": -1},
+                       {**event, "event_id": "evt-bad-tz", "captured_at": "2026-01-01T01:02:03"},
+                       {**event, "event_id": "evt-bad-range", "temperature_c": 250}):
+            with self.subTest(edited=edited["event_id"]):
+                self.assertEqual(self.http.post("/api/synthetic-telemetry", json=edited,
+                                               headers=headers).status_code, 422)
 
 
 if __name__ == "__main__":
