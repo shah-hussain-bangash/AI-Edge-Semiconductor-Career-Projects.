@@ -342,5 +342,39 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         self.assertFalse(self.errors, repr(self.errors))
 
 
+    def test_13_responsive_page_widths_and_usable_controls(self):
+        """Every section must fit the viewport; dense tables may scroll internally."""
+        for width, height in ((1440,900),(1024,768),(768,900),(390,844),(320,720)):
+            with self.subTest(viewport=width):
+                self.page.set_viewport_size({"width":width,"height":height})
+                for name in STAGES:
+                    with self.subTest(viewport=width,section=name):
+                        if width<=800:
+                            self.page.locator("#menu-toggle").click()
+                        self.page.locator(f'.nav-item[data-page="{name}"]').click()
+                        self.assertTrue(self.page.locator(f"#page-{name}").is_visible())
+                        layout=self.page.evaluate("""() => ({
+                            viewport:document.documentElement.clientWidth,
+                            document:document.documentElement.scrollWidth,
+                            body:document.body.scrollWidth,
+                            main:document.querySelector('main').getBoundingClientRect().width,
+                            toggler:document.querySelector('#menu-toggle').getBoundingClientRect().width,
+                            visibleSidebar:getComputedStyle(document.querySelector('#sidebar')).transform
+                        })""")
+                        self.assertLessEqual(
+                            layout["document"],layout["viewport"]+2,
+                            f"Horizontal page overflow at {width}px on {name}: {layout}",
+                        )
+                        self.assertLessEqual(
+                            layout["body"],layout["viewport"]+2,
+                            f"Body overflow at {width}px on {name}: {layout}",
+                        )
+                if width <= 800:
+                    self.assertTrue(self.page.locator("#menu-toggle").is_visible())
+                else:
+                    self.assertTrue(self.page.locator('.nav-item[data-page="settings"]').is_visible())
+        self.assertFalse(self.errors,repr(self.errors))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
