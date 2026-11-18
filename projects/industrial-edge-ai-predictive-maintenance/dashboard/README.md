@@ -64,7 +64,7 @@ cd "C:\Users\Gaming PC i9 3080\edgeops-workspace\projects\industrial-edge-ai-pre
 
 This suite has **12 authored API tests**: redirects, login rejection, session, catalog, no static server-source access, CSRF, logout, audit, safe state and synthetic-only acknowledgment.
 
-**Compatibility:** The original Phase 1 static structure test intentionally expects relative `./styles.css` and `./app.js`; those paths have changed to protected-server routes. Update and rerun that legacy test as a future maintenance action; it does not yet provide a verified green CI gate for the new server.
+**Static checks:** The Phase 1 static structure test has been updated for the authenticated server asset routes. Both source structure and API tests are configured in GitHub Actions but remain unverified until their actual run results are inspected.
 
 ## GitHub + Cursor/VS Code automatic synchronization
 
