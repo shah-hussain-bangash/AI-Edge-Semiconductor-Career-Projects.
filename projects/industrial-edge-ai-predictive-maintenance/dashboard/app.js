@@ -29,13 +29,17 @@ const signalSeries = {
   voltage:{label:"Voltage",unit:"V",values:[12.1,12.0,12.2,12.1,11.9,12.0,12.1,11.9,12.0,11.8,11.9,12.0],color:"#c4a3ff"}
 };
 const headings = {
-  overview:["Industrial overview","Monitor equipment health, telemetry signals and maintenance risk in one place.","Overview"],
+  overview:["Industrial Command Center","Predictive maintenance architecture showcase across simulated equipment and hardware.","OVERVIEW / SYNTHETIC OPERATIONS"],
   telemetry:["Telemetry explorer","Inspect synthetic vibration, temperature, voltage and current sensor signals.","Live telemetry"],
   assets:["Asset registry","Browse the synthetic equipment and demo health classifications.","Assets & devices"],
   alerts:["Alert management","Review local demonstration events and browser-only acknowledgments.","Alerts"],
   insights:["AI maintenance insights","Illustrative maintenance recommendations; no deployed predictive model.","AI insights"],
   hardware:["Hardware inventory","View the engineering catalog and component readiness without connecting to equipment.","Hardware inventory"],
-  security:["Security & audit","Review architecture evidence, readiness boundaries and governance status.","Security & audit"]
+  maintenance:["Maintenance Planning","Demonstration work orders and human review workflows; no CMMS mutation.","MAINTENANCE / DEMO"],
+  governance:["Architecture & AI Governance","Review proposed governance, safety gates, and responsible AI controls.","GOVERNANCE / ARCHITECTURE"],
+  reports:["Reports & Executive Analytics","Export synthetic architecture snapshots, not operational performance data.","REPORTS / SYNTHETIC"],
+  settings:["Workspace Settings","Review the boundaries of this local development environment.","SETTINGS / LOCAL"],
+  security:["Security & Audit","Review architecture evidence, readiness boundaries and governance status.","SECURITY / LAB"]
 };
 const escapeText = value => String(value).replace(/[&<>"']/g, x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
 const $ = id => document.getElementById(id);
@@ -136,4 +140,28 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
   $("export-btn").addEventListener("click",exportSnapshot);
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("sidebar").classList.remove("open");$("menu-toggle").setAttribute("aria-expanded","false");}});
+});
+
+/* Phase 2 executive dashboard interactions: preserve original telemetry and navigation. */
+document.addEventListener("DOMContentLoaded",()=>{
+  for(const id of ["quick-export","report-export"]){
+    const button=document.getElementById(id);
+    if(button)button.addEventListener("click",exportSnapshot);
+  }
+  const site=document.getElementById("site-filter");
+  if(site)site.addEventListener("click",()=>showToast("Plant A is a fixed synthetic demonstration site; live site switching is not configured."));
+  const search=document.getElementById("global-search");
+  if(search)search.addEventListener("keydown",event=>{
+    if(event.key!=="Enter")return;
+    event.preventDefault();
+    const q=search.value.trim().toLowerCase();
+    if(!q){showToast("Search for an asset name, alert or workspace section.");return}
+    const section=Object.keys(headings).find(key=>key.includes(q)||headings[key][0].toLowerCase().includes(q));
+    if(section){navigate(section);showToast("Opened "+headings[section][0]);return}
+    const asset=assets.find(a=>[a.id,a.name,a.area,a.type].some(value=>value.toLowerCase().includes(q)));
+    if(asset){navigate("assets");showToast("Found demo asset: "+asset.name);return}
+    const alert=alerts.find(a=>[a.id,a.title,a.detail].some(value=>value.toLowerCase().includes(q)));
+    if(alert){navigate("alerts");showToast("Found synthetic alert: "+alert.title);return}
+    showToast("No matching simulated asset, alert or section.");
+  });
 });
