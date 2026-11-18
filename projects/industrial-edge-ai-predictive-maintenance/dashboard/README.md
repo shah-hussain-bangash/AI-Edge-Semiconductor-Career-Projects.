@@ -120,3 +120,49 @@ This is a convenience workflow, not CI. Stop with Ctrl+C. It refuses unrelated s
 - `server.py`: local API, session storage, auth and audit.
 - `tests/test_server.py`: authored security/API tests; local execution pending.
 - `sync-dashboard.ps1`: opt-in Git sync for dedicated development branch.
+
+
+## Approved visual redesign — sign-in and executive command center
+
+**Design status:** Source implemented on `dashboard-live-edit`, awaiting browser screenshot/visual QA and an updated local test run. Not yet merged to `main` and not a production deployment.
+
+The approved dark command-center direction has been rebuilt with brighter text, electric cyan outlines, industrial midnight-blue surfaces and amber status/actions. Industrial machinery imagery is shipped as two original local SVG assets, `industrial-motor.svg` and `industrial-plant.svg`, both served through an explicit static allowlist. The source illustrations are stylized vector art, not photorealistic images or actual photographs of purchased hardware.
+
+### Sign-in layout
+
+- Full-width industrial illustration with overlaid synthetic sensor readouts and a distinct access card.
+- Local account login, show/hide password, optional remembered **email only** (not password), and explicit feedback for unconfigured SSO, recovery and public demo access.
+- Mobile responsive layout with keyboard focus treatments.
+- Corporate safety notice, demo provenance and readable accessible contrast.
+
+### Executive dashboard
+
+- Compact eleven-section navigation: Overview, Assets, Telemetry, AI Copilot, Inventory, Alerts, Maintenance, Security, Governance, Reports and Settings.
+- Five executive KPI fixtures (health, 30 planned hardware slots, alerts, model readiness and illustrative uptime).
+- Machine + sensor hero display, selectable sensor signal chart, alerts, activity, demonstration work queue and review-only quick actions.
+- Synthetic fleet distribution; equipment criticality; maintenance queue; pictorial hardware preview; governance/safety panel.
+- Functional read-only inventory API, alert browsing/ephemeral acknowledge, snapshot JSON export, session sign-out, section navigation and client-only asset/alert search.
+- No deceptive "30 connected devices", "deployed model" or production-risk statistics. The 30 component positions are **planning slots**, and only 14 component names are confirmed from the user's earlier requested inventory.
+
+### Preview on your Windows machine
+
+Because you have an opt-in auto-sync watcher on the development branch, press **Ctrl+C in the sync terminal before pulling** to avoid local/remote divergence during updates.
+
+```powershell
+cd "C:\Users\Gaming PC i9 3080\edgeops-workspace\projects\industrial-edge-ai-predictive-maintenance\dashboard"
+git status
+git pull --ff-only origin dashboard-live-edit
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_structure.py" -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_server.py" -v
+```
+
+Keep the preexisting Uvicorn development server running on localhost port 8877. Open:
+
+- http://127.0.0.1:8877/signin
+- http://127.0.0.1:8877/app (after authenticated sign-in)
+
+With `--reload`, the server may restart due to Python source changes. **Use Ctrl+F5 to hard-refresh** CSS, JS and SVG assets as needed. In a separate terminal restart the opt-in watcher with `.\sync-dashboard.ps1 -Watch -IntervalSeconds 20` once the branch has been pulled and tested.
+
+### Verification scope
+
+The dashboard is not pixel-identical to generated mockup images: the approved composition, contrast, features and colors have been translated into maintainable HTML/CSS/JS, with local vector machinery artwork rather than the mockup's photorealistic pixels. Source changes are committed to the GitHub branch, but no actual browser screenshot or new test output has been verified yet. Do not count new checks as passed until the test log and UI are inspected.
