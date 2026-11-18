@@ -115,3 +115,31 @@ button[disabled]{cursor:not-allowed;filter:none;opacity:.6}
 @media(max-width:1050px){.architecture-grid{grid-template-columns:1fr}.arch-pipeline{grid-template-columns:repeat(4,minmax(0,1fr))}.arch-support-grid{grid-template-columns:1fr}.arch-toolbar{align-items:start;flex-direction:column}.arch-inspector{min-height:0}}
 @media(max-width:650px){.arch-map,.arch-inspector{padding:14px}.arch-pipeline{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.arch-node{min-height:132px}.arch-map-heading h3{font-size:16px}.arch-toolbar-title span{font-size:11px}.arch-tab{font-size:11px;padding:8px 10px}.arch-map-bottom{font-size:10px}.architecture-status{padding:12px}.arch-detail-header{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.arch-node{transition:none}}
+
+
+/* UI reliability: application health, audit events and API fallback states. */
+.connection-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #318596;background:#103b49;color:#d9f3fa;border-radius:30px;padding:7px 10px;font-size:11px;font-weight:750;white-space:nowrap}
+.connection-indicator{height:8px;width:8px;display:block;background:#ffc85f;border-radius:50%;box-shadow:0 0 0 3px #ffc85f20}
+.connection-chip[data-state="ok"] .connection-indicator{background:#3ee4bd;box-shadow:0 0 0 3px #3ee4bd22}
+.connection-chip[data-state="error"]{background:#4b2c33;border-color:#e4868c}
+.connection-chip[data-state="error"] .connection-indicator{background:#ff929a}
+.audit-panel{margin-bottom:15px}
+.audit-panel .compact-head{align-items:center;gap:10px;flex-wrap:wrap}
+.audit-panel .compact-head p{font-size:12px;line-height:1.55;color:#c9e7ef;margin-top:5px}
+.audit-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 4px}
+.audit-meta>div{background:#093743;border:1px solid #277488;border-radius:9px;padding:12px;min-width:0}
+.audit-meta span{color:#acdce5;font-weight:700;text-transform:uppercase;letter-spacing:.55px;font-size:10px;display:block}
+.audit-meta strong{color:#effdff;display:block;overflow-wrap:anywhere;font-size:12px;margin-top:7px}
+.audit-feedback{font-size:12px;line-height:1.5;padding:10px 17px;color:#cbe3ea}
+.audit-feedback[data-state="loading"]{color:#f0d9a1}
+.audit-feedback[data-state="ok"]{color:#a6ffeb}
+.audit-feedback[data-state="error"]{color:#ffc9ce;border-left:3px solid #fe8595;background:#3d222c;margin:8px 16px;border-radius:5px;padding:10px 12px}
+.audit-panel .table-wrap{overflow-x:auto}
+.audit-panel table{min-width:630px}
+.audit-panel td{overflow-wrap:anywhere}
+#refresh-hardware,#refresh-audit{background:#063e4c;color:#d9ffff;border:1px solid #3eaabb;border-radius:8px;padding:9px 13px;min-height:39px;cursor:pointer;font-size:11px;font-weight:750}
+#refresh-hardware:hover,#refresh-audit:hover{background:#0b5864}
+#refresh-hardware:disabled,#refresh-audit:disabled{cursor:progress}
+.nav-item[aria-current="page"]{box-shadow:inset 3px 0 0 #42f2e4}
+@media(max-width:1250px){.connection-chip{font-size:0;padding:9px}.connection-chip .connection-indicator{flex-shrink:0}}
+@media(max-width:650px){.audit-meta{grid-template-columns:1fr}.audit-panel .compact-head{padding:14px}.connection-chip{font-size:0}.audit-panel table{min-width:640px}}
