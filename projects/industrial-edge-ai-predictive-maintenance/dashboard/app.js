@@ -34,6 +34,7 @@ const headings = {
   assets:["Asset registry","Browse the synthetic equipment and demo health classifications.","Assets & devices"],
   alerts:["Alert management","Review local demonstration events and browser-only acknowledgments.","Alerts"],
   insights:["AI maintenance insights","Illustrative maintenance recommendations; no deployed predictive model.","AI insights"],
+  hardware:["Hardware inventory","View the engineering catalog and component readiness without connecting to equipment.","Hardware inventory"],
   security:["Security & audit","Review architecture evidence, readiness boundaries and governance status.","Security & audit"]
 };
 const escapeText = value => String(value).replace(/[&<>"']/g, x => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
