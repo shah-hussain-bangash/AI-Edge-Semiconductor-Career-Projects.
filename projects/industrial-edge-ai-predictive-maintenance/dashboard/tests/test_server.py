@@ -77,6 +77,7 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual(self.http.get("/static/styles.css").status_code, 200)
         self.assertEqual(self.http.get("/static/industrial-motor.svg").status_code, 200)
         self.assertEqual(self.http.get("/static/industrial-plant.svg").status_code, 200)
+        self.assertEqual(self.http.get("/static/architecture.js").status_code, 200)
 
     def test_07_logout_requires_csrf(self):
         self.sign_in()
