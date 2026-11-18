@@ -144,6 +144,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 /* Phase 2 executive dashboard interactions: preserve original telemetry and navigation. */
 document.addEventListener("DOMContentLoaded",()=>{
+  document.querySelectorAll("img[data-fallback]").forEach(image=>image.addEventListener("error",()=>{const backup=image.dataset.fallback;if(backup&&image.getAttribute("src")!==backup)image.src=backup;}));
   for(const id of ["quick-export","report-export"]){
     const button=document.getElementById(id);
     if(button)button.addEventListener("click",exportSnapshot);
