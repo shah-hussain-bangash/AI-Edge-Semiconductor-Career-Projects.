@@ -17,11 +17,11 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertIn('src="/static/app.js"', self.html)
 
     def test_02_synthetic_disclosure(self):
-        self.assertIn("SYNTHETIC DATA", self.html)
+        self.assertIn("SYNTHETIC DEMONSTRATION", self.html)
         self.assertIn("no real devices", self.html.lower())
 
-    def test_03_six_navigation_sections(self):
-        for page in ("overview", "telemetry", "assets", "alerts", "insights", "security"):
+    def test_03_complete_navigation_sections(self):
+        for page in ("overview", "telemetry", "assets", "alerts", "insights", "hardware", "maintenance", "security", "governance", "reports", "settings"):
             with self.subTest(page=page):
                 self.assertIn('data-page="'+page+'"', self.html)
                 self.assertIn('id="page-'+page+'"', self.html)
@@ -40,17 +40,30 @@ class DashboardStructureTests(unittest.TestCase):
             self.assertIn(snippet, self.html)
 
     def test_07_responsive_layout_declared(self):
-        self.assertIn("max-width:760px", self.css)
-        self.assertIn("max-width:1220px", self.css)
+        self.assertIn("max-width:800px", self.css)
+        self.assertIn("max-width:1330px", self.css)
 
     def test_08_client_only_export_marked_as_demo(self):
         self.assertIn("edgeops-synthetic-dashboard-snapshot.json", self.js)
         self.assertIn("mode:\"synthetic-ui-prototype\"", self.js)
 
     def test_09_phase_one_has_no_production_auth_claim(self):
-        self.assertIn("does not implement user login", self.html)
+        self.assertIn("Authenticated local session", self.html)
 
-    def test_10_fixture_dataset_has_twelve_assets(self):
+    def test_10_industrial_images_are_local(self):
+        self.assertIn('/static/industrial-motor.svg', self.html)
+        self.assertIn('/static/industrial-plant.svg', self.html)
+        self.assertTrue((ROOT / "industrial-motor.svg").is_file())
+        self.assertTrue((ROOT / "industrial-plant.svg").is_file())
+
+    def test_11_signin_ui_is_complete(self):
+        html = (ROOT / "signin.html").read_text(encoding="utf-8")
+        for item in ('id="signin-form"', 'id="forgot-password"', 'id="sso-button"',
+                     'id="demo-button"', '/static/industrial-motor.svg'):
+            with self.subTest(item=item):
+                self.assertIn(item, html)
+
+    def test_12_fixture_dataset_has_twelve_assets(self):
         assets_match = re.search(r'const assets = \[(.*?)\];', self.js, re.S)
         self.assertIsNotNone(assets_match)
         self.assertEqual(len(re.findall(r'id:"[^"]+",name:', assets_match.group(1))), 12)
