@@ -79,9 +79,40 @@ function edgSession(me){
     edg("session-expiry").textContent=Number.isFinite(value)&&value>0?new Date(value*1000).toLocaleString():"Unavailable";
   }
 }
+
+function edgRecovery(message){
+  const banner=edg("api-recovery");
+  if(!banner)return;
+  banner.hidden=!message;
+  if(message && edg("api-recovery-description"))edg("api-recovery-description").textContent=message;
+}
+async function edgCheckConnection(){
+  const retry=edg("retry-connection");
+  if(retry)retry.disabled=true;
+  edgConnection("loading","Checking local API");
+  edgRecovery("");
+  try{
+    const [me,health]=await Promise.all([edgFetch("/api/me"),edgFetch("/api/system/health")]);
+    if(health.hardware_connected||health.actuators_enabled)throw new Error("Unsupported hardware-connected mode; this interface is read-only");
+    edgSession(me);
+    edgConnection("ok","Local demo API");
+    await Promise.all([initializeHardware(),initializeAudit()]);
+  }catch(error){
+    if(error.message==="Session expired")return;
+    edgConnection("error","API unavailable");
+    edgRecovery("The authenticated local service could not be verified: "+error.message+". You can retry the connection.");
+    edgFeedback("hardware-feedback","API unavailable: "+error.message+". Retry when server is available.","error");
+    edgFeedback("audit-feedback","Audit unavailable: "+error.message+".","error");
+    if(edg("hardware-table"))edg("hardware-table").innerHTML='<tr><td colspan="5" class="empty-state">Inventory unavailable until the local API reconnects.</td></tr>';
+    if(edg("hardware-metrics"))edg("hardware-metrics").textContent="";
+    if(edg("audit-entries"))edg("audit-entries").innerHTML='<tr><td colspan="4" class="empty-state">Audit history unavailable until the local API reconnects.</td></tr>';
+  }finally{if(retry)retry.disabled=false;}
+}
+
 document.addEventListener("DOMContentLoaded",async()=>{
   edg("refresh-hardware")?.addEventListener("click",initializeHardware);
   edg("refresh-audit")?.addEventListener("click",initializeAudit);
+  edg("retry-connection")?.addEventListener("click",edgCheckConnection);
   const logout=edg("logout");
   logout?.addEventListener("click",async()=>{
     logout.disabled=true;
@@ -93,16 +124,5 @@ document.addEventListener("DOMContentLoaded",async()=>{
       edgFeedback("audit-feedback","Sign-out request failed: "+error.message+".","error");
     }
   });
-  edgConnection("loading","Checking local API");
-  try{
-    const [me,health]=await Promise.all([edgFetch("/api/me"),edgFetch("/api/system/health")]);
-    edgSession(me);
-    if(health.hardware_connected||health.actuators_enabled)throw new Error("Unsupported hardware-connected mode; this interface is read-only");
-    edgConnection("ok","Local demo API");
-    await Promise.all([initializeHardware(),initializeAudit()]);
-  }catch(error){
-    edgConnection("error","API unavailable");
-    edgFeedback("hardware-feedback","API unavailable: "+error.message+". Retry when server is available.","error");
-    edgFeedback("audit-feedback","Audit unavailable: "+error.message+".","error");
-  }
+  await edgCheckConnection();
 });
