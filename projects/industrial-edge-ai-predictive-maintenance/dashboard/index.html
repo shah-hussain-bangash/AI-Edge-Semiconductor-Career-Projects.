@@ -4,7 +4,7 @@
 <meta name="color-scheme" content="dark"><meta name="description" content="EDGEOPS Industrial Edge AI Command Center — synthetic industrial architecture demo.">
 <title>EDGEOPS | Executive Operations Command Center</title>
 <link rel="stylesheet" href="/static/styles.css">
-<script src="/static/app.js" defer></script><script src="/static/dashboard-auth.js" defer></script>
+<script src="/static/app.js" defer></script><script src="/static/architecture.js" defer></script><script src="/static/dashboard-auth.js" defer></script>
 </head><body>
 <a class="skip" href="#main">Skip to dashboard</a>
 <div class="shell"><button class="mobile-scrim" id="mobile-scrim" type="button" aria-label="Close navigation" hidden></button>
@@ -15,6 +15,7 @@
     <button class="nav-item active" data-page="overview" aria-current="page"><span class="nav-symbol">⌂</span>Overview</button>
     <button class="nav-item" data-page="assets"><span class="nav-symbol">▱</span>Assets</button>
     <button class="nav-item" data-page="telemetry"><span class="nav-symbol">∿</span>Telemetry<span class="nav-note">SIM</span></button>
+    <button class="nav-item" data-page="architecture"><span class="nav-symbol">⬡</span>Architecture<span class="nav-note">LAB</span></button>
     <button class="nav-item" data-page="insights"><span class="nav-symbol">✧</span>AI Copilot<span class="nav-note">DEMO</span></button>
     <button class="nav-item" data-page="hardware"><span class="nav-symbol">▣</span>Inventory<span class="nav-note">30</span></button>
     <button class="nav-item" data-page="alerts"><span class="nav-symbol">⚠</span>Alerts<span class="nav-count" id="nav-alert-count">3</span></button>
@@ -84,6 +85,51 @@
  </section>
  <section id="page-assets" class="page-section"><div class="inner-head"><h2>Equipment Asset Registry</h2><p>12 synthetic machines. No live fleet is connected.</p></div><div class="table-toolbar"><label for="asset-filter">Status</label><select id="asset-filter" aria-label="Filter assets by status"><option value="all">All assets</option><option value="critical">Critical</option><option value="watch">Watch</option><option value="nominal">Nominal</option></select><label for="asset-search">Asset search</label><input id="asset-search" type="search" placeholder="Motor, pump, location..." autocomplete="off"><span id="asset-result-count" role="status" aria-live="polite">12 assets</span></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Equipment</th><th>Area</th><th>Type</th><th>Health</th><th>Status</th></tr></thead><tbody id="all-assets"></tbody></table></div></article></section>
  <section id="page-telemetry" class="page-section"><div class="inner-head"><h2>Telemetry Explorer</h2><p>Read-only synthetic sensor streams used to demonstrate the proposed telemetry architecture.</p></div><div id="telemetry-cards" class="metrics"></div><article class="panel interior-panel"><div class="compact-head"><h2>∿ &nbsp; Synthetic Signal Explorer</h2><select id="signal-select-secondary" aria-label="Select demo sensor"><option value="vibration">Vibration</option><option value="temperature">Temperature</option><option value="current">Current</option><option value="voltage">Voltage</option></select></div><div class="large-chart"><svg id="telemetry-chart" role="img" aria-label="Synthetic sensor history" viewBox="0 0 650 250" preserveAspectRatio="none"></svg></div><p class="minor">No active device data stream is connected to this dashboard.</p></article></section>
+ <section id="page-architecture" class="page-section" aria-label="Enterprise Architecture Explorer">
+   <div class="inner-head"><h2>Enterprise Architecture Explorer</h2><p>Trace a telemetry event from physical sensing through secure delivery to human-reviewed enterprise decisions.</p></div>
+   <div class="architecture-status"><span class="arch-status-dot"></span><div><strong>System blueprint with bounded laboratory evidence</strong><span>Not a live topology. The MQTT/mTLS, gateway, API and persistence components have software-lab evidence; connected sensors, deployed AI and production cloud remain planned.</span></div></div>
+   <div class="arch-toolbar"><div class="arch-toolbar-title"><strong>System flow</strong><span>Choose any stage to explore the engineering decisions and implementation boundary</span></div><div class="arch-view-switch" role="group" aria-label="Architecture view"><button type="button" class="arch-tab active" data-arch-mode="overview" aria-pressed="true">System flow</button><button type="button" class="arch-tab" data-arch-mode="security" aria-pressed="false">Security boundaries</button><button type="button" class="arch-tab" data-arch-mode="failure" aria-pressed="false">Failure handling</button></div></div>
+   <div class="architecture-grid">
+     <article class="panel arch-map" aria-label="Clickable end-to-end architecture">
+        <div class="arch-map-heading"><div><span class="section-kicker">END-TO-END SOLUTION BLUEPRINT</span><h3>Industrial Edge AI · Event Journey</h3></div><span id="arch-map-status" class="arch-map-pill">8 SYSTEM STAGES</span></div>
+        <div class="arch-pipeline" id="arch-pipeline" role="group" aria-label="Select an architecture stage">
+          <button type="button" class="arch-node active" data-arch-node="sensors" aria-pressed="true"><span class="arch-node-number">01</span><span class="arch-node-icon">◉</span><strong>Sensors & rig</strong><small>Physical signals · planned</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="esp32" aria-pressed="false"><span class="arch-node-number">02</span><span class="arch-node-icon">▣</span><strong>ESP32 acquisition</strong><small>Firmware · planned</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="mqtt" aria-pressed="false"><span class="arch-node-number">03</span><span class="arch-node-icon">⌁</span><strong>MQTT / mTLS</strong><small>Identity · lab tested</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="gateway" aria-pressed="false"><span class="arch-node-number">04</span><span class="arch-node-icon">⬡</span><strong>Edge gateway</strong><small>Validation · lab tested</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="pipeline" aria-pressed="false"><span class="arch-node-number">05</span><span class="arch-node-icon">▤</span><strong>Persistence</strong><small>Dedup & replay · lab</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="ai" aria-pressed="false"><span class="arch-node-number">06</span><span class="arch-node-icon">✧</span><strong>AI / agents</strong><small>Inference · not deployed</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="api" aria-pressed="false"><span class="arch-node-number">07</span><span class="arch-node-icon">◇</span><strong>Enterprise API</strong><small>FastAPI · local demo</small></button>
+          <span class="arch-link" aria-hidden="true">→</span>
+          <button type="button" class="arch-node" data-arch-node="dashboard" aria-pressed="false"><span class="arch-node-number">08</span><span class="arch-node-icon">▥</span><strong>Human console</strong><small>Read-only · local demo</small></button>
+        </div>
+        <div class="arch-map-bottom"><span><i class="arch-key planned"></i> Design / planned</span><span><i class="arch-key lab"></i> Software-lab tested</span><span><i class="arch-key demo"></i> Local dashboard demo</span><span><i class="arch-key blocked"></i> Production gate open</span></div>
+     </article>
+     <aside class="panel arch-inspector" aria-label="Selected architecture component detail">
+       <div class="arch-detail-header"><span>SELECTED COMPONENT</span><span id="arch-detail-badge" class="arch-phase">PLANNED</span></div>
+       <h3 id="arch-detail-title">Sensors & Bench Rig</h3>
+       <p id="arch-detail-summary">Planned industrial sensor inputs and physical safety boundary.</p>
+       <dl class="arch-facts">
+         <div><dt>Technologies</dt><dd id="arch-detail-tech">ADXL345 · DS18B20 · INA219</dd></div>
+         <div><dt>Security / safety</dt><dd id="arch-detail-security">No physical actuation via dashboard</dd></div>
+         <div><dt>Failure handling</dt><dd id="arch-detail-failure">Reject unsafe or unreliable measurements</dd></div>
+         <div><dt>Evidence and readiness</dt><dd id="arch-detail-evidence">Hardware not verified connected or tested</dd></div>
+       </dl>
+       <div class="arch-decision"><strong>Architecture decision</strong><p id="arch-detail-decision">Use safe instrumentation and isolated, human-supervised bench testing before any real equipment is energized.</p></div>
+     </aside>
+   </div>
+   <div class="arch-support-grid">
+     <article class="panel arch-support"><div class="compact-head"><h3>Security & Trust Boundaries</h3><span>DESIGN + LAB</span></div><div class="arch-support-content"><div><strong>Device identity</strong><p>Mutual TLS for approved lab MQTT identities. Production CA lifecycle and fleet provisioning remain unapproved.</p></div><div><strong>Validation boundary</strong><p>Gateway checks message shape, trust context, ordering and replay conditions before persistence.</p></div><div><strong>Human decision boundary</strong><p>Alerts and AI suggestions remain advisory; no machine command endpoints exist in the UI.</p></div></div></article>
+     <article class="panel arch-support"><div class="compact-head"><h3>Evidence vs. Deployment</h3><span>TRANSPARENT STATUS</span></div><div class="arch-support-content"><div><strong>132 previous architecture checks</strong><p>Locally reported EA-23 to EA-31 tests; not equivalent to industrial certification.</p></div><div><strong>25 dashboard checks</strong><p>Latest locally reported structural and API results; browser visual QA still required.</p></div><div><strong>Not yet validated</strong><p>Live hardware, autonomous agents, production cloud, 24/7 observability and physical safety.</p></div></div></article>
+   </div>
+   <div class="arch-bottom-note">Architecture Explorer is a read-only design and evidence walkthrough. It cannot send equipment commands, provision devices, or run an AI model.</div>
+ </section>
  <section id="page-insights" class="page-section"><div class="inner-head"><h2>AI Copilot & Maintenance Insights</h2><p>Architecture concept cards only. No trained predictive model, model confidence, RUL calculation or automated decisions.</p></div><div id="insight-cards" class="insights-grid"></div><div class="disclosure secondary"><span>ⓘ</span> Human-reviewed recommendations only. Synthetic text must not be interpreted as an engineering diagnosis.</div></section>
  <section id="page-hardware" class="page-section"><div class="inner-head"><h2>Industrial Hardware Inventory</h2><p>30 planning slots, 14 previously named components, 16 unspecified items. No item is confirmed purchased or connected.</p></div><div id="hardware-metrics" class="metrics"></div><article class="panel"><div class="compact-head"><h2>▣ &nbsp; Engineering Component Catalog</h2><span>READ-ONLY</span></div><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Component</th><th>Purpose</th><th>Category</th><th>Connection</th></tr></thead><tbody id="hardware-table"><tr><td colspan="5">Loading local API inventory…</td></tr></tbody></table></div></article></section>
  <section id="page-alerts" class="page-section"><div class="inner-head"><h2>Alerts & Incident Review</h2><p>Simulated alerts; acknowledgment affects the current browser session only.</p></div><div class="table-toolbar"><span class="compact-status" id="alert-summary">3 DEMO ALERTS</span><label for="alert-filter">Filter incidents</label><select id="alert-filter"><option value="all">All demo alerts</option><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="critical">Critical</option></select></div><article class="panel"><div id="all-alerts" class="full-alert-list"></div></article></section>
