@@ -13,8 +13,8 @@ class DashboardStructureTests(unittest.TestCase):
         cls.js = (ROOT / "app.js").read_text(encoding="utf-8")
 
     def test_01_local_static_assets(self):
-        self.assertIn('href="./styles.css"', self.html)
-        self.assertIn('src="./app.js"', self.html)
+        self.assertIn('href="/static/styles.css"', self.html)
+        self.assertIn('src="/static/app.js"', self.html)
 
     def test_02_synthetic_disclosure(self):
         self.assertIn("SYNTHETIC DATA", self.html)
