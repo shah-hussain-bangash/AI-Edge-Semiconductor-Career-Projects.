@@ -1,31 +1,51 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark"><title>EDGEOPS | Secure Workspace</title>
-<meta name="description" content="EDGEOPS industrial intelligence local development sign-in.">
+<meta name="color-scheme" content="dark"><title>EDGEOPS | Industrial Edge AI — Sign In</title>
+<meta name="description" content="EDGEOPS industrial edge AI predictive maintenance architecture demo.">
 <link rel="stylesheet" href="/static/signin.css"><script src="/static/signin.js" defer></script></head>
 <body><a class="skip" href="#signin-form">Skip to sign in</a>
-<main class="split">
-<section class="showcase" aria-label="Industrial intelligence platform overview">
-<div class="brand"><span class="mark">◈</span> EDGE<span>OPS</span><small>INDUSTRIAL INTELLIGENCE</small></div>
-<div class="hero"><div class="eyebrow"><span class="live-dot"></span> ENTERPRISE EDGE PLATFORM · LOCAL LAB</div>
-<h1>Intelligence at<br>the <em>industrial edge.</em></h1>
-<p>Unify industrial asset visibility, telemetry, maintenance insights and security governance from one control plane.</p>
-<div class="visual">
-<div class="visual-head"><span>OPERATIONS COMMAND / DEMONSTRATION</span><span class="tag">SYNTHETIC ONLY</span></div>
-<div class="visual-bars"><div><span>Fleet readiness</span><b>87%</b><i style="--w:87%"></i></div><div><span>Telemetry delivery fixture</span><b>98.6%</b><i style="--w:98.6%"></i></div><div><span>Identity test coverage</span><b>Lab verified</b><i style="--w:72%"></i></div></div>
-<div class="wave" aria-label="Decorative simulated telemetry"><svg viewBox="0 0 540 110" role="img"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#18bdb2"/><stop offset="1" stop-color="#81aaff"/></linearGradient></defs><path d="M0 78 C30 65 48 88 76 74 S128 36 152 67 198 82 224 49 270 18 296 53 337 75 362 48 405 15 429 50 475 80 499 41 526 60 540 25" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/><path d="M0 93 H540 M0 55 H540 M0 18 H540" fill="none" stroke="#34495e" stroke-dasharray="3 7"/></svg></div>
-</div>
-<div class="footer-meta"><span>◉ Zero actuator control</span><span>◉ Traceable lab evidence</span><span>◉ Safety-first architecture</span></div>
-</div>
-<div class="showcase-bottom">Architecture Lab · Sign-in foundation v0.2 <span>Not certified for production operations</span></div>
+<main class="login-shell">
+<section class="industrial-hero" aria-label="Industrial edge AI product introduction">
+  <div class="hero-shade"></div>
+  <div class="hero-content">
+    <div class="hero-dash" aria-hidden="true"></div>
+    <div class="hero-kicker">INDUSTRIAL INTELLIGENCE PLATFORM <span>· ARCHITECTURE DEMO</span></div>
+    <h1>Industrial Edge AI<br><em>Predictive Maintenance</em><br>at the Edge</h1>
+    <p>Asset intelligence. Failure-risk exploration.<br>From edge telemetry to enterprise decisions.</p>
+    <div class="motor-showcase">
+      <div class="photo-frame"><img src="https://images.unsplash.com/photo-1563456019498-843e11bdaae0?auto=format&amp;fit=crop&amp;w=1200&amp;q=85" alt="Industrial electric motor photographed in a manufacturing facility" loading="eager"><div class="photo-vignette"></div><div class="sensor-pin pin-a">+</div><div class="sensor-pin pin-b">+</div><div class="motor-label">INDUSTRIAL MOTOR · REPRESENTATIVE PHOTO</div></div>
+      <div class="floating-readouts" aria-label="Synthetic illustrated sensor readings">
+        <div class="readout"><span class="readout-icon mint">♡</span><div><span>Asset Health</span><strong>92% <small>illustrative</small></strong></div><span class="badge teal">DEMO</span></div>
+        <div class="readout"><span class="readout-icon amber">⚠</span><div><span>Failure Risk</span><strong class="amber">6% <small>illustrative</small></strong></div><span class="sparkline">⌁⌁⌁</span></div>
+        <div class="readout"><span class="readout-icon mint">∿</span><div><span>Vibration (RMS)</span><strong>2.1 <small>mm/s · demo</small></strong></div><span class="sparkline">⌁⌁⌁</span></div>
+        <div class="readout"><span class="readout-icon amber">♨</span><div><span>Temperature</span><strong>68°C <small>demo fixture</small></strong></div><span class="sparkline">⌁⌁</span></div>
+      </div>
+    </div>
+    <div class="hero-capabilities"><div><span>⬡</span><strong>Zero-Trust<br>Architecture</strong></div><div><span>◇</span><strong>Agentic AI<br>Design</strong></div><div><span>▣</span><strong>30-Slot<br>Hardware Plan</strong></div></div>
+  </div>
+  <div class="hero-footer">Industrial architecture demo · No live machine connections or safety approval</div>
 </section>
-<section class="access"><div class="mobile-brand">◈ EDGE<span>OPS</span></div><div class="card"><div class="access-icon" aria-hidden="true">⬡</div>
-<div class="label">SECURE ACCESS</div><h2>Welcome back</h2><p class="sub">Sign in to your local industrial intelligence workspace.</p>
-<div class="notice"><strong>Local development mode.</strong> Credentials come from your own environment settings. No default account is included.</div>
-<form id="signin-form" novalidate><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" inputmode="email" placeholder="name@company.com" maxlength="254" required>
-<label for="password">Password</label><div class="pw-wrap"><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" maxlength="256" required><button type="button" id="toggle-password" aria-label="Show password">Show</button></div>
-<p id="form-error" class="error" role="alert" aria-live="polite"></p>
-<button type="submit" class="submit" id="submit">Sign in to console <span aria-hidden="true">→</span></button>
-</form><div class="form-foot"><span>🔒 Session protected</span><span>Local-only bootstrap</span></div></div>
-<div class="copyright">EDGEOPS · Industrial Intelligence Console<br>Demo authentication environment · Not real OT access</div></section>
+<section class="login-panel" aria-label="EDGEOPS sign in">
+ <div class="login-card">
+   <div class="brand"><span class="brand-symbol">⚙</span><strong>EDGE<span>OPS</span></strong></div>
+   <div class="brand-subtitle">Industrial Edge AI Command Center</div>
+   <div class="accent-bar"><i></i></div>
+   <div class="login-head"><div class="eyebrow">SECURE WORKSPACE ACCESS</div><h2>Sign In to EDGEOPS</h2><p>Access your industrial intelligence architecture workspace, synthetic asset monitoring, and demonstration analytics.</p></div>
+   <div class="demo-notice"><span>ⓘ</span><span><strong>Development access only.</strong> This sign-in uses your locally configured account. Enterprise SSO and password recovery are not configured.</span></div>
+   <form id="signin-form" novalidate>
+     <label for="email">✉ &nbsp; Email Address</label>
+     <input type="email" id="email" name="email" maxlength="254" autocomplete="username" inputmode="email" placeholder="Enter your work email" required>
+     <label for="password">♙ &nbsp; Password</label>
+     <div class="password-wrap"><input id="password" name="password" type="password" maxlength="256" autocomplete="current-password" placeholder="Enter your password" required><button id="toggle-password" type="button" aria-label="Show password">Show</button></div>
+     <div class="login-options"><label class="remember"><input id="remember-email" type="checkbox"> Remember email on this device</label><button id="forgot-password" type="button" class="text-button">Forgot password?</button></div>
+     <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
+     <button id="submit" class="primary-login" type="submit"><span>➜</span> Sign In</button>
+   </form>
+   <div class="or-divider"><span>OR</span></div>
+   <button class="secondary-login" type="button" id="sso-button"><span>▤</span> Continue with SSO <small>Not configured</small></button>
+   <button class="outline-login" type="button" id="demo-button"><span>▦</span> Request Demo Access</button>
+   <p class="access-note" id="access-note" role="status" aria-live="polite">Local architecture demo only. No production identity or connected machines.</p>
+ </div>
+ <div class="login-footer"><span>▥</span> Security, governance, observability, and predictive maintenance in one platform.</div>
+</section>
 </main></body></html>
