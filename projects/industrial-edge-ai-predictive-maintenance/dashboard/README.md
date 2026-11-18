@@ -184,3 +184,22 @@ git push origin dashboard-live-edit
 ```
 
 Run `python -m unittest discover -s tests -p "test_server.py" -v`, reload the page and check the browser's Network panel for 200 responses on both image URLs. Do not publish the entire reference screenshot as a user background with the simulated login form duplicated on top.
+
+
+## User experience refinement — readability & operational navigation
+
+This revision keeps the existing locally authenticated architecture demo and prioritizes actual UX improvements over more imagery:
+- Increased text contrast, minimum body legibility and card section clarity.
+- Added interactive asset search and filter (all, critical, watch, nominal) with a visible result count.
+- Added demo alert filtering (all, open, acknowledged, critical).
+- Added `Focus` mode to expand the executive workspace for desktop review.
+- Mobile navigation now has a tap-to-close backdrop and Escape-key dismissal.
+- Improved form labels, field styling, chart captions and table scanning at smaller widths.
+- Kept synthetic metrics and local read-only safety disclosures visible.
+
+The changes are source commits on `dashboard-live-edit`; they are not automatically merged to `main`. Review after pulling the branch. Run:
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_structure.py -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_server.py -v
+```
+The refined UI should also be checked manually at desktop and mobile widths before merging.
