@@ -122,7 +122,7 @@ class DashboardApiTests(unittest.TestCase):
 
     def test_13_synthetic_telemetry_endpoint_requires_authentication(self):
         self.assertEqual(self.http.get("/api/synthetic-telemetry").status_code, 401)
-        self.assertEqual(self.http.post("/api/synthetic-telemetry", json={}).status_code, 401)
+        self.assertEqual(self.http.post("/api/synthetic-telemetry", json=self.synthetic_event("evt-unauth-1")).status_code, 401)
 
     def test_14_synthetic_telemetry_requires_csrf_and_explicit_provenance(self):
         self.sign_in()
