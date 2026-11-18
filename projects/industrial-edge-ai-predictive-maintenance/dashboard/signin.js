@@ -1,1 +1,42 @@
-"use strict";document.addEventListener("DOMContentLoaded",()=>{const form=document.getElementById("signin-form"),error=document.getElementById("form-error"),submit=document.getElementById("submit"),pass=document.getElementById("password");document.getElementById("toggle-password").addEventListener("click",e=>{const visible=pass.type==="text";pass.type=visible?"password":"text";e.currentTarget.textContent=visible?"Show":"Hide";e.currentTarget.setAttribute("aria-label",visible?"Show password":"Hide password")});form.addEventListener("submit",async e=>{e.preventDefault();error.textContent="";const email=form.email.value.trim(),password=pass.value;if(!email||!password){error.textContent="Enter your email and password.";return}submit.disabled=true;try{const response=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});if(response.ok){window.location.assign("/app");return}error.textContent=response.status===429?"Too many attempts. Try later.":response.status===401?"Invalid email or password.":"Unable to sign in. Check server configuration."}catch{error.textContent="Cannot reach the EDGEOPS server. Check that it is running."}finally{submit.disabled=false}})})
+"use strict";
+/* Production-facing features are intentionally unavailable in this local demo:
+   SSO, remote reset and external signup require a configured identity provider. */
+document.addEventListener("DOMContentLoaded",()=>{
+ const form=document.getElementById("signin-form");
+ const error=document.getElementById("form-error");
+ const submit=document.getElementById("submit");
+ const pass=document.getElementById("password");
+ const email=document.getElementById("email");
+ const note=document.getElementById("access-note");
+ const remember=document.getElementById("remember-email");
+ try { const saved=localStorage.getItem("edgeops_remembered_email");if(saved){email.value=saved;remember.checked=true} }catch{}
+ document.getElementById("toggle-password").addEventListener("click",e=>{
+   const visible=pass.type==="text";pass.type=visible?"password":"text";
+   e.currentTarget.textContent=visible?"Show":"Hide";
+   e.currentTarget.setAttribute("aria-label",visible?"Show password":"Hide password");
+ });
+ document.getElementById("forgot-password").addEventListener("click",()=>{
+   note.textContent="Password recovery is not configured in this local development environment. Contact your workspace administrator.";
+ });
+ document.getElementById("sso-button").addEventListener("click",()=>{
+   note.textContent="Enterprise SSO is planned, but no identity provider is connected. Use your local administrator credentials.";
+ });
+ document.getElementById("demo-button").addEventListener("click",()=>{
+   note.textContent="Demo access is managed locally. Ask the repository owner to configure an administrator account; no public registration is enabled.";
+ });
+ form.addEventListener("submit",async event=>{
+   event.preventDefault();error.textContent="";
+   const address=email.value.trim(),password=pass.value;
+   if(!address||!password){error.textContent="Enter your email and password.";return}
+   submit.disabled=true;
+   try{
+     const response=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email:address,password})});
+     if(response.ok){
+       try{if(remember.checked)localStorage.setItem("edgeops_remembered_email",address);else localStorage.removeItem("edgeops_remembered_email")}catch{}
+       window.location.assign("/app");return;
+     }
+     error.textContent=response.status===429?"Too many attempts. Try again later.":response.status===401?"Invalid email or password.":"Unable to sign in. Check local server configuration.";
+   }catch{error.textContent="Cannot reach the EDGEOPS local server. Confirm Uvicorn is running."}
+   finally{submit.disabled=false}
+ });
+});
