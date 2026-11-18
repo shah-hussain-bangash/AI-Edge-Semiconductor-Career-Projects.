@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,12 +20,22 @@ DB_PATH = Path(os.environ.get(
 )).resolve()
 
 
+@contextmanager
 def connect():
+    """Commit or roll back work, then always close the SQLite file handle.
+
+    sqlite3.Connection.__exit__ alone handles transactions but does not close
+    the connection. Explicit close is required for Windows temp cleanup.
+    """
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(str(DB_PATH), timeout=10)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA busy_timeout=10000")
-    return db
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA busy_timeout=10000")
+        with db:
+            yield db
+    finally:
+        db.close()
 
 
 def init_store():
