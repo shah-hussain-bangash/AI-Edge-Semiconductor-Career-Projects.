@@ -203,3 +203,32 @@ The changes are source commits on `dashboard-live-edit`; they are not automatica
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p test_server.py -v
 ```
 The refined UI should also be checked manually at desktop and mobile widths before merging.
+
+
+## Enterprise Architecture Explorer — next portfolio milestone
+
+Added an interactive **Architecture** navigation page that explains the system from end to end, with eight selectable stages:
+
+1. Guarded sensors and bench rig (planned)
+2. ESP32 telemetry acquisition (planned)
+3. MQTT mutual TLS transport (software-lab evidence)
+4. FastAPI edge validation gateway (software-lab evidence)
+5. SQLite local event persistence and replay (software-lab evidence)
+6. AI and agent orchestration (not deployed)
+7. Authenticated enterprise access API (local demo)
+8. Read-only executive operations console (local demo)
+
+Each stage can be inspected for: architectural purpose, technologies, security/safety boundary, failure handling, evidence/readiness and the key design decision. View controls also emphasize security boundaries or failure-handling considerations. Supporting panels distinguish verification history from deployment readiness.
+
+**Scope guardrails:** There is no live topology, no real hardware telemetry, no production SSO, no deployed AI model, and no actuator commands. MQTT/mTLS and replay claims refer to controlled local test fixtures, not operational certification.
+
+### Verify on Windows
+
+Pull `dashboard-live-edit` while the optional Git auto-sync watcher is paused. With the local authenticated Uvicorn server active on port 8877, open `http://127.0.0.1:8877/app`, choose **Architecture**, select each of the eight components, and verify the inspector updates. Try **Security boundaries** and **Failure handling**. Confirm keyboard focus, long-text overflow and mobile layout.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_structure.py -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_server.py -v
+```
+
+This UI and its source checks establish a reviewable architecture portfolio narrative, not a deployable enterprise solution or independently audited safety system.
