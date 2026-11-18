@@ -247,3 +247,31 @@ Prior to further architectural phases, the signed-in dashboard now includes:
 **UI QA checklist:** sign in, verify Overview, all 12 sidebar sections, search, asset filters, alert filters and acknowledgment behavior, architecture tabs, report export, session/audit display, inventory refresh, sign out, and 390px/768px/1440px layouts. The local API health chip is not live plant health.
 
 **Readiness boundary:** this is UI implementation and static/API regression hardening, not production readiness. Real infrastructure, SaaS tenancy, live telemetry, model inference, industrial safety and deployment evidence remain separate later phases.
+
+
+## Synthetic telemetry persistence and offline evaluation foundation (November 2026)
+
+The development server now exposes a deliberately **synthetic-only** telemetry event ledger. It does not connect industrial sensors or deploy a predictive model.
+
+- `POST /api/synthetic-telemetry` accepts validated demo events only from the authenticated local admin, with the same CSRF protection as existing mutations. Each event **must** state `"provenance": "synthetic-demo"`; other provenance values are rejected.
+- `GET /api/synthetic-telemetry?asset_id=MTR-001&limit=100` returns persisted demo events for authenticated users, including provenance and explicit `model_deployed: false`.
+- `telemetry_store.py` persists events by unique `event_id` with stable-content SHA-256 fingerprints. Identical replays are idempotent; conflicting replays return HTTP 409.
+- Data is stored **separately** from account/session/audit data in the ignored `.local/synthetic-telemetry.sqlite3` file. Override with `EDGEOPS_SYNTHETIC_TELEMETRY_DB` only when explicitly using an isolated test database. The existing `.local/dashboard.sqlite3` is not migrated or rewritten.
+- `ml_evaluation.py` provides deterministic precision/recall/F1/confusion-matrix calculations for supplied **labeled** scores, and a chronological holdout split helper. This is an **evaluation foundation**, not a trained model or any accuracy result. Sensor fixtures alone cannot establish equipment-failure ground truth.
+- CI tests cover API authentication/CSRF, provenance rejection, range validation, idempotency, conflict responses, persisted reads, and offline evaluation. All CI tests use isolated temporary databases.
+
+Example event body (send only with an authenticated local session and a matching `x-edgeops-csrf` header):
+
+```json
+{
+  "event_id": "demo-mtr001-0001",
+  "asset_id": "MTR-001",
+  "captured_at": "2026-11-18T12:00:00+00:00",
+  "vibration_mm_s": 2.6,
+  "temperature_c": 41.2,
+  "current_a": 1.7,
+  "provenance": "synthetic-demo"
+}
+```
+
+**Next validation gates:** time-series replay/retention and ingestion throughput; labeled failure dataset provenance, split leakage controls, calibrated model evaluation, explainability, model registry, drift detection, and human review. None of these is claimed complete by the synthetic ledger.
