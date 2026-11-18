@@ -34,3 +34,11 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Real Chromium navigation acceptance
         run: python -m unittest discover -s tests -p test_navigation_browser.py -v
+      - name: Upload desktop and mobile review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeops-ui-visual-review
+          path: projects/industrial-edge-ai-predictive-maintenance/dashboard/.acceptance-captures/*.png
+          if-no-files-found: warn
+          retention-days: 14
