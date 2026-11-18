@@ -499,7 +499,7 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         for section in ("overview", "insights", "hardware", "architecture", "alerts", "reports"):
             with self.subTest(section=section):
                 self.page.locator(f'.nav-item[data-page="{section}"]').click()
-                disclosure=self.page.locator(".disclosure")
+                disclosure=self.page.locator(".disclosure").first
                 self.assertTrue(disclosure.is_visible())
                 self.assertIn("simulated", disclosure.inner_text().lower())
                 self.assertIn("no real devices", disclosure.inner_text().lower())
