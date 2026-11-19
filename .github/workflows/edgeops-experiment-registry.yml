@@ -5,6 +5,7 @@ on:
     branches: [dashboard-live-edit]
     paths:
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/experiment_registry.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/run_offline_experiment.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/offline_baseline.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/time_series_features.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/ml_evaluation.py"
