@@ -226,7 +226,7 @@
 .pro-signin .hero-capabilities{border-radius:9px;background:#173344bb}
 @media(min-width:1700px){.pro-workspace main{padding:29px 38px}.pro-workspace .topbar{padding-left:38px;padding-right:38px}.pro-workspace .hero-machine{height:245px;min-height:245px}.pro-workspace .command-chart svg{height:185px;min-height:185px}}
 .pro-workspace .nav-item{font-size:14px}.pro-workspace :is(.action-outline,.quick-primary,.quick-outline,.ack-btn,.experience-inspect-asset){font-size:13px}.pro-workspace .asset-link,.pro-workspace td{font-size:14px}.pro-workspace .alert-title{font-size:14px}.pro-workspace .alert-description,.pro-workspace .alert-time{font-size:12px}.pro-workspace .product-hero p,.pro-workspace .readiness-criterion>p{font-size:14px}.pro-workspace .experience-pin{font-size:12px}.pro-workspace .experience-coverage-head p{font-size:13px}.pro-workspace .experience-coverage-label strong{font-size:14px}.pro-workspace .experience-coverage-legend>span{font-size:12px}.pro-workspace .experience-coverage-foot>span{font-size:12px}
-.dashboard-page.pro-workspace .sidebar :is(.workspace-picker small,.nav-group-title,.sidebar-foot,.sidebar-foot strong,.account-text small,.logout){color:#526780}
+
 @media(max-width:1300px){.pro-workspace{--experience-nav:222px}.pro-workspace .topbar{padding:12px 24px}.pro-workspace main{padding:23px 24px 30px}.pro-workspace .search-label{width:185px}.pro-workspace .topbar-title strong{max-width:145px}.pro-workspace .connection-chip{font-size:9px}.pro-workspace .command-content{grid-template-columns:minmax(0,1.15fr) minmax(175px,1fr);padding:16px;gap:14px}.pro-workspace .sensor-readouts>div{padding:12px 10px}.pro-workspace .sensor-readouts strong{font-size:20px}.pro-workspace .overview-primary{grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr)}.experience-coverage-map{grid-template-columns:repeat(7,minmax(0,1fr))}.experience-coverage-map button{font-size:10px}.pro-signin .photo-frame{height:225px}}
 @media(max-width:1100px){.pro-workspace .overview-primary{grid-template-columns:minmax(0,1fr)}.pro-workspace .overview-right{grid-template-columns:repeat(2,minmax(0,1fr))}.pro-workspace .overview-right>.quick-panel{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}.pro-workspace .overview-secondary{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}.pro-workspace .overview-secondary>.maintenance-panel{grid-column:1/-1}.pro-workspace .overview-tertiary{grid-template-columns:minmax(0,1fr)}.pro-workspace .command-content{grid-template-columns:minmax(0,1.5fr) minmax(200px,1fr);padding:20px;gap:18px}.pro-workspace .hero-machine{height:240px;min-height:240px}.pro-workspace .sensor-readouts>div{padding:15px}.pro-workspace .sensor-readouts strong{font-size:24px}.pro-workspace .topbar-title strong{max-width:125px}.experience-breadcrumb-prefix{font-size:11px}.pro-workspace .topbar-right{gap:10px}.pro-workspace .search-label{width:165px}.pro-workspace .top-actions .demo-flag{display:none}.experience-coverage-groups{gap:16px}.experience-coverage-map{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(max-width:800px){.pro-workspace .sidebar{position:fixed;left:-250px;width:250px;height:100dvh;z-index:11}.pro-workspace .sidebar.open{left:0;box-shadow:15px 0 65px #18385938}.pro-workspace .workspace{width:100%}.pro-workspace .topbar{padding:12px 20px;min-height:62px}.pro-workspace main{padding:22px 20px 28px}.pro-workspace .topbar-title strong{max-width:150px}.experience-breadcrumb-prefix{display:none}.experience-quick-access{gap:10px}.experience-pins-label{display:none}.experience-all-workspaces{font-size:10px}.experience-all-workspaces kbd{display:none}.pro-workspace .top-heading{align-items:flex-start}.pro-workspace .top-heading h1{font-size:27px}.pro-workspace .top-actions{max-width:230px}.pro-workspace .top-actions .action-outline{font-size:10px}.experience-pin-current>span{display:none}.pro-workspace .product-hero h2{font-size:23px}.experience-coverage-head{align-items:flex-start}.experience-coverage-total strong{font-size:31px}.experience-coverage-groups{grid-template-columns:minmax(0,1fr);gap:20px}.experience-coverage-map{grid-template-columns:repeat(10,minmax(0,1fr))}.experience-coverage-map button{max-height:32px;font-size:11px}.pro-workspace .experience-record-list .readiness-criterion{grid-template-columns:minmax(0,1fr) minmax(140px,.55fr);gap:0 20px}.pro-signin .login-shell{grid-template-columns:minmax(0,1fr)}.pro-signin .login-panel{padding:40px 25px}.pro-signin .hero-content{max-width:720px;padding:36px 30px}.pro-signin .photo-frame{height:215px}}
@@ -234,3 +234,57 @@
 
 /* Keep mobile quick access in one scrollable row so work remains near the top. */
 @media(max-width:800px){.experience-quick-access{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.experience-pins-label{display:block;grid-column:1;grid-row:1}.experience-all-workspaces{grid-column:2;grid-row:1}.experience-quick-access #experience-pins{grid-column:1/-1;grid-row:2;min-width:0;max-width:100%;overflow-x:auto;flex-wrap:nowrap;padding:3px 2px 7px;scroll-padding:2px}.experience-quick-access .experience-pin{flex:0 0 auto;min-height:34px;white-space:nowrap}}
+
+/* Readability refinement: stronger typography and a dedicated navigation surface. */
+.dashboard-page.pro-workspace{--experience-nav:268px;font-family:'Segoe UI',system-ui,sans-serif;font-size:16px;color:#152940}
+.dashboard-page.pro-workspace main :is(p,.product-muted,.scope-strip,.top-heading p,.kpi-caption,.section-heading p,.alert-description,.alert-time){font-size:14px;line-height:1.7;color:#344b64}
+.dashboard-page.pro-workspace main :is(h1,h2,h3){color:#122942;font-weight:700}
+.dashboard-page.pro-workspace main :is(button,input,select,textarea){font-size:14px}
+.dashboard-page.pro-workspace main :is(th,td,.asset-link){font-size:14px;line-height:1.6}
+.dashboard-page.pro-workspace main :is(.eyebrow,.section-kicker,.experience-pins-label){font-size:12px;color:#365572;font-weight:700;letter-spacing:.8px}
+.dashboard-page.pro-workspace main :is(.disclosure,.readiness-overview-entry p,.readiness-warning p,.product-stat small,.product-stat>span){font-size:14px;line-height:1.7}
+.dashboard-page.pro-workspace .topbar :is(.topbar-title strong,.command-trigger,.search-label input){font-size:14px;color:#263f59}
+.dashboard-page.pro-workspace .topbar .connection-chip{font-size:12px;color:#2c4c65}
+.dashboard-page.pro-workspace :is(.experience-pin,.experience-all-workspaces,.experience-coverage-head p,.experience-coverage-foot>span,.experience-coverage-legend>span){font-size:13px;line-height:1.6}
+.dashboard-page.pro-workspace .experience-coverage-map button{font-size:12px;min-height:28px}
+.dashboard-page.pro-workspace .sidebar{background:#10243c;border-color:#10243c;color:#edf5ff;box-shadow:5px 0 24px #132f4b16;color-scheme:dark}
+.dashboard-page.pro-workspace .sidebar .brand{padding:26px 23px 21px;gap:12px;border-bottom:1px solid #2a405a;margin-bottom:17px}
+.dashboard-page.pro-workspace .sidebar .brand strong{color:#fff;font-size:27px;letter-spacing:-.8px}
+.dashboard-page.pro-workspace .sidebar :is(.brand-accent,.brand-gear){color:#87ead1}
+.dashboard-page.pro-workspace .sidebar .brand-gear{width:38px;height:38px;border:1px solid #4a8e88;border-radius:11px;background:#183c48}
+.dashboard-page.pro-workspace .sidebar .brand small{color:#bdcfe2;font-size:10px;letter-spacing:1px;line-height:1.7}
+.dashboard-page.pro-workspace .sidebar .workspace-picker{margin:0 15px 7px;padding:13px 12px;background:#19334e;border:1px solid #3a536f;border-radius:12px;gap:11px}
+.dashboard-page.pro-workspace .sidebar .workspace-picker strong{font-size:14px;color:#fff}
+.dashboard-page.pro-workspace .sidebar .workspace-picker small{font-size:12px;color:#c5d7e9;line-height:1.6}
+.dashboard-page.pro-workspace .sidebar .workspace-monogram{width:34px;height:38px;background:#274f66;border-color:#507389;color:#bdf9e8;font-size:12px;border-radius:9px}
+.dashboard-page.pro-workspace .sidebar .nav{padding:0 13px 20px;scrollbar-width:thin;scrollbar-color:#58728f #10243c}
+.dashboard-page.pro-workspace .sidebar .nav-group-title{display:flex;align-items:center;gap:12px;padding:21px 11px 10px;font-size:11px;letter-spacing:1.4px;font-weight:700;color:#bdcfe3}
+.dashboard-page.pro-workspace .sidebar .nav-group-title:after{content:'';height:1px;flex:1;background:#354b65}
+.dashboard-page.pro-workspace .sidebar .nav-item{position:relative;min-height:47px;padding:9px 11px;gap:12px;margin:4px 0;border-radius:10px;color:#edf4ff;font-size:15px;font-weight:600;line-height:1.45;border:1px solid transparent;transition:background .15s,color .15s}
+.dashboard-page.pro-workspace .sidebar .nav-item .nav-symbol{width:30px;height:30px;flex:0 0 30px;min-width:30px;background:#203c58;border:1px solid #36516d;border-radius:8px;color:#d7e8fb;display:grid;place-items:center}
+.dashboard-page.pro-workspace .sidebar .nav-symbol svg{width:18px;height:18px}
+.dashboard-page.pro-workspace .sidebar .nav-item:hover{color:#fff;background:#23435f;border-color:#42647d;box-shadow:none}
+.dashboard-page.pro-workspace .sidebar .nav-item.active{color:#103e36;background:#d2f9ed;border-color:#9fe4d0;box-shadow:0 4px 14px #0002;font-weight:700}
+.dashboard-page.pro-workspace .sidebar .nav-item.active:before{content:'';position:absolute;left:-6px;top:12px;bottom:12px;width:3px;background:#6ee6bf;border-radius:3px}
+.dashboard-page.pro-workspace .sidebar .nav-item.active .nav-symbol{color:#124c41;background:#a8e7d2;border-color:#8ad1bc}
+.dashboard-page.pro-workspace .sidebar .nav-note{font-size:10px;color:#e2eefb;background:#2b4764;padding:3px 6px;border-radius:5px}
+.dashboard-page.pro-workspace .sidebar .nav-item.active .nav-note{color:#154d3f;background:#b0e8d7}
+.dashboard-page.pro-workspace .sidebar .nav-count{color:#fff;background:#913b54;font-size:11px;min-width:22px;border-radius:6px}
+.dashboard-page.pro-workspace .sidebar .sidebar-foot{background:#122a43;border-color:#354b65;padding:14px 18px;color:#c8d8eb;font-size:11px}
+.dashboard-page.pro-workspace .sidebar .sidebar-foot strong{color:#e2f5ed;font-size:11px}
+.dashboard-page.pro-workspace .sidebar .sidebar-account{padding:17px 16px;background:#0c1d31;border-color:#354b65;min-height:82px;gap:10px}
+.dashboard-page.pro-workspace .sidebar .sidebar-account .avatar{width:34px;height:34px;border-radius:10px;color:#c5ffeb;background:#214b49;border-color:#538c7f;font-size:12px}
+.dashboard-page.pro-workspace .sidebar .account-text strong{font-size:12px;color:#fff;max-width:165px}
+.dashboard-page.pro-workspace .sidebar :is(.account-text small,.logout){font-size:12px;color:#cbdbef}
+.dashboard-page.pro-workspace .sidebar button:focus-visible{outline:3px solid #9bedd4;outline-offset:2px}
+@media(max-width:1300px) and (min-width:801px){.dashboard-page.pro-workspace{--experience-nav:248px}}
+@media(max-width:800px){.dashboard-page.pro-workspace .sidebar{width:280px;left:-280px}.dashboard-page.pro-workspace .sidebar.open{left:0}.dashboard-page.pro-workspace .workspace{width:100%}.dashboard-page.pro-workspace main :is(p,.product-muted,.kpi-caption,.alert-description,.alert-time){font-size:14px}.dashboard-page.pro-workspace main .top-actions{flex-wrap:wrap}.dashboard-page.pro-workspace main .top-actions .demo-flag{font-size:10px}.dashboard-page.pro-workspace .topbar-title strong{font-size:13px}.dashboard-page.pro-workspace .experience-pin{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.dashboard-page.pro-workspace .sidebar .nav-item{transition:none}}
+
+.dashboard-page.pro-workspace main small{font-size:12px;line-height:1.6}
+.dashboard-page.pro-workspace main .kpi-title strong{font-size:14px;line-height:1.5}
+.dashboard-page.pro-workspace main .kpi-value>span{font-size:14px}
+.dashboard-page.pro-workspace main .sensor-readouts>div>span{font-size:13px;color:#344b64}
+.dashboard-page.pro-workspace main .sensor-readouts strong{font-size:26px;color:#142c46}
+.dashboard-page.pro-workspace main .sensor-readouts small{font-size:13px;color:#344b64}
+.dashboard-page.pro-workspace main :is(.visual-image-caption,.experience-coverage-total small){font-size:12px}

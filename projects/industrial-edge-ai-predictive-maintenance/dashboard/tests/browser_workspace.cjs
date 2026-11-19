@@ -99,6 +99,9 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
     if(width<=800)await page.locator('#menu-toggle').click();
     await page.locator(`.nav-item[data-page="${stage}"]`).click();
     assert(await page.locator('#page-'+stage).isVisible(),'Missing stage '+stage+' at '+width);
+    assert(await page.locator('.nav-item[data-page="'+stage+'"]').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=15),'Navigation text too small at '+width);
+    assert(await page.locator('.top-heading p').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=14),'Page description too small at '+width);
+
     if(stage==='overview'||stage==='telemetry'){
      const chartId=stage==='overview'?'trend-chart':'telemetry-chart';
      await page.waitForFunction(id=>{const svg=document.getElementById(id),label=svg.querySelector('text'),matrix=label?.getScreenCTM();const pixels=label&&matrix?parseFloat(getComputedStyle(label).fontSize)*Math.min(matrix.a,matrix.d):0;return Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<2&&Number.isFinite(pixels)&&pixels>=11.5;},chartId);
@@ -108,7 +111,7 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
     if(width===1440){contrastResults.push({stage,...await auditContrast(page)});fs.writeFileSync(path.join(captures,'contrast-report.json'),JSON.stringify(contrastResults,null,2));}
     if(width===1440&&['assets','reports','telemetry','profiles','maintenance','models','devices','knowledge','simulation','readiness'].includes(stage))await page.screenshot({path:path.join(captures,'workspace-'+stage+'-desktop.png'),fullPage:true});
    }
-   if(width===390){await page.locator('#menu-toggle').click();await page.locator('.nav-item[data-page="overview"]').click();await page.screenshot({path:path.join(captures,'workspace-overview-mobile.png'),fullPage:true});await page.locator('#command-open').click();assert(await page.locator('#command-dialog').isVisible(),'Mobile search inaccessible');await page.keyboard.press('Escape');assert(await page.locator('#command-dialog').isHidden(),'Escape failed on mobile');}
+   if(width===390){await page.locator('#menu-toggle').click();await page.screenshot({path:path.join(captures,'workspace-navigation-mobile.png')});await page.locator('.nav-item[data-page="overview"]').click();await page.screenshot({path:path.join(captures,'workspace-overview-mobile.png'),fullPage:true});await page.locator('#command-open').click();assert(await page.locator('#command-dialog').isVisible(),'Mobile search inaccessible');await page.keyboard.press('Escape');assert(await page.locator('#command-dialog').isHidden(),'Escape failed on mobile');}
   }
   const images=await page.locator('img').evaluateAll(nodes=>nodes.map(el=>({ok:el.complete&&el.naturalWidth>0,src:el.src})));assert(images.every(x=>x.ok),'Broken images '+JSON.stringify(images));
   assert(errors.length===0,'Browser errors '+errors.join(' | '));

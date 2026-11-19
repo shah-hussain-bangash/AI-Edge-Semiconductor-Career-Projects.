@@ -1,6 +1,6 @@
 # Operations Desk visual system
 
-The current interface uses a light workspace with white navigation with cobalt selection, white cards and restrained cobalt/teal accents. `theme.css` supplies semantic status colors; the final `experience.css` layer supplies the current product shell, spacing, typography and responsive component presentation.
+The current interface uses a light workspace with deep navy navigation with mint selection, white cards and restrained cobalt/teal accents. `theme.css` supplies semantic status colors; the final `experience.css` layer supplies the current product shell, spacing, typography and responsive component presentation.
 
 | Purpose | Color | Use |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ The current interface uses a light workspace with white navigation with cobalt s
 | Cards/forms | `#FFFFFF` | Primary reading surfaces |
 | Primary text | `#14263E` | Headings, values and record content |
 | Secondary text | `#465B74` | Supporting explanations and metadata |
-| Navigation | `#FFFFFF` | White sidebar, dark labels, cobalt active workspace |
+| Navigation | `#10243C` | Deep navy sidebar, bright labels, mint active workspace |
 | Primary action | `#245BD6` | Cobalt buttons with white text |
 | Teal | `#087B78` | Signal chart and selected accents |
 | Success | `#096B51` on `#E5F5ED` | Approved-plan and nominal labels |
@@ -32,3 +32,5 @@ The suites also check that resized trend/telemetry axis labels render at approxi
 `experience.js` adds up to five pinned destinations, real search access, asset inspection and a 53-criterion evidence map. Pins and compact/card presentation preferences use local browser storage. They never change account roles, evidence state or server permissions. The evidence map reads the authenticated register and opens existing criterion details; it does not calculate implementation completion or authorize release. It supports grouped arrow/Home/End keyboard navigation.
 
 The overview places metrics and work queues ahead of the retained guide banner. Existing workflows, source disclosures, counts, report reviews, planning and readiness services remain accessible across all 18 workspaces. All local image captions retain their concept/synthetic provenance.
+
+The readability refinement increases working text and controls to 14px, navigation to 15px semibold and supporting labels to 12–13px where practical. Navigation uses icon tiles, clear section dividers, a mint selected row with dark text, brighter secondary labels and an explicit focus outline. It retains the same 18 destinations and a scrollable mobile drawer.
