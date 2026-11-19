@@ -560,5 +560,41 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         self.assertFalse(self.errors,repr(self.errors))
 
 
+    def test_23_offline_reports_ui_empty_state_and_synthetic_disclosure(self):
+        self.page.locator('.nav-item[data-page="reports"]').click()
+        self.page.locator('#experiment-feedback[data-state="ok"]').wait_for(timeout=10000)
+        self.assertIn("verified synthetic experiments", self.page.locator("#experiment-feedback").inner_text())
+        self.assertIn("No verified offline experiments", self.page.locator("#experiment-entries").inner_text())
+        self.assertIn("not deployed", self.page.locator("#page-reports").inner_text().lower())
+        self.assertFalse(self.errors, repr(self.errors))
+
+    def test_24_offline_reports_ui_retry_and_safe_escaping(self):
+        self.page.locator('.nav-item[data-page="reports"]').click()
+        example={
+          "mode":"synthetic-offline-only","model_deployed":False,
+          "hardware_connected":False,
+          "experiments":[{
+             "run_id":"c1a717fb28e832215988332d2ab672a4a123fa90d0695dab31331aa9904af8c1",
+             "model_kind":"<img src=x onerror=alert(1)>",
+             "test_count":10,"precision":0.9,"recall":1.0,"f1":0.947368,
+             "deployment_status":"not-deployed"
+          }]
+        }
+        def mocked(route):
+            route.fulfill(status=200,content_type="application/json",body=json.dumps(example))
+        self.page.route("**/api/offline-experiments?limit=20",mocked)
+        self.page.locator("#refresh-experiments").click()
+        self.page.locator('#experiment-feedback[data-state="ok"]').wait_for(timeout=10000)
+        self.assertEqual(self.page.locator("#experiment-entries tr").count(),1)
+        self.assertEqual(self.page.locator("#experiment-entries img").count(),0)
+        self.assertIn("94.7%",self.page.locator("#experiment-entries").inner_text())
+        self.page.unroute("**/api/offline-experiments?limit=20",mocked)
+        self.page.locator("#refresh-experiments").click()
+        self.page.locator('#experiment-feedback[data-state="ok"]').wait_for(timeout=10000)
+        self.assertIn("No verified offline experiments",self.page.locator("#experiment-entries").inner_text())
+        self.assertFalse(self.errors,repr(self.errors))
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
