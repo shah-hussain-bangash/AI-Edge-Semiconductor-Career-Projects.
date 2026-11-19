@@ -12,7 +12,7 @@ This implementation provides 17 connected workspace views plus sign-in, with a s
 | Telemetry | Four signals, accessible sample table, CSV and units | Fixed synthetic samples; live ranges/resolution pending ingestion |
 | Device operations | Registry empty state, commissioning checklist, three receipt boundaries | No device enrollment, certificates, firmware or spool health integrated |
 | Incidents | Filter, session acknowledgment, case context and proposed timeline | Assignment, suppression, escalation and operational decisions pending service |
-| Maintenance | Seven-step guided path, independent approval/verification, session draft save/clear | Walkthrough is not a work-order state machine; no operational submission |
+| Maintenance | Authenticated saved planning requests, creator revisions/submission/withdrawal, independent admin review, decision history; separate seven-step execution preview and session scratchpad | Synthetic local planning only; no operational work order or field-execution authorization |
 | AI assistant | Illustrative insights, evidence requirements, knowledge navigation | Retrieval and generation unavailable |
 | Knowledge | Searchable design catalog, source context and revision/approval state | Catalog references are not approved SOPs or indexed documents |
 | Models | Lifecycle, lineage, blocked release checklist, verified comparison link | Offline report review works; deployment and rollback unavailable |
@@ -42,6 +42,12 @@ On 19 November 2026, the local Python suite completed with 54 passed and 24 brow
 The authenticated planning catalog now supports combined text/category filtering, six quick filters with source-derived counts, component details with conditional/instrument/spare/safety boundaries, filtered CSV with explicit planning provenance, and navigation to device readiness and design sources. Asset details expose collapsible sensor-design context and a route to the corresponding BOM category. These references never establish a physical sensor assignment.
 
 Chromium acceptance also verifies catalog filter intersections and empty/reset behavior, CSV scope/provenance, detail focus restoration, conditional-use wording, stale-detail removal and disabled actions during an API outage, filter-preserving retry, and the asset → component → device journey. No procurement, inspection, calibration, enrollment or hardware command is written by this interface.
+
+### Persistent planning extension
+
+The maintenance workspace now includes authenticated synthetic planning drafts, versioned creator edits, submission/withdrawal, independent admin approval/rejection, and durable decision history. See [maintenance planning contracts and boundaries](MAINTENANCE_PLANNING.md). Local review does not authorize operational work-order execution. A different admin account is required to review a creator's submitted request; administration does not bypass that rule.
+
+The expanded local Python suite completed with 62 passed and 24 Python-browser cases skipped. Eight new API cases verify scope, CSRF, ownership, independent decisions, retry safety, stale/concurrent writes, approval invalidation, revocation and validation. Separate Chromium suites exercise the new planning service, existing workspace interactions and saved-report review against disposable databases.
 
 ## Remaining production work
 

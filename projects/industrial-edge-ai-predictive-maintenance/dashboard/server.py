@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 import telemetry_store
+import maintenance_requests
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -35,7 +36,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
@@ -110,6 +111,7 @@ def init_db():
             comparison_id TEXT NOT NULL, revision INTEGER NOT NULL,
             status TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT NOT NULL,
             reviewed_at TEXT NOT NULL, PRIMARY KEY(comparison_id,revision))""")
+        maintenance_requests.init_schema(db)
         db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_epoch(),))
         number = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if number == 0 and BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD:
@@ -476,3 +478,6 @@ def review_model_comparison(comparison_id: str, body: ComparisonReviewInput, req
         review = comparison_review(db, comparison_id)
     return {"review": review, "approval_scope": "offline-report-only", "model_deployed": False,
             "hardware_connected": False}
+
+
+maintenance_requests.install_routes(app, database, require_user, require_csrf, record_audit)

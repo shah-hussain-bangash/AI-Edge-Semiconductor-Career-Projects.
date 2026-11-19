@@ -36,7 +36,7 @@ const headings = {
   alerts:["Alert management","Review local demonstration events and browser-only acknowledgments.","Alerts"],
   insights:["AI maintenance insights","Illustrative maintenance recommendations; no deployed predictive model.","AI insights"],
   hardware:["Hardware inventory","View the engineering catalog and component readiness without connecting to equipment.","Hardware inventory"],
-  maintenance:["Maintenance Planning","Demonstration work orders and human review workflows; no CMMS mutation.","MAINTENANCE / DEMO"],
+  maintenance:["Maintenance planning","Save and independently review local inspection plans for synthetic assets.","MAINTENANCE / LOCAL PLANNING"],
   governance:["Architecture & AI Governance","Review proposed governance, safety gates, and responsible AI controls.","GOVERNANCE / ARCHITECTURE"],
   reports:["Reports & Executive Analytics","Export synthetic architecture snapshots, not operational performance data.","REPORTS / SYNTHETIC"],
   settings:["Workspace Settings","Review the boundaries of this local development environment.","SETTINGS / LOCAL"],

@@ -6,9 +6,9 @@ The current workspace has 17 connected views plus sign-in: overview, assets, tel
 
 See [product workspace coverage and verification](PRODUCT_WORKSPACE.md) for every implemented interaction and service boundary. Start system design with [the consolidated production design](../production-design/README.md). Historical visual prototypes have moved to [the superseded prototype archive](../archive/ui-prototypes/README.md).
 
-The working local service provides opaque authenticated sessions, CSRF-protected actions, SQLite audit history, a read-only 30-category planning catalog, integrity-verified synthetic experiments, and scoped offline report review. Hardware purchases/instances and commissioning remain unverified. Equipment charts and incidents are synthetic. Professional profiles, maintenance walkthroughs, device readiness and simulation are clearly labeled previews. No live model deployment, enterprise identity, operational work-order approval, or equipment command is provided.
+The working local service provides opaque authenticated sessions, CSRF-protected actions, SQLite audit history, a read-only 30-category planning catalog, integrity-verified synthetic experiments, scoped offline report review, and persistent synthetic maintenance planning with independent-account review. Hardware purchases/instances and commissioning remain unverified. Equipment charts and incidents are synthetic. Professional profiles, maintenance walkthroughs, device readiness and simulation are clearly labeled previews. No live model deployment, enterprise identity, operational work-order approval, or equipment command is provided.
 
-Browser inspection drafts are session-only planning notes. Profile previews do not alter the signed-in account or server permissions. A report approval is never a work-order approval or model release.
+The inspection scratchpad is browser-session only. Saved maintenance planning requests use the authenticated service and retain revisions/decisions; see [planning contracts and access rules](MAINTENANCE_PLANNING.md). Profile previews do not alter the signed-in account or server permissions. A report approval is never a work-order approval or model release.
 
 ## Run from Cursor / VS Code on Windows
 
