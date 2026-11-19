@@ -34,5 +34,7 @@ jobs:
         run: python -m unittest discover -s tests -p test_server.py -v
       - name: Maintenance planning authorization and revision checks
         run: python -m unittest discover -s tests -p test_maintenance_requests.py -v
+      - name: Complete readiness register and acceptance boundary checks
+        run: python -m unittest discover -s tests -p test_production_readiness.py -v
       - name: Python syntax checks
         run: python -m compileall -q server.py tests

@@ -2,7 +2,7 @@
 
 **Status: authenticated local development application; production acceptance remains open.**
 
-The current workspace has 17 connected views plus sign-in: overview, assets, telemetry, incidents, maintenance, AI insights, device operations, models, knowledge, simulation, hardware, architecture, reports, security, governance, people/profiles and settings.
+The current workspace has 18 connected views plus sign-in: overview, assets, telemetry, incidents, maintenance, AI insights, device operations, models, knowledge, simulation, hardware, architecture, reports, security, governance, production readiness, people/profiles and settings.
 
 See [product workspace coverage and verification](PRODUCT_WORKSPACE.md) for every implemented interaction and service boundary. Start system design with [the consolidated production design](../production-design/README.md). Historical visual prototypes have moved to [the superseded prototype archive](../archive/ui-prototypes/README.md).
 

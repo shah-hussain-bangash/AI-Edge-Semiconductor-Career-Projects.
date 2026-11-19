@@ -1,6 +1,6 @@
 # EDGEOPS product workspace — 19 November 2026
 
-This implementation provides 17 connected workspace views plus sign-in, with a light cobalt/teal visual system, navy navigation, readable dark text, responsive layouts, searchable destinations, keyboard support, and six professional profile previews. See [the current theme and readability checks](THEME.md). It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
+This implementation provides 18 connected workspace views plus sign-in, with a light cobalt/teal visual system, navy navigation, readable dark text, responsive layouts, searchable destinations, keyboard support, and six professional profile previews. See [the current theme and readability checks](THEME.md). It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
 
 ## Capability coverage
 
@@ -21,6 +21,7 @@ This implementation provides 17 connected workspace views plus sign-in, with a l
 | Security/audit | Authenticated local audit records and session boundary | Enterprise grant/session administration pending |
 | Governance | Readiness and physical/security/model acceptance context | No release authorization inferred |
 | Reports | Verified experiment integrity, real scoped approval/rejection/history | Report review only; no equipment or model deployment authority |
+| Production readiness | All 18 requirements, 15 demonstrations, 20 measurable targets, 30 hardware categories, scope/acceptance references, evidence reviews/history and full export | Tracking only; no automatic physical or production acceptance |
 | Settings/people | Local density preference, shortcuts, six profile journeys, actual account identity | Profile preview never changes authenticated role or server permissions |
 
 Profiles: operations, technician, approver, ML engineer, administrator and auditor. They expose responsibility-specific journeys and limitations. These previews do not replace server authorization or implement the full future role catalog. Browser session drafts are stored separately from authenticated report decisions and can be cleared. They must not contain confidential information.
@@ -52,3 +53,7 @@ The expanded local Python suite completed with 62 passed and 24 Python-browser c
 ## Remaining production work
 
 Durable ingestion, enrolled device identities, actual sensor acquisition, central operational records, independent work-order decisions, enterprise identity, model release, grounded assistant services, recovery/load/security validation and physical commissioning remain required. A polished interface does not close these gates.
+
+## Complete readiness coverage
+
+See [the complete production readiness register mapping](PRODUCTION_READINESS.md). Every production-completion recommendation is represented, with no automatic completion inferred from existing prototype capabilities.

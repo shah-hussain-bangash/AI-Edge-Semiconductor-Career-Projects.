@@ -23,6 +23,6 @@ Chart colors have been deepened for light surfaces. Trend and telemetry charts r
 
 ## Verification
 
-The Chromium workspace suite checks sign-in, all 17 workspaces, asset detail, text/field contrast and responsive navigation at 1440/1024/768/390/320 pixels. The planning suite additionally checks its form and decision-history colors while exercising the real isolated local service. The audit targets a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text, using computed colors with alpha compositing. Disabled controls and image/gradient regions are excluded from that calculation and are not presented as automatically certified.
+The Chromium workspace suite checks sign-in, all 18 workspaces, asset detail, text/field contrast and responsive navigation at 1440/1024/768/390/320 pixels. The planning suite additionally checks its form and decision-history colors while exercising the real isolated local service. The audit targets a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text, using computed colors with alpha compositing. Disabled controls and image/gradient regions are excluded from that calculation and are not presented as automatically certified.
 
 The suites also check that resized trend/telemetry axis labels render at approximately 12 pixels or more, that dense tables scroll within their containers, and that larger readable labels do not create page-wide horizontal overflow. These checks are focused verification, not an accessibility certification of the entire product.
