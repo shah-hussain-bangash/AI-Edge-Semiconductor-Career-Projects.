@@ -565,7 +565,7 @@ class NavigationBrowserAcceptance(unittest.TestCase):
         self.page.locator('#experiment-feedback[data-state="ok"]').wait_for(timeout=10000)
         self.assertIn("verified synthetic experiments", self.page.locator("#experiment-feedback").inner_text())
         self.assertIn("No verified offline experiments", self.page.locator("#experiment-entries").inner_text())
-        self.assertIn("not deployed", self.page.locator("#page-reports").inner_text().lower())
+        self.assertIn("no predictive model is deployed", self.page.locator("#page-reports").inner_text().lower())
         self.assertFalse(self.errors, repr(self.errors))
 
     def test_24_offline_reports_ui_retry_and_safe_escaping(self):
