@@ -67,9 +67,33 @@ async function initializeAudit(){
     edgFeedback("audit-feedback",result.entries.length+" local authentication/audit events displayed. This is not an industrial event stream.","ok");
   }catch(error){
     edgFeedback("audit-feedback","Audit unavailable: "+error.message+".","error");
+    edgFeedback("experiment-feedback","Experiment reports unavailable until the local API reconnects.","error");
+    if(edg("experiment-entries"))edg("experiment-entries").innerHTML='<tr><td colspan="7" class="empty-state">Experiment reports unavailable until the local API reconnects.</td></tr>';
     if(edg("audit-entries"))edg("audit-entries").innerHTML='<tr><td colspan="4" class="empty-state">Audit history unavailable. Check permissions or retry.</td></tr>';
   }finally{if(button)button.disabled=false;}
 }
+async function initializeExperiments(){
+  const button=edg("refresh-experiments");
+  if(button)button.disabled=true;
+  edgFeedback("experiment-feedback","Loading verified local synthetic experiment reports…","loading");
+  try{
+    const result=await edgFetch("/api/offline-experiments?limit=20");
+    if(result.mode!=="synthetic-offline-only" || result.model_deployed!==false ||
+       result.hardware_connected!==false || !Array.isArray(result.experiments)){
+      throw new Error("Unexpected experiment provenance or deployment state");
+    }
+    const body=edg("experiment-entries");
+    const percent=value => Number.isFinite(Number(value)) ? (Number(value)*100).toFixed(1)+"%" : "n/a";
+    if(body)body.innerHTML=result.experiments.length
+      ?result.experiments.map(x=>'<tr><td><code>'+safeText(String(x.run_id||"").slice(0,12))+'</code></td><td>'+safeText(x.model_kind)+'</td><td>'+safeText(x.test_count)+'</td><td>'+safeText(percent(x.precision))+'</td><td>'+safeText(percent(x.recall))+'</td><td>'+safeText(percent(x.f1))+'</td><td>Offline / not deployed</td></tr>').join("")
+      :'<tr><td colspan="7" class="empty-state">No verified offline experiments found. Run the synthetic experiment CLI locally, then refresh.</td></tr>';
+    edgFeedback("experiment-feedback",result.experiments.length+" verified synthetic experiments. Demonstration-only holdout metrics; not operational predictions.","ok");
+  }catch(error){
+    edgFeedback("experiment-feedback","Offline experiment reports unavailable: "+error.message+". Retry to refresh.","error");
+    if(edg("experiment-entries"))edg("experiment-entries").innerHTML='<tr><td colspan="7" class="empty-state">Experiment results unavailable. No stale values are displayed.</td></tr>';
+  }finally{if(button)button.disabled=false;}
+}
+
 function edgSession(me){
   edg("account-label").textContent=me.email||"Authenticated user";
   if(edg("session-user"))edg("session-user").textContent=me.email||"Unavailable";
@@ -96,7 +120,7 @@ async function edgCheckConnection(){
     if(health.hardware_connected||health.actuators_enabled)throw new Error("Unsupported hardware-connected mode; this interface is read-only");
     edgSession(me);
     edgConnection("ok","Local demo API");
-    await Promise.all([initializeHardware(),initializeAudit()]);
+    await Promise.all([initializeHardware(),initializeAudit(),initializeExperiments()]);
   }catch(error){
     if(error.message==="Session expired")return;
     edgConnection("error","API unavailable");
@@ -112,6 +136,7 @@ async function edgCheckConnection(){
 document.addEventListener("DOMContentLoaded",async()=>{
   edg("refresh-hardware")?.addEventListener("click",initializeHardware);
   edg("refresh-audit")?.addEventListener("click",initializeAudit);
+  edg("refresh-experiments")?.addEventListener("click",initializeExperiments);
   edg("retry-connection")?.addEventListener("click",edgCheckConnection);
   const logout=edg("logout");
   logout?.addEventListener("click",async()=>{
