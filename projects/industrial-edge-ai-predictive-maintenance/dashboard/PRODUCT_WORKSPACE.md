@@ -1,6 +1,6 @@
 # EDGEOPS product workspace — 19 November 2026
 
-This implementation provides 17 connected workspace views plus sign-in, with a slate/teal visual system, responsive navigation, searchable destinations, keyboard support, and six professional profile previews. It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
+This implementation provides 17 connected workspace views plus sign-in, with a light cobalt/teal visual system, navy navigation, readable dark text, responsive layouts, searchable destinations, keyboard support, and six professional profile previews. See [the current theme and readability checks](THEME.md). It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
 
 ## Capability coverage
 

@@ -1,4 +1,5 @@
 const {chromium}=require('playwright');
+const {auditContrast}=require('./contrast.cjs');
 const {spawn,spawnSync}=require('child_process');
 const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),crypto=require('crypto');
 const python=process.env.PYTHON_BINARY || 'python';
@@ -23,6 +24,7 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
   const assert=(condition,message)=>{if(!condition)throw Error(message);};
   const captures=path.join(root,'.acceptance-captures');fs.mkdirSync(captures,{recursive:true});
   await page.goto(base+'/signin');await page.screenshot({path:path.join(captures,'workspace-signin-desktop.png'),fullPage:true});
+  const contrastResults=[{stage:'signin',...await auditContrast(page)}];
   for(const width of [768,390,320]){
    await page.setViewportSize({width,height:900});
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Sign-in horizontal overflow at '+width);
@@ -40,6 +42,7 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
   assert(await page.locator('#all-assets tr').count()===1,'Combined asset filter incorrect');
   const opener=page.locator('#all-assets [data-open-asset="MTR-001"]');await opener.click();
   assert(await page.locator('#asset-dialog').isVisible(),'Asset drawer not visible');
+  contrastResults.push({stage:'asset dialog',...await auditContrast(page)});
   assert((await page.locator('#asset-dialog').innerText()).includes('Last measured reading'),'Missing measurement availability');
   assert((await page.locator('#asset-dialog').innerText()).includes('AI-generated concept'),'Concept provenance absent in asset drawer');await page.screenshot({path:path.join(captures,'workspace-asset-visual.png')});
   await page.keyboard.press('Escape');assert(await opener.evaluate(el=>document.activeElement===el),'Drawer did not restore focus');
@@ -86,14 +89,22 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
     if(width<=800)await page.locator('#menu-toggle').click();
     await page.locator(`.nav-item[data-page="${stage}"]`).click();
     assert(await page.locator('#page-'+stage).isVisible(),'Missing stage '+stage+' at '+width);
+    if(stage==='overview'||stage==='telemetry'){
+     const chartId=stage==='overview'?'trend-chart':'telemetry-chart';
+     await page.waitForFunction(id=>{const svg=document.getElementById(id),label=svg.querySelector('text'),matrix=label?.getScreenCTM();const pixels=label&&matrix?parseFloat(getComputedStyle(label).fontSize)*Math.min(matrix.a,matrix.d):0;return Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<2&&Number.isFinite(pixels)&&pixels>=11.5;},chartId);
+    }
     const layout=await page.evaluate(()=>({document:document.documentElement.scrollWidth,body:document.body.scrollWidth,width:innerWidth}));
-    assert(layout.document<=layout.width+2&&layout.body<=layout.width+2,'Horizontal overflow '+JSON.stringify({stage,...layout}));
+    if(layout.document>layout.width+2||layout.body>layout.width+2){const offenders=await page.evaluate(()=>[...document.querySelectorAll('main *')].filter(el=>el.getClientRects().length&&el.getBoundingClientRect().right>innerWidth+2).map(el=>({tag:el.tagName,id:el.id,class:el.className?.baseVal??el.className,width:Math.round(el.getBoundingClientRect().width),right:Math.round(el.getBoundingClientRect().right),text:el.textContent.slice(0,45)})).slice(-15));throw Error('Horizontal overflow '+JSON.stringify({stage,...layout,offenders}));}
+    if(width===1440){contrastResults.push({stage,...await auditContrast(page)});fs.writeFileSync(path.join(captures,'contrast-report.json'),JSON.stringify(contrastResults,null,2));}
     if(width===1440&&['assets','reports','telemetry','profiles','maintenance','models','devices','knowledge','simulation'].includes(stage))await page.screenshot({path:path.join(captures,'workspace-'+stage+'-desktop.png'),fullPage:true});
    }
    if(width===390){await page.locator('#menu-toggle').click();await page.locator('.nav-item[data-page="overview"]').click();await page.screenshot({path:path.join(captures,'workspace-overview-mobile.png'),fullPage:true});await page.locator('#command-open').click();assert(await page.locator('#command-dialog').isVisible(),'Mobile search inaccessible');await page.keyboard.press('Escape');assert(await page.locator('#command-dialog').isHidden(),'Escape failed on mobile');}
   }
   const images=await page.locator('img').evaluateAll(nodes=>nodes.map(el=>({ok:el.complete&&el.naturalWidth>0,src:el.src})));assert(images.every(x=>x.ok),'Broken images '+JSON.stringify(images));
   assert(errors.length===0,'Browser errors '+errors.join(' | '));
+  fs.writeFileSync(path.join(captures,'contrast-report.json'),JSON.stringify(contrastResults,null,2));
+  const contrastFailures=contrastResults.flatMap(result=>result.failures.map(failure=>({stage:result.stage,...failure})));
+  if(contrastFailures.length)throw Error('Text contrast failures '+JSON.stringify(contrastFailures));
   console.log('PASS: grouped navigation; filters/reset/sort; asset drawer and focus restoration; command search/keyboard/empty state; telemetry table/CSV; saved density; shortcuts; all 17 pages at 5 widths; local images.');
  }catch(e){console.error(e);console.error(log);process.exitCode=1;}
  finally{if(browser)await browser.close();service.kill();await new Promise(r=>service.once('exit',r));if(path.dirname(path.resolve(temp))!==path.resolve(os.tmpdir()) || !path.basename(temp).startsWith('edgeops-review-'))throw Error('Unexpected temporary directory');fs.rmSync(temp,{recursive:true,force:true});}

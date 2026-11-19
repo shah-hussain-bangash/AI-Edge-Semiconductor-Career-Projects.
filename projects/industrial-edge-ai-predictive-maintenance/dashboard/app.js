@@ -23,10 +23,10 @@ const alerts = [
   {id:"AL-2403",severity:"watch",title:"Current deviation above demo threshold",detail:"Cooling Fan B · Processing Hall",time:"11:35 · synthetic event",ack:false}
 ];
 const signalSeries = {
-  vibration:{label:"Vibration",unit:"m/s²",values:[2.1,2.3,2.0,2.5,2.9,2.6,3.0,3.2,2.8,3.5,3.9,3.7],color:"#48d4b0"},
-  temperature:{label:"Temperature",unit:"°C",values:[27.2,27.4,28,28.3,28.5,29,29.1,29.5,30.2,30.7,31.0,31.5],color:"#f4ba62"},
-  current:{label:"Current",unit:"A",values:[.42,.41,.45,.48,.44,.5,.46,.54,.52,.56,.55,.59],color:"#69adfb"},
-  voltage:{label:"Voltage",unit:"V",values:[12.1,12.0,12.2,12.1,11.9,12.0,12.1,11.9,12.0,11.8,11.9,12.0],color:"#c4a3ff"}
+  vibration:{label:"Vibration",unit:"m/s²",values:[2.1,2.3,2.0,2.5,2.9,2.6,3.0,3.2,2.8,3.5,3.9,3.7],color:"#087b78"},
+  temperature:{label:"Temperature",unit:"°C",values:[27.2,27.4,28,28.3,28.5,29,29.1,29.5,30.2,30.7,31.0,31.5],color:"#a75b08"},
+  current:{label:"Current",unit:"A",values:[.42,.41,.45,.48,.44,.5,.46,.54,.52,.56,.55,.59],color:"#245bd6"},
+  voltage:{label:"Voltage",unit:"V",values:[12.1,12.0,12.2,12.1,11.9,12.0,12.1,11.9,12.0,11.8,11.9,12.0],color:"#7950bb"}
 };
 const headings = {
   overview:["Fleet overview","Your fleet, review queue, and offline intelligence in one workspace.","OVERVIEW / SYNTHETIC OPERATIONS"],
@@ -77,7 +77,9 @@ function renderAlerts(){
 }
 function plot(svgId,signal){
   const series=signalSeries[signal], svg=$(svgId); if(!series||!svg)return;
-  const width=650,height=250,left=44,right=12,top=14,bottom=20;
+  const bounds=svg.getBoundingClientRect();
+  const width=Math.max(220,Math.round(bounds.width)||650),height=Math.max(140,Math.round(bounds.height)||250),left=44,right=12,top=14,bottom=20;
+  svg.setAttribute("viewBox","0 0 "+width+" "+height);
   const min=Math.min(...series.values), max=Math.max(...series.values),margin=(max-min)*.23||1;
   const low=min-margin,high=max+margin;
   const x=i=>left+i*(width-left-right)/(series.values.length-1),y=v=>top+(high-v)*(height-top-bottom)/(high-low);
@@ -151,6 +153,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("export-btn").addEventListener("click",exportSnapshot);
   const current=window.location.hash.slice(1);
   if(headings[current])navigate(current,false);
+  const chartResize=new ResizeObserver(entries=>{for(const entry of entries){if(entry.contentRect.width>0&&entry.contentRect.height>0)plot(entry.target.id,$(entry.target.id==="trend-chart"?"signal-select":"signal-select-secondary").value);}});
+  ["trend-chart","telemetry-chart"].forEach(id=>chartResize.observe($(id)));
   window.addEventListener("popstate",()=>navigate(headings[window.location.hash.slice(1)]?window.location.hash.slice(1):"overview",false));
   window.addEventListener("hashchange",()=>navigate(headings[window.location.hash.slice(1)]?window.location.hash.slice(1):"overview",false));
   document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("sidebar").classList.remove("open");$("menu-toggle").setAttribute("aria-expanded","false");}});
