@@ -23,9 +23,16 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
   const assert=(condition,message)=>{if(!condition)throw Error(message);};
   const captures=path.join(root,'.acceptance-captures');fs.mkdirSync(captures,{recursive:true});
   await page.goto(base+'/signin');await page.screenshot({path:path.join(captures,'workspace-signin-desktop.png'),fullPage:true});
+  for(const width of [768,390,320]){
+   await page.setViewportSize({width,height:900});
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Sign-in horizontal overflow at '+width);
+   if(width===390)await page.screenshot({path:path.join(captures,'workspace-signin-mobile.png'),fullPage:true});
+  }
+  await page.setViewportSize({width:1440,height:1000});
   await page.locator('#email').fill(env.EDGEOPS_ADMIN_EMAIL);await page.locator('#password').fill(password);await page.locator('#submit').click();await page.waitForURL('**/app');
   await page.locator('#connection-chip[data-state="ok"]').waitFor();
   await page.screenshot({path:path.join(captures,'workspace-overview-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:1440,height:1450});await page.screenshot({path:path.join(captures,'workspace-overview-preview.png')});await page.setViewportSize({width:1440,height:1000});
   assert(await page.locator('.nav-group-title').count()===3,'Grouped navigation missing');
   assert((await page.locator('#page-overview').innerText()).includes('3.70'),'Overview fixture not synchronized');
   await page.locator('.nav-item[data-page="assets"]').click();
@@ -34,6 +41,7 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
   const opener=page.locator('#all-assets [data-open-asset="MTR-001"]');await opener.click();
   assert(await page.locator('#asset-dialog').isVisible(),'Asset drawer not visible');
   assert((await page.locator('#asset-dialog').innerText()).includes('Last measured reading'),'Missing measurement availability');
+  assert((await page.locator('#asset-dialog').innerText()).includes('AI-generated concept'),'Concept provenance absent in asset drawer');await page.screenshot({path:path.join(captures,'workspace-asset-visual.png')});
   await page.keyboard.press('Escape');assert(await opener.evaluate(el=>document.activeElement===el),'Drawer did not restore focus');
   await opener.click();await page.locator('#asset-open-telemetry').click();assert(await page.locator('#page-telemetry').isVisible(),'Asset-to-telemetry navigation failed');
   await page.locator('#signal-select-secondary').selectOption('temperature');await page.locator('.signal-data summary').click();
