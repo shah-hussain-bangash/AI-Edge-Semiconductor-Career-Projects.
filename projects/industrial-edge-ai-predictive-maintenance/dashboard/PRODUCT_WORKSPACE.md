@@ -1,6 +1,6 @@
 # EDGEOPS product workspace — 19 November 2026
 
-This implementation provides 18 connected workspace views plus sign-in, with a light cobalt/teal visual system, navy navigation, readable dark text, responsive layouts, searchable destinations, keyboard support, and six professional profile previews. See [the current theme and readability checks](THEME.md). It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
+This implementation provides 18 connected workspace views plus sign-in, with a light cobalt/teal visual system, white navigation with cobalt active states, readable dark text, responsive layouts, searchable and pinned destinations, keyboard support, and six professional profile previews. See [the current theme and readability checks](THEME.md). It implements the presentation and interaction layer of the consolidated design. It does not establish production readiness.
 
 ## Capability coverage
 
@@ -57,3 +57,7 @@ Durable ingestion, enrolled device identities, actual sensor acquisition, centra
 ## Complete readiness coverage
 
 See [the complete production readiness register mapping](PRODUCTION_READINESS.md). Every production-completion recommendation is represented, with no automatic completion inferred from existing prototype capabilities.
+
+## Operations Desk refinement
+
+The current shell uses compact page headings, persistent local quick access, a more prominent asset inspection path and metrics-first overview. Readiness includes a clickable status map for all 53 criteria and compact-list/detailed-card preferences. All original fields, target values, evidence/history, review controls, 30 hardware categories and 13 scope references remain present. Presentation preferences are local and confer no authority.

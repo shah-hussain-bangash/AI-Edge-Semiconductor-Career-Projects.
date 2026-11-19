@@ -36,6 +36,16 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
   await page.screenshot({path:path.join(captures,'workspace-overview-desktop.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:1450});await page.screenshot({path:path.join(captures,'workspace-overview-preview.png')});await page.setViewportSize({width:1440,height:1000});
   assert(await page.locator('.nav-group-title').count()===3,'Grouped navigation missing');
+  // Pinned destinations are real navigation, persisted locally without changing account roles.
+  await page.locator('#experience-pin-current').click();assert(await page.locator('#experience-pins [data-experience-route="overview"]').count()===0,'Unpin failed');
+  await page.reload();await page.locator('#connection-chip[data-state="ok"]').waitFor();assert(await page.locator('#experience-pin-current').getAttribute('aria-pressed')==='false','Pin preference did not persist');
+  await page.locator('#experience-pin-current').click();await page.locator('#experience-pins [data-experience-route="maintenance"]').click();assert(await page.locator('#page-maintenance').isVisible(),'Pinned destination failed');
+  await page.locator('.nav-item[data-page="assets"]').click();await page.locator('#experience-pin-current').click();assert(await page.locator('#experience-pins button').count()===5,'Fifth pin missing');
+  await page.locator('.nav-item[data-page="telemetry"]').click();await page.locator('#experience-pin-current').click();assert(await page.locator('#experience-pins button').count()===5,'Pin limit exceeded');
+  await page.locator('#experience-all-workspaces').click();assert(await page.locator('#command-dialog').isVisible(),'Quick access did not open workspace search');await page.keyboard.press('Escape');
+  await page.locator('.nav-item[data-page="overview"]').click();await page.locator('.experience-inspect-asset').click();assert(await page.locator('#asset-dialog').isVisible(),'Overview inspection failed');await page.keyboard.press('Escape');
+  assert(await page.locator('#page-overview > .experience-guide-banner:last-child').count()===1,'Guide displaced primary overview controls');
+
   assert((await page.locator('#page-overview').innerText()).includes('3.70'),'Overview fixture not synchronized');
   await page.locator('.nav-item[data-page="assets"]').click();
   await page.locator('#asset-search').fill('motor');await page.locator('#asset-filter').selectOption('critical');
