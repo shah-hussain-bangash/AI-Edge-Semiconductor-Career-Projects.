@@ -1,29 +1,14 @@
 # EDGEOPS — Industrial Intelligence Platform
 
-**Status: production-oriented development foundation, NOT production-ready.** This directory now includes a responsive sign-in page, authenticated Python API, industrial dashboard UI, a proposed 30-slot hardware catalog, local audit records, and a safe optional Git sync workflow.
+**Status: authenticated local development application; production acceptance remains open.**
 
-**Previous verification:** The enterprise-architecture laboratory phases EA-23 through EA-31 have 132 tests reported passed on the user's Windows computer. Dashboard backend tests and visual browser tests are **new and have not yet been executed in that environment**.
+The current workspace has 17 connected views plus sign-in: overview, assets, telemetry, incidents, maintenance, AI insights, device operations, models, knowledge, simulation, hardware, architecture, reports, security, governance, people/profiles and settings.
 
-## High-level system
+See [product workspace coverage and verification](PRODUCT_WORKSPACE.md) for every implemented interaction and service boundary. Start system design with [the consolidated production design](../production-design/README.md). Historical visual prototypes have moved to [the superseded prototype archive](../archive/ui-prototypes/README.md).
 
-- Frontend: HTML5, responsive custom CSS, vanilla JavaScript, SVG telemetry charts.
-- Backend: FastAPI with PBKDF2-HMAC-SHA256 credential hashing, an eight-hour server-side opaque session stored by SHA-256 hash, same-site cookies, per-session double-submit CSRF validation and basic security headers.
-- Development database: SQLite stores users, session metadata and local audit records. Existing EA-30 SQLite telemetry data is **not automatically linked**.
-- Hardware planning: read-only inventory with 30 catalog slots; 14 known names, 16 unconfirmed. No real physical device is marked connected or purchased.
-- Application controls: no equipment actuator commands, no live production telemetry, no model training/inference, no critical control path.
-- Authentication: a single explicit local bootstrap admin, never a default password; this starter is not enterprise SSO/OIDC.
+The working local service provides opaque authenticated sessions, CSRF-protected actions, SQLite audit history, a read-only 30-category planning catalog, integrity-verified synthetic experiments, and scoped offline report review. Hardware purchases/instances and commissioning remain unverified. Equipment charts and incidents are synthetic. Professional profiles, maintenance walkthroughs, device readiness and simulation are clearly labeled previews. No live model deployment, enterprise identity, operational work-order approval, or equipment command is provided.
 
-## Screens
-
-1. Attractive responsive **Sign In** screen: branded industrial artwork, account authentication and visible local-development scope.
-2. **Overview**: 12 synthetic demonstration asset cards, performance counters, health distribution and alerts.
-3. **Live telemetry**: clearly labeled synthetic vibration, temperature, current and voltage trends.
-4. **Assets**: sample asset table and synthetic health status.
-5. **Alerts**: browser-local demonstration alert acknowledgment. A separate authenticated backend endpoint can audit *demo* acknowledgments; it does not change real alarm state.
-6. **AI insights**: illustrative human-readable cards, explicitly NOT trained AI model output.
-7. **Hardware inventory**: all 30 planning slots, with 14 named items and 16 unconfirmed; secure read-only same-origin API.
-8. **Security & audit**: status/gates summary; protected API audit endpoint available to admin/auditor, not yet a complete audit UI.
-9. **Account session**: authenticated session details, sign-out with CSRF protection.
+Browser inspection drafts are session-only planning notes. Profile previews do not alter the signed-in account or server permissions. A report approval is never a work-order approval or model release.
 
 ## Run from Cursor / VS Code on Windows
 
@@ -347,3 +332,41 @@ Run locally from `dashboard/`:
 To see the locally generated experiments, keep your authenticated local FastAPI server running on port 8877, open `http://127.0.0.1:8877/app#reports`, and select **Refresh experiments**. These previously saved registry experiments can have **different holdout sizes** and are not a fair model comparison. Use the separate scikit-learn CLI for equal-holdout offline comparisons. UI snapshot data remains illustrative.
 
 **Production blockers remain:** real labeled failure events, quality and leakage review, measured operational performance, model approval and deployment, physical hardware safeguards and independent security testing.
+
+## Saved model comparisons and offline report review
+
+The comparison CLI can now save the equal-holdout scikit-learn comparison for the authenticated Reports page:
+
+```powershell
+.\.venv\Scripts\python.exe run_sklearn_comparison.py --output ".local/experiments"
+```
+
+The original command without `--output` still prints results without saving artifacts. Saved comparisons live in `.local/experiments/comparisons` and reference a fingerprinted synthetic dataset in `comparison-datasets`. Records include split settings, thresholds, software versions, both models' metrics and common holdout IDs. Repeating identical inputs under the same software versions produces the same comparison ID. Metrics remain synthetic demonstrations on a tiny sample, not field performance. These reports do not contain deployable model binaries.
+
+Restart the existing local FastAPI server after installing the update, then sign in and open `http://127.0.0.1:8877/app#reports`. Select **Refresh comparisons** under **Saved Model Comparisons & Review**. Existing offline experiments retain their separate table.
+
+- Every authenticated user can view verified comparison summaries, review status and the latest 20 review events. Dataset rows are never returned by this API.
+- Only an authenticated **admin** with a matching CSRF token can approve, reject or return an offline report to pending. A nonblank review note is required.
+- Status begins as pending. Decisions record the reviewer, UTC time, full note and revision in SQLite. All review events are retained; the UI shows the latest 20. A corresponding audit event is committed in the same transaction.
+- The submitted revision must match the current revision; an outdated view gets HTTP 409 and must refresh. Missing or altered comparison/dataset files cannot be reviewed and are excluded from the list.
+- Approval always means **offline report review only**. No model deployment, inference or equipment controls are enabled. Byte integrity does not establish scientific validity or authenticity against an attacker who can replace the entire local registry.
+
+`GET /api/model-comparisons` reads summaries; `POST /api/model-comparisons/{comparison_id}/review` accepts `{status, note, expected_revision}`. The existing `EDGEOPS_OFFLINE_EXPERIMENT_ROOT` override applies to both registries. Startup adds review tables to the existing dashboard database without deleting accounts, sessions or prior audit records. Back up the database before applying updates to any valuable local installation.
+
+Verification:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_comparison_review.py -v
+```
+
+The scikit-learn GitHub workflow now runs the saved-report and review checks as well as the original comparison tests. Real datasets, scientific review, hardware integration, deployment and industrial validation remain outstanding.
+
+## Operations workspace UI refresh
+
+The authenticated dashboard now uses a consistent slate/teal visual system across all 12 sections, grouped navigation, and a matching sign-in page. Press **Ctrl+K** (or **Command+K**) to search sections, demo assets and alerts. Select an asset name to inspect its details. The asset registry supports combined filters, sorting and clear-filters. Telemetry includes an accessible sample table and synthetic CSV export. Settings provides a browser-local table spacing preference and keyboard shortcut help.
+
+Equipment views remain synthetic fixtures. The overview uses the same signal source and units as the telemetry explorer; it does not show a fabricated uptime SLA or failure probability. Authenticated local inventory, audit events and verified saved experiments retain their existing API behavior. A concise source indicator distinguishes these views, and an API check time is never represented as a sensor timestamp.
+
+`workspace.css` defines the shared workspace styling; `workspace.js` contains the new interactions. Both are served through the existing static-asset allowlist. All fonts and illustrations load locally. See [UI/UX review and production gates](UI_UX_REVIEW.md) for project context, validation limits and the remaining implementation work.
+
+The browser workflow runs `tests/browser_workspace.cjs` using Playwright for Node in addition to the existing Python and saved-comparison checks. It verifies all 12 sections at five viewport widths and the new keyboard, dialog, export and preference workflows against a disposable local account/database.

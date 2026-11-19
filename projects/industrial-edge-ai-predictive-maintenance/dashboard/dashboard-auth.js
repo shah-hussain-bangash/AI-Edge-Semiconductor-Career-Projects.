@@ -40,12 +40,12 @@ async function initializeHardware(){
     if(!Array.isArray(result.devices))throw new Error("Unexpected inventory response");
     const metrics=edg("hardware-metrics"),table=edg("hardware-table");
     const total=Number(result.slots_total)||result.devices.length;
-    const named=Number(result.confirmed_hardware_count)||0;
+    const named=Number(result.named_category_count)||0;
     const connected=result.devices.filter(item=>item.connected===true).length;
     if(metrics) metrics.innerHTML=[
-      [total,"Planned catalog slots"],[named,"Named components"],[Math.max(0,total-named),"Unconfirmed slots"],[connected,"Verified connected devices"]
+      [total,"Planning categories"],[named,"Named design categories"],["Unknown","Purchases & physical instances"],[connected,"Verified connected devices"]
     ].map(([value,title])=>'<article class="metric"><div class="metric-label">'+safeText(title)+'</div><div class="metric-number">'+safeText(value)+'</div><div class="metric-foot">Planning inventory only</div></article>').join("");
-    if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">'+(device.connected?"Connected (API)":"Not connected")+'</span></td></tr>').join("");
+    if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">'+(device.connected?"Connected (API)":"Planned · unverified")+'</span></td></tr>').join("");
     edgFeedback("hardware-feedback",total+" planned slots · "+named+" named · "+connected+" connected according to local API. No physical connection verified.","ok");
   }catch(error){
     edgFeedback("hardware-feedback","Inventory unavailable: "+error.message+". Use Retry inventory to try again.","error");
@@ -67,8 +67,6 @@ async function initializeAudit(){
     edgFeedback("audit-feedback",result.entries.length+" local authentication/audit events displayed. This is not an industrial event stream.","ok");
   }catch(error){
     edgFeedback("audit-feedback","Audit unavailable: "+error.message+".","error");
-    edgFeedback("experiment-feedback","Experiment reports unavailable until the local API reconnects.","error");
-    if(edg("experiment-entries"))edg("experiment-entries").innerHTML='<tr><td colspan="7" class="empty-state">Experiment reports unavailable until the local API reconnects.</td></tr>';
     if(edg("audit-entries"))edg("audit-entries").innerHTML='<tr><td colspan="4" class="empty-state">Audit history unavailable. Check permissions or retry.</td></tr>';
   }finally{if(button)button.disabled=false;}
 }
@@ -96,6 +94,8 @@ async function initializeExperiments(){
 
 function edgSession(me){
   edg("account-label").textContent=me.email||"Authenticated user";
+  const initials=String(me.email||"EU").split("@")[0].slice(0,2).toUpperCase();
+  document.querySelectorAll(".avatar,.top-avatar").forEach(node=>node.textContent=initials);
   if(edg("session-user"))edg("session-user").textContent=me.email||"Unavailable";
   if(edg("session-role"))edg("session-role").textContent=me.role||"Unavailable";
   if(edg("session-expiry")){

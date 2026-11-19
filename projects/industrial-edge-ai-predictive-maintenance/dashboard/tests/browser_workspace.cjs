@@ -1,0 +1,80 @@
+const {chromium}=require('playwright');
+const {spawn,spawnSync}=require('child_process');
+const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),crypto=require('crypto');
+const python=process.env.PYTHON_BINARY || 'python';
+const root=path.resolve(__dirname,'..');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'edgeops-review-'));
+const password=crypto.randomBytes(24).toString('hex');
+const env={...process.env,PYTHONDONTWRITEBYTECODE:'1',EDGEOPS_DASHBOARD_DB:path.join(temp,'auth.db'),EDGEOPS_ADMIN_EMAIL:'browser@example.invalid',EDGEOPS_ADMIN_PASSWORD:password,EDGEOPS_OFFLINE_EXPERIMENT_ROOT:path.join(temp,'experiments')};
+const fixture=spawnSync(python,['run_sklearn_comparison.py','--output',env.EDGEOPS_OFFLINE_EXPERIMENT_ROOT],{cwd:root,env,encoding:'utf8'});
+if(fixture.status!==0)throw Error(fixture.stderr);
+const serverSocket=net.createServer();
+serverSocket.listen(0,'127.0.0.1',async()=>{
+ const port=serverSocket.address().port;await new Promise(resolve=>serverSocket.close(resolve));
+ const base=`http://127.0.0.1:${port}`;
+ const service=spawn(python,['-m','uvicorn','server:app','--host','127.0.0.1','--port',String(port)],{cwd:root,env,stdio:['ignore','pipe','pipe'],windowsHide:true});
+ let log='';service.stderr.on('data',x=>log+=x);
+ let browser;
+ try {
+  for(let i=0;i<80;i++){try{if((await fetch(base+'/signin')).ok)break;}catch{}await new Promise(r=>setTimeout(r,150));}
+  browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? {executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE} : {})});
+  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+  const assert=(condition,message)=>{if(!condition)throw Error(message);};
+  const captures=path.join(root,'.acceptance-captures');fs.mkdirSync(captures,{recursive:true});
+  await page.goto(base+'/signin');await page.screenshot({path:path.join(captures,'workspace-signin-desktop.png'),fullPage:true});
+  await page.locator('#email').fill(env.EDGEOPS_ADMIN_EMAIL);await page.locator('#password').fill(password);await page.locator('#submit').click();await page.waitForURL('**/app');
+  await page.locator('#connection-chip[data-state="ok"]').waitFor();
+  await page.screenshot({path:path.join(captures,'workspace-overview-desktop.png'),fullPage:true});
+  assert(await page.locator('.nav-group-title').count()===3,'Grouped navigation missing');
+  assert((await page.locator('#page-overview').innerText()).includes('3.70'),'Overview fixture not synchronized');
+  await page.locator('.nav-item[data-page="assets"]').click();
+  await page.locator('#asset-search').fill('motor');await page.locator('#asset-filter').selectOption('critical');
+  assert(await page.locator('#all-assets tr').count()===1,'Combined asset filter incorrect');
+  const opener=page.locator('#all-assets [data-open-asset="MTR-001"]');await opener.click();
+  assert(await page.locator('#asset-dialog').isVisible(),'Asset drawer not visible');
+  assert((await page.locator('#asset-dialog').innerText()).includes('Last measured reading'),'Missing measurement availability');
+  await page.keyboard.press('Escape');assert(await opener.evaluate(el=>document.activeElement===el),'Drawer did not restore focus');
+  await opener.click();await page.locator('#asset-open-telemetry').click();assert(await page.locator('#page-telemetry').isVisible(),'Asset-to-telemetry navigation failed');
+  await page.locator('#signal-select-secondary').selectOption('temperature');await page.locator('.signal-data summary').click();
+  assert(await page.locator('#signal-table-body tr').count()===12,'Accessible signal data missing');
+  assert((await page.locator('#signal-table-body').innerText()).includes('31.5'),'Signal data wrong');
+  const dl=page.waitForEvent('download');await page.locator('#signal-export').click();const download=await dl;assert(download.suggestedFilename()==='edgeops-synthetic-temperature.csv','CSV filename incorrect');const csv=fs.readFileSync(await download.path(),'utf8');assert(csv.includes('synthetic-demo')&&csv.includes('31.5')&&csv.split('\r\n').length===13,'CSV content or provenance incorrect');
+  await page.keyboard.press('Control+k');await page.locator('#command-search').fill('CMP-003');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+  assert(await page.locator('#asset-dialog').isVisible(),'Command search did not open asset');assert((await page.locator('#asset-dialog').innerText()).includes('Compressor Unit'),'Wrong command-search asset');await page.keyboard.press('Escape');
+  await page.locator('#command-open').click();await page.locator('#command-search').fill('nonexistent-needle-123');assert((await page.locator('#command-results').innerText()).includes('No matches'),'Search empty state missing');await page.keyboard.press('Escape');
+  await page.locator('.nav-item[data-page="assets"]').click();await page.locator('#asset-clear').click();assert(await page.locator('#all-assets tr').count()===12,'Clear filters failed');await page.locator('#asset-sort').selectOption('name');
+  assert((await page.locator('#all-assets tr').first().innerText()).includes('Circulation Pump'),'Asset sort failed');
+  await page.locator('#account-open').click();await page.locator('#display-density').selectOption('compact');assert(await page.locator('body.density-compact').count()===1,'Density not applied');await page.reload();await page.locator('#connection-chip[data-state="ok"]').waitFor();assert(await page.locator('body.density-compact').count()===1,'Density preference not preserved');await page.locator('#display-density').selectOption('comfortable');
+  await page.locator('#shortcuts-open').click();assert(await page.locator('#shortcuts-dialog').isVisible(),'Shortcut help missing');await page.keyboard.press('Escape');
+  const actualAccount=await page.locator('#account-label').innerText();
+  await page.locator('.nav-item[data-page="profiles"]').click();
+  for(const profile of ['technician','approver','engineer','administrator','auditor','operator']){
+   await page.locator('[data-profile="'+profile+'"]').click();
+   assert(await page.locator('[data-profile="'+profile+'"][aria-pressed="true"]').count()===1,'Profile selection failed');
+   assert(await page.locator('#account-label').innerText()===actualAccount,'Preview changed authenticated identity');
+  }
+  await page.locator('.nav-item[data-page="models"]').click();await page.locator('[data-model-tab="release"]').first().click();assert((await page.locator('#model-tab-content').innerText()).includes('BLOCKED'),'Release readiness absent');await page.locator('[data-model-tab="lineage"]').click();assert((await page.locator('#model-tab-content').innerText()).includes('Reproducibility & provenance'),'Lineage view missing');
+  await page.locator('.nav-item[data-page="knowledge"]').click();await page.locator('#knowledge-search').fill('not-a-document');assert((await page.locator('#knowledge-results').innerText()).includes('No matching'),'Knowledge empty state absent');await page.locator('#knowledge-search').fill('hardware');await page.locator('[data-source="hardware"]').click();assert((await page.locator('#product-dialog-body').innerText()).includes('Not indexed'),'Source provenance absent');await page.keyboard.press('Escape');await page.locator('#knowledge-search').fill('');
+  await page.locator('.nav-item[data-page="simulation"]').click();await page.locator('#replay-scenario').selectOption('sensor');for(let i=0;i<12;i++)await page.locator('#replay-next').click();assert(await page.locator('#replay-next').isDisabled(),'Replay exceeded fixture');assert((await page.locator('#page-simulation').innerText()).includes('3 unavailable samples'),'Missing sensor samples became valid');await page.locator('#replay-reset').click();assert((await page.locator('#page-simulation').innerText()).includes('0 / 12'),'Replay reset failed');
+  await page.locator('.nav-item[data-page="maintenance"]').click();await page.locator('#journey-next').click();await page.locator('#journey-next').click();assert((await page.locator('.maintenance-stage').innerText()).includes('Independent approver'),'Approval independence absent');await page.locator('#maintenance-draft-open').click();await page.locator('#draft-note').fill('Review synthetic <img src=x onerror=alert(1)> observation before planning.');await page.locator('#inspection-draft-form button[type="submit"]').click();assert((await page.locator('#maintenance-draft-status').innerText()).includes('Session draft saved'),'Draft not saved');await page.reload();await page.locator('#connection-chip[data-state="ok"]').waitFor();await page.locator('#maintenance-draft-open').click();assert((await page.locator('#draft-note').inputValue()).includes('<img'),'Draft lost after reload');assert(await page.locator('#product-dialog-body img').count()===0,'Draft HTML was executed');await page.locator('#draft-clear').click();await page.keyboard.press('Escape');
+  await page.locator('.nav-item[data-page="devices"]').click();await page.locator('[data-product-detail="enrollment"]').click();assert((await page.locator('#product-dialog-body').innerText()).includes('No enrollment request'),'Enrollment boundary absent');await page.keyboard.press('Escape');
+  const stages=['overview','assets','telemetry','architecture','insights','hardware','alerts','maintenance','security','governance','reports','settings','devices','models','knowledge','simulation','profiles'];
+  for(const width of [1440,1024,768,390,320]){
+   await page.setViewportSize({width,height:900});
+   for(const stage of stages){
+    if(width<=800)await page.locator('#menu-toggle').click();
+    await page.locator(`.nav-item[data-page="${stage}"]`).click();
+    assert(await page.locator('#page-'+stage).isVisible(),'Missing stage '+stage+' at '+width);
+    const layout=await page.evaluate(()=>({document:document.documentElement.scrollWidth,body:document.body.scrollWidth,width:innerWidth}));
+    assert(layout.document<=layout.width+2&&layout.body<=layout.width+2,'Horizontal overflow '+JSON.stringify({stage,...layout}));
+    if(width===1440&&['assets','reports','telemetry','profiles','maintenance','models','devices','knowledge','simulation'].includes(stage))await page.screenshot({path:path.join(captures,'workspace-'+stage+'-desktop.png'),fullPage:true});
+   }
+   if(width===390){await page.locator('#menu-toggle').click();await page.locator('.nav-item[data-page="overview"]').click();await page.screenshot({path:path.join(captures,'workspace-overview-mobile.png'),fullPage:true});await page.locator('#command-open').click();assert(await page.locator('#command-dialog').isVisible(),'Mobile search inaccessible');await page.keyboard.press('Escape');assert(await page.locator('#command-dialog').isHidden(),'Escape failed on mobile');}
+  }
+  const images=await page.locator('img').evaluateAll(nodes=>nodes.map(el=>({ok:el.complete&&el.naturalWidth>0,src:el.src})));assert(images.every(x=>x.ok),'Broken images '+JSON.stringify(images));
+  assert(errors.length===0,'Browser errors '+errors.join(' | '));
+  console.log('PASS: grouped navigation; filters/reset/sort; asset drawer and focus restoration; command search/keyboard/empty state; telemetry table/CSV; saved density; shortcuts; all 17 pages at 5 widths; local images.');
+ }catch(e){console.error(e);console.error(log);process.exitCode=1;}
+ finally{if(browser)await browser.close();service.kill();await new Promise(r=>service.once('exit',r));if(path.dirname(path.resolve(temp))!==path.resolve(os.tmpdir()) || !path.basename(temp).startsWith('edgeops-review-'))throw Error('Unexpected temporary directory');fs.rmSync(temp,{recursive:true,force:true});}
+});

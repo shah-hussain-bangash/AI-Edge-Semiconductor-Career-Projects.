@@ -34,6 +34,18 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Real Chromium navigation acceptance
         run: python -m unittest discover -s tests -p test_navigation_browser.py -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install saved comparison browser dependencies
+        run: |
+          python -m pip install -r requirements-ml.txt
+          npm install --no-save --prefix .local/browser-tests playwright
+          .local/browser-tests/node_modules/.bin/playwright install --with-deps chromium
+      - name: Real saved comparison and review acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_comparison_review.cjs
+      - name: Responsive workspace and keyboard interaction acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_workspace.cjs
       - name: Upload desktop and mobile review screenshots
         if: always()
         uses: actions/upload-artifact@v4
