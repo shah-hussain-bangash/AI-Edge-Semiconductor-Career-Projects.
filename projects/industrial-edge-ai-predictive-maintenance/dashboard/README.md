@@ -317,3 +317,14 @@ comparison = compare_experiments(".local/experiments", [registered["run_id"]])
 Verify using `python -m unittest discover -s tests -p test_experiment_registry.py -v`. Integrity tests detect overwritten files and inconsistent artifact hashes. A dedicated GitHub Actions workflow runs the same checks. Keep production or personal data out of these demo artifacts.
 
 **Future gates:** curated real labeled histories, dataset licensing/provenance, leakage/embargo review, model comparison with approved baselines, experiment approvals, security review, calibration and monitored deployment.
+
+### Run two reproducible synthetic experiments from PowerShell
+
+From the EDGEOPS dashboard folder, without starting a server:
+
+```powershell
+.\.venv\Scripts\python.exe run_offline_experiment.py --output ".local/experiments"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_experiment_registry.py -v
+```
+
+The command prints two content-addressed run IDs and a comparison of **synthetic holdout** metrics. It writes immutable JSON dataset snapshots, model parameter specifications and experiment reports into `.local/experiments/{datasets,models,runs}`. Re-running with identical inputs does not create a new run. The demo does not train or deploy a supervised industrial failure model; the labels and telemetry are generated exclusively for repeatable software testing.
