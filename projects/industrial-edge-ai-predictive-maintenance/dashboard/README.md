@@ -275,3 +275,22 @@ Example event body (send only with an authenticated local session and a matching
 ```
 
 **Next validation gates:** time-series replay/retention and ingestion throughput; labeled failure dataset provenance, split leakage controls, calibrated model evaluation, explainability, model registry, drift detection, and human review. None of these is claimed complete by the synthetic ledger.
+
+
+## Offline time-series feature engineering and baseline (November 2026)
+
+The next testable milestone adds **pure-Python offline analysis** without modifying the dashboard's live view, stored sessions, or protected telemetry APIs:
+
+- `time_series_features.py`: deterministic, per-asset trailing windows. Calculates vibration, temperature and current latest/mean/population standard deviation/change. Sorting is by timezone-aware event timestamp; future rows are excluded, and cross-asset mixing, missing/nonfinite data, duplicate event IDs/timestamps and non-synthetic provenance are rejected.
+- `offline_baseline.py`: reproducible **demonstration anomaly baseline** from explicitly labeled feature rows. Sorts chronologically into train, validation and holdout partitions; standardization parameters are fit on training only, alert threshold is chosen on validation only, and test metrics are computed only once on the chronological holdout. The anomaly score is **not a failure probability**.
+- `ml_evaluation.py`: reusable confusion-matrix, precision, recall, F1 and accuracy calculations for labeled evaluation data.
+
+The tests use deterministic **synthetic demonstration labels**, not measured industrial failures. No real-world predictive accuracy, calibrated failure probabilities, remaining useful life, model deployment or edge inference is established. The baseline stays offline and is never connected to hardware controls.
+
+Check locally with:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_server.py -v
+```
+
+**Further work:** quality-controlled labeled failure histories, leakage-aware per-asset temporal splits with time-gap embargo, train-only feature scaling, baseline comparisons with scikit-learn, registered experiment artifacts, real validation metrics and industrial review gates.
