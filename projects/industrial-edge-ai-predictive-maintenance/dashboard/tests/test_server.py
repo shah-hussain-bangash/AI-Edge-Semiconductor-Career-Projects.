@@ -330,5 +330,34 @@ class DashboardApiTests(unittest.TestCase):
 
 
 
+    def test_24_offline_experiment_api_requires_authentication(self):
+        self.assertEqual(self.http.get("/api/offline-experiments").status_code, 401)
+
+    def test_25_offline_experiment_api_returns_only_verified_synthetic_summaries(self):
+        from experiment_registry import register_experiment
+        from run_offline_experiment import synthetic_fixture
+        with tempfile.TemporaryDirectory(prefix="edgeops-api-experiments-") as root:
+            with patch.dict(os.environ, {"EDGEOPS_OFFLINE_EXPERIMENT_ROOT": root}):
+                self.sign_in()
+                empty = self.http.get("/api/offline-experiments").json()
+                self.assertEqual(empty["experiments"], [])
+                created = register_experiment(synthetic_fixture(), root)
+                result = self.http.get("/api/offline-experiments").json()
+                self.assertEqual(result["mode"], "synthetic-offline-only")
+                self.assertFalse(result["model_deployed"])
+                self.assertFalse(result["hardware_connected"])
+                self.assertEqual(len(result["experiments"]), 1)
+                row = result["experiments"][0]
+                self.assertEqual(row["run_id"], created["run_id"])
+                self.assertEqual(row["deployment_status"], "not-deployed")
+                self.assertNotIn("rows", row)
+                self.assertNotIn("centers", row)
+                # Tampering makes the run unreadable instead of displaying stale metrics.
+                report_file = Path(root) / "runs" / (created["run_id"] + ".json")
+                report_file.write_text('{"f1":1.0}', encoding="utf-8")
+                self.assertEqual(self.http.get("/api/offline-experiments").json()["experiments"], [])
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
