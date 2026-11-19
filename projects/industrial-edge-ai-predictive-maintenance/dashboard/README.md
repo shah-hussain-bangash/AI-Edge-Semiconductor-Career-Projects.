@@ -294,3 +294,26 @@ Check locally with:
 ```
 
 **Further work:** quality-controlled labeled failure histories, leakage-aware per-asset temporal splits with time-gap embargo, train-only feature scaling, baseline comparisons with scikit-learn, registered experiment artifacts, real validation metrics and industrial review gates.
+
+
+## Offline ML experiment registry (November 2026)
+
+`experiment_registry.py` adds content-addressed, **local-only** experiment tracking for the offline, synthetic-label baseline. Experiments include an immutable snapshot of explicitly labeled features, model parameters (JSON, **not pickle**), chronological split configuration, holdout metrics and SHA-256 artifact fingerprints. Identical inputs and configuration produce the same run ID; changes in configuration create a separate run.
+
+The registry writes into the exact folder supplied by the caller. Use a **new ignored directory** such as `.local/experiments`, not the authentication SQLite database. No API endpoint exposes experiment files, no cloud uploads occur and no model is deployed.
+
+Example from the dashboard folder, after preparing a list of labeled feature rows:
+
+```python
+from experiment_registry import register_experiment, verify_experiment, compare_experiments
+
+registered = register_experiment(labeled_synthetic_feature_rows, ".local/experiments")
+verified = verify_experiment(".local/experiments", registered["run_id"])
+comparison = compare_experiments(".local/experiments", [registered["run_id"]])
+```
+
+`labeled_synthetic_feature_rows` is deliberately not supplied as real failure evidence. The caller must provide valid explicitly labeled synthetic demonstration rows. The stored JSON model specification is **not** an approved deployable model, calibration artifact, or proof of predictive reliability.
+
+Verify using `python -m unittest discover -s tests -p test_experiment_registry.py -v`. Integrity tests detect overwritten files and inconsistent artifact hashes. A dedicated GitHub Actions workflow runs the same checks. Keep production or personal data out of these demo artifacts.
+
+**Future gates:** curated real labeled histories, dataset licensing/provenance, leakage/embargo review, model comparison with approved baselines, experiment approvals, security review, calibration and monitored deployment.
