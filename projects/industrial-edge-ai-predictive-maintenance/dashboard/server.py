@@ -16,6 +16,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
+from request_limits import RequestBodyLimit, SECURITY_HEADERS
+import operations
 import telemetry_store
 import maintenance_requests
 import production_readiness
@@ -37,7 +39,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
@@ -203,21 +205,15 @@ FAILED_LOGINS: dict[str, list[int]] = {}
 @app.middleware("http")
 async def secure_headers(request: Request, call_next):
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        if request.headers.get("content-length", "0").isdigit() and int(request.headers.get("content-length", "0")) > MAX_BODY_BYTES:
-            return JSONResponse({"detail": "Request too large"}, status_code=413)
         origin = request.headers.get("origin")
         if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
-            return JSONResponse({"detail": "Origin mismatch"}, status_code=403)
+            return JSONResponse({"detail": "Origin mismatch"}, status_code=403, headers=SECURITY_HEADERS)
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+    response.headers.update(SECURITY_HEADERS)
     return response
+
+
+app.add_middleware(RequestBodyLimit, max_bytes=MAX_BODY_BYTES)
 
 
 @app.get("/")
@@ -257,6 +253,8 @@ def login(request: Request, body: LoginInput):
         if not user or user["disabled"] or not ok:
             FAILED_LOGINS[ipkey] = attempts + [now_epoch()]
             record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
+            # Persist the denial before propagating the HTTP exception.
+            db.commit()
             raise HTTPException(401, "Invalid email or password")
         FAILED_LOGINS.pop(ipkey, None)
         token = secrets.token_hex(32)
@@ -298,6 +296,26 @@ def hardware(request: Request):
                          "confirmed_inventory_name": False, "connected": False,
                          "lifecycle": "planned", "purchase_verified": False}
                         for i, n, p, c in HARDWARE]}
+
+
+@app.get("/health/live")
+def liveness():
+    return {"status": "alive", "mode": "local-development"}
+
+
+@app.get("/health/ready")
+def readiness_probe(response: Response):
+    available = operations.database_status(DB_PATH)["status"] == "available"
+    response.status_code = 200 if available else 503
+    return {"status": "available" if available else "unavailable", "production_ready": False}
+
+
+@app.get("/api/system/diagnostics")
+def system_diagnostics(request: Request):
+    current = require_user(request)
+    if current["role"] not in ("admin", "auditor"):
+        raise HTTPException(403, "Role not authorized")
+    return operations.diagnostics(DB_PATH, ROOT)
 
 
 @app.get("/api/system/health")

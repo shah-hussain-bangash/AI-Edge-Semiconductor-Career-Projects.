@@ -15,7 +15,7 @@ async function edgFetch(url, options={}) {
       window.location.assign("/signin");
       throw new Error("Session expired");
     }
-    if(!response.ok) throw new Error(response.status===403?"Access restricted for this account":"Service returned "+response.status);
+    if(!response.ok){const error=new Error(response.status===403?"Access restricted for this account":"Service returned "+response.status);error.status=response.status;throw error;}
     return response.json();
   } finally { clearTimeout(timer); }
 }

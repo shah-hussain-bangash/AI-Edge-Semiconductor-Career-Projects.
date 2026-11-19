@@ -1,0 +1,13 @@
+.dashboard-page.pro-workspace .operations-panel{padding:24px;margin-top:24px}
+.operations-panel .compact-head{padding:0 0 20px;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.operations-panel .compact-head h2{margin:8px 0}
+.operations-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.operations-card{padding:19px;border:1px solid #c9d9eb;background:#f3f7fc;border-radius:9px;min-width:0}
+.operations-card>span{display:block;font-size:14px;color:#344b64}
+.operations-card>strong{display:block;font-size:21px;color:#142c46;margin-top:12px;overflow-wrap:anywhere}
+.operations-panel details{margin:20px 0;padding:17px;border:1px solid #c9d9eb;border-radius:9px;background:#f8faff}
+.operations-panel summary{font-size:15px;font-weight:600;color:#244a74;cursor:pointer;line-height:1.6}
+.operations-panel code{display:block;font-size:13px;overflow-wrap:anywhere;white-space:normal;color:#244a74}
+.operations-panel li{font-size:14px;line-height:1.8;color:#344b64;margin:7px 0}
+@media(max-width:1100px){.operations-values{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.dashboard-page.pro-workspace .operations-panel{padding:20px}.operations-values{grid-template-columns:minmax(0,1fr)}}
