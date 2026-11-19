@@ -11,3 +11,5 @@
 .operations-panel li{font-size:14px;line-height:1.8;color:#344b64;margin:7px 0}
 @media(max-width:1100px){.operations-values{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.dashboard-page.pro-workspace .operations-panel{padding:20px}.operations-values{grid-template-columns:minmax(0,1fr)}}
+
+.registry-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}.registry-form label{display:grid;gap:8px;font-size:14px;color:#344b64}.registry-form input{width:100%;min-width:0;padding:10px;border:1px solid #a9bed8;border-radius:6px;background:#fff;color:#142c46}.registry-wide{grid-column:1/-1}#registry-observation{display:block;width:100%;margin:12px 0;padding:14px;font:13px/1.6 monospace;border:1px solid #a9bed8;border-radius:6px;background:#fff;color:#142c46;resize:vertical}#registry-panel{margin:0 0 24px}#registry-panel table{min-width:620px}@media(max-width:540px){.registry-form{grid-template-columns:minmax(0,1fr)}.registry-wide{grid-column:auto}}

@@ -8,6 +8,7 @@ The dashboard provides 18 workspaces plus sign-in. Working local services includ
 
 - [Production design and staged implementation](../production-design/README.md)
 - [Current functionality and boundaries](PRODUCT_WORKSPACE.md)
+- [Synthetic acquisition bindings and observation preflight](ACQUISITION_FOUNDATION.md)
 - [Production gap audit and next implementation sequence](SYSTEM_AUDIT.md)
 - [Backup, verification and restoration runbook](RECOVERY.md)
 - [Maintenance planning and authority](MAINTENANCE_PLANNING.md)
@@ -51,7 +52,7 @@ These checks cannot establish sensor freshness, model performance, accepted reco
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-The complete local run during this audit collected 108 cases: 84 passed and 24 Python-browser cases were skipped because the Python Playwright package is not installed locally. Four separate Node/Chromium suites passed against disposable databases: the complete 18-view workspace, readiness, maintenance planning and saved comparison review. Their screenshots and contrast reports are generated under the ignored .acceptance-captures folder. The workspace suite includes diagnostics refresh/export/outage recovery and text-size checks at five widths. GitHub workflows run their own current-head checks; consult actual results rather than inferring success from committed source.
+The complete local run during this audit collected 115 cases: 91 passed and 24 Python-browser cases were skipped because the Python Playwright package is not installed locally. Four separate Node/Chromium suites passed against disposable databases: the complete 18-view workspace, readiness, maintenance planning and saved comparison review. Their screenshots and contrast reports are generated under the ignored .acceptance-captures folder. The workspace suite includes persisted test bindings, preflight/retirement and diagnostics refresh/export/outage recovery and text-size checks at five widths. GitHub workflows run their own current-head checks; consult actual results rather than inferring success from committed source.
 
 ## GitHub updates
 

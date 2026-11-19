@@ -22,7 +22,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 | REQ-01 Scope/architecture | Consolidated design exists; deployment scope, owners and acceptance targets require agreement |
 | REQ-02 Physical hardware | 30-category design catalog; actual inventory, exact ratings/wiring and commissioning pending |
 | REQ-03 Sensor acquisition | Existing embedded/serial source is a starting point; real timing, units, calibration and fault evidence pending |
-| REQ-04 Device identity | Planning/previews; scoped enrollment, credential and hardware-replacement lifecycle pending |
+| REQ-04 Device identity | Synthetic site/asset/device test bindings and strict V2 preflight implemented; real enrollment, scoped credentials and hardware replacement remain pending |
 | REQ-05 Durable delivery | Historical synthetic MQTT/HTTP lab exists; automatic bounded spool/retry, conflicts and measured transport cutover pending |
 | REQ-06 Backend/storage | Transactional local review/planning/readiness domains; production database migrations, authoritative asset/incident/device APIs, retention and scale pending |
 | REQ-07 Identity/security | Local sessions/CSRF/audit and bounded body parsing; enterprise identity/MFA/provisioning, device credentials, scoped policy, distributed throttling and TLS deployment pending |
@@ -48,3 +48,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 6. Connect actual hardware only after exact-part review and commissioning; collect real data and evaluate models, throughput, failure/recovery and qualified acceptance under the agreed scope.
 
 Each slice needs tested code and observed evidence. A checklist, green local probe or synthetic demonstration cannot replace the implementation or prove physical safety. Current readiness APIs continue to report production_ready=false and equipment_authorized=false.
+
+## Acquisition foundation follow-up
+
+The next B2 slice adds an authenticated persistent synthetic binding registry and a strict synthetic-only V2 observation preflight to Device operations. It does not store observations or issue delivery receipts. See ACQUISITION_FOUNDATION.md. Production multi-tenant identity, live ingestion and durable edge delivery remain open.

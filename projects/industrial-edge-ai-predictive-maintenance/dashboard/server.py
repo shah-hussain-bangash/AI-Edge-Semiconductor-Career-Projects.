@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from request_limits import RequestBodyLimit, SECURITY_HEADERS
+import acquisition_registry
 import operations
 import telemetry_store
 import maintenance_requests
@@ -24,6 +25,7 @@ import production_readiness
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -39,7 +41,14 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+
+@app.exception_handler(RequestValidationError)
+async def validation_failure(request: Request, error: RequestValidationError):
+    # Do not echo raw credentials/payloads or non-JSON NaN values in error responses.
+    errors = [{key: item[key] for key in ("loc", "msg", "type")} for item in error.errors()]
+    return JSONResponse({"detail": errors}, status_code=422, headers=SECURITY_HEADERS)
+
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
@@ -116,6 +125,7 @@ def init_db():
             reviewed_at TEXT NOT NULL, PRIMARY KEY(comparison_id,revision))""")
         maintenance_requests.init_schema(db)
         production_readiness.init_schema(db)
+        acquisition_registry.init_schema(db)
         db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_epoch(),))
         number = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if number == 0 and BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD:
@@ -503,3 +513,5 @@ def review_model_comparison(comparison_id: str, body: ComparisonReviewInput, req
 maintenance_requests.install_routes(app, database, require_user, require_csrf, record_audit)
 
 production_readiness.install_routes(app, database, require_user, require_csrf, record_audit)
+
+acquisition_registry.install_routes(app, database, require_user, require_csrf, record_audit)
