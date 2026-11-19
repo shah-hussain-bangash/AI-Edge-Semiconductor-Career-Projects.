@@ -227,5 +227,108 @@ class DashboardApiTests(unittest.TestCase):
                     connection.execute("SELECT 1")
 
 
+    def test_20_trailing_features_never_use_future_or_other_assets(self):
+        from time_series_features import trailing_features
+        from datetime import datetime, timedelta, timezone
+
+        def make_event(eid, asset, minute, value):
+            return {
+                "event_id":eid, "asset_id":asset,
+                "captured_at":(datetime(2026,1,1,tzinfo=timezone.utc)+timedelta(minutes=minute)).isoformat(),
+                "vibration_mm_s":value,
+                "temperature_c":10+value,"current_a":value/2,
+                "provenance":"synthetic-demo",
+            }
+        events=[
+            make_event("a3","A",3,9),
+            make_event("b2","B",2,80),
+            make_event("a1","A",1,1),
+            make_event("a2","A",2,3),
+            make_event("b1","B",1,40),
+        ]
+        features=trailing_features(events,window=2)
+        by_id={row["event_id"]:row for row in features}
+        self.assertEqual(set(by_id),{"a2","a3","b2"})
+        self.assertEqual(by_id["a2"]["features"]["vibration_mm_s_mean"],2.0)
+        self.assertEqual(by_id["a3"]["features"]["vibration_mm_s_mean"],6.0)
+        self.assertEqual(by_id["b2"]["features"]["vibration_mm_s_mean"],60.0)
+        self.assertEqual(by_id["a2"]["features"]["vibration_mm_s_delta"],2.0)
+        self.assertEqual(trailing_features(list(reversed(events)),window=2),features)
+        # New readings cannot retroactively alter previously computed features.
+        earlier=trailing_features(events[:],window=2)
+        extended=trailing_features(events+[make_event("a4","A",4,1000)],window=2)
+        self.assertEqual(extended[:len(earlier)],earlier)
+
+    def test_21_feature_engineering_rejects_missing_invalid_and_duplicate_readings(self):
+        from time_series_features import trailing_features
+        first = self.synthetic_event("f-first")
+        second = {**first, "event_id":"f-second", "captured_at":"2026-01-01T01:03:03+00:00"}
+        for invalid in (
+            {**first, "provenance":"real-hardware"},
+            {**first, "temperature_c":None},
+            {**first, "vibration_mm_s":float("nan")},
+            {**first, "captured_at":"2026-01-01T01:02:03"},
+        ):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    trailing_features([invalid,second],window=2)
+        with self.assertRaises(ValueError):
+            trailing_features([first,first],window=2)
+        with self.assertRaises(ValueError):
+            trailing_features([first,{**first,"event_id":"duplicate-time"}],window=2)
+
+    def test_22_offline_baseline_has_disjoint_chronological_splits(self):
+        from offline_baseline import evaluate_offline_baseline
+        from datetime import datetime, timedelta, timezone
+        from time_series_features import trailing_features
+        events=[]
+        for n in range(22):
+            events.append({
+                "event_id":f"baseline-{n:02d}",
+                "asset_id":"MTR-001",
+                "captured_at":(datetime(2026,1,1,tzinfo=timezone.utc)+timedelta(minutes=n)).isoformat(),
+                "vibration_mm_s":2+0.1*n+(3 if n>16 else 0),
+                "temperature_c":30+0.15*n,
+                "current_a":1+0.02*n,
+                "provenance":"synthetic-demo",
+            })
+        features=trailing_features(events,window=3)
+        for i,row in enumerate(features):
+            row["label"]=int(i%5==0)
+        result=evaluate_offline_baseline(features)
+        self.assertEqual(result["train_count"]+result["validation_count"]+result["test_count"],len(features))
+        self.assertEqual(result["evaluation_scope"],"synthetic-labeled-offline-only")
+        self.assertEqual(result["deployment_status"],"not-deployed")
+        self.assertEqual(result["failure_prediction_accuracy"],"not-established")
+        self.assertEqual(result["holdout_event_ids"],[r["event_id"] for r in features[-result["test_count"]:] ])
+        self.assertEqual(result["model"].feature_names[0],"vibration_mm_s_mean")
+        self.assertIn("precision",result["test_metrics"])
+        self.assertEqual(result["test_metrics"]["sample_count"],result["test_count"])
+        # Determinism and input-order independence.
+        rerun=evaluate_offline_baseline(list(reversed(features)))
+        self.assertEqual(result["test_metrics"],rerun["test_metrics"])
+        self.assertEqual(result["model"],rerun["model"])
+
+    def test_23_baseline_rejects_unlabeled_and_non_synthetic_data(self):
+        from offline_baseline import evaluate_offline_baseline
+        from time_series_features import trailing_features
+        from datetime import datetime, timedelta, timezone
+        events=[{
+            "event_id":f"n-{i}","asset_id":"MTR-001",
+            "captured_at":(datetime(2026,1,1,tzinfo=timezone.utc)+timedelta(minutes=i)).isoformat(),
+            "vibration_mm_s":1+i,"temperature_c":20+i,"current_a":0.5+i/10,
+            "provenance":"synthetic-demo",
+        } for i in range(13)]
+        rows=trailing_features(events,window=3)
+        with self.assertRaisesRegex(ValueError,"label"):
+            evaluate_offline_baseline(rows)
+        for row in rows:
+            row["label"]=0
+        rows[0]["provenance"]="hardware-live"
+        with self.assertRaisesRegex(ValueError,"non-synthetic"):
+            evaluate_offline_baseline(rows)
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
