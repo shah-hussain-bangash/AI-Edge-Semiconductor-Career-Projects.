@@ -81,5 +81,19 @@ class ExperimentRegistryTests(unittest.TestCase):
                 compare_experiments(directory, [])
 
 
+    def test_05_cli_fixture_runs_and_compares_two_synthetic_experiments(self):
+        from run_offline_experiment import run
+        with tempfile.TemporaryDirectory(prefix="edgeops-demo-cli-") as directory:
+            result = run(directory)
+            self.assertEqual(len(result["run_ids"]), 2)
+            self.assertNotEqual(*result["run_ids"])
+            self.assertEqual(len(result["comparison"]), 2)
+            self.assertFalse(result["model_deployed"])
+            self.assertFalse(result["hardware_connected"])
+            for run_id in result["run_ids"]:
+                self.assertEqual(verify_experiment(directory, run_id)["report"]["deployment_status"], "not-deployed")
+
+
+
 if __name__ == "__main__":
     unittest.main()
