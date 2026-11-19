@@ -8,7 +8,7 @@ This implementation provides 17 connected workspace views plus sign-in, with a s
 | --- | --- | --- |
 | Access | Sign-in, authenticated session, sign-out, denied/error handling | Working local account service; enterprise identity/recovery not connected |
 | Fleet | Consistent fixture counts, attention queue, asset spotlight | Synthetic equipment |
-| Assets | Search, status filter, sort, details, investigation links | Synthetic registry; commissioning/calibration persistence pending |
+| Assets | Search, status filter, sort, details, sensor-design context and catalog/device investigation links | Synthetic registry; commissioning/calibration persistence pending |
 | Telemetry | Four signals, accessible sample table, CSV and units | Fixed synthetic samples; live ranges/resolution pending ingestion |
 | Device operations | Registry empty state, commissioning checklist, three receipt boundaries | No device enrollment, certificates, firmware or spool health integrated |
 | Incidents | Filter, session acknowledgment, case context and proposed timeline | Assignment, suppression, escalation and operational decisions pending service |
@@ -16,7 +16,7 @@ This implementation provides 17 connected workspace views plus sign-in, with a s
 | AI assistant | Illustrative insights, evidence requirements, knowledge navigation | Retrieval and generation unavailable |
 | Knowledge | Searchable design catalog, source context and revision/approval state | Catalog references are not approved SOPs or indexed documents |
 | Models | Lifecycle, lineage, blocked release checklist, verified comparison link | Offline report review works; deployment and rollback unavailable |
-| Hardware | 30 named BOM categories through authenticated API | All planned; purchases, instances, ratings and commissioning unverified |
+| Hardware | Search, category/quick filters, details, commissioning gates, filtered CSV, 30 authenticated BOM categories | All planned; purchases, instances, ratings and commissioning unverified |
 | Simulation | Three deterministic scenarios, next sample/reset, explicit missing values | Browser fixture only; no firmware/broker/model execution |
 | Security/audit | Authenticated local audit records and session boundary | Enterprise grant/session administration pending |
 | Governance | Readiness and physical/security/model acceptance context | No release authorization inferred |
@@ -36,6 +36,12 @@ Profiles: operations, technician, approver, ML engineer, administrator and audit
 ## Verification
 
 On 19 November 2026, the local Python suite completed with 54 passed and 24 browser cases skipped because Python Playwright is unavailable in this environment. Two separate Chromium suites passed: saved comparison review (real isolated service, approval/rejection, persistence, escaping, outage/retry and auditor restrictions), and workspace acceptance (17 views at 1440/1024/768/390/320 pixels, profile selection without identity change, knowledge search/empty/source detail, release/lineage views, missing-sample replay/reset, session draft persistence/escaping/clear, maintenance independence, device checklist, existing search/filter/CSV/dialog/density behavior). No hardware acceptance is implied.
+
+### Catalog investigation extension
+
+The authenticated planning catalog now supports combined text/category filtering, six quick filters with source-derived counts, component details with conditional/instrument/spare/safety boundaries, filtered CSV with explicit planning provenance, and navigation to device readiness and design sources. Asset details expose collapsible sensor-design context and a route to the corresponding BOM category. These references never establish a physical sensor assignment.
+
+Chromium acceptance also verifies catalog filter intersections and empty/reset behavior, CSV scope/provenance, detail focus restoration, conditional-use wording, stale-detail removal and disabled actions during an API outage, filter-preserving retry, and the asset → component → device journey. No procurement, inspection, calibration, enrollment or hardware command is written by this interface.
 
 ## Remaining production work
 

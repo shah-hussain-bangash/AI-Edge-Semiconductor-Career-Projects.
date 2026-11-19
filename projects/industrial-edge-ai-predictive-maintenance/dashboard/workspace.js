@@ -24,6 +24,7 @@ function openAssetWorkspace(assetId){
  '<h3>Investigation context</h3><p>'+(asset.status==='critical'?'This example asset is prioritized for vibration review. Check measurement provenance and sensor calibration before making maintenance decisions.':asset.status==='watch'?'This example is on the watch list. Review its context and validate measurements before planning any maintenance.':'This example is classified as nominal. This classification is a demonstration fixture, not a verified equipment condition.')+'</p>'+
  '<div class="asset-detail-note"><strong>Demonstration data</strong><br>No actual readings or live model outputs are available for this asset. The telemetry explorer shows a shared synthetic example, not measurements from this equipment.</div>'+
  '<div class="asset-detail-actions"><button type="button" class="quick-primary" id="asset-open-telemetry">Explore signal example</button><button type="button" class="action-outline" id="asset-open-alerts">Review demo alerts</button></div></div>';
+ if(typeof enhanceAssetInvestigation==='function')enhanceAssetInvestigation(asset);
  $('asset-open-telemetry').addEventListener('click',()=>{closeWorkspaceDialog('asset-dialog');navigate('telemetry');$('page-title').focus({preventScroll:true});});
  $('asset-open-alerts').addEventListener('click',()=>{closeWorkspaceDialog('asset-dialog');navigate('alerts');$('alert-filter').value='all';renderAlerts();$('page-title').focus({preventScroll:true});});
  $('asset-dialog').showModal();

@@ -33,7 +33,10 @@ function edgConnection(state,label){
 }
 async function initializeHardware(){
   const button=edg("refresh-hardware");
-  if(button)button.disabled=true;
+  if(button){button.disabled=true;button.textContent="Checking catalog…";}
+  if(edg("hardware-metrics"))edg("hardware-metrics").textContent="";
+  if(edg("hardware-table"))edg("hardware-table").innerHTML='<tr><td colspan="5">Rechecking planning catalog…</td></tr>';
+  window.dispatchEvent(new CustomEvent("edgeops:hardware-state",{detail:{state:"loading"}}));
   edgFeedback("hardware-feedback","Loading planning inventory from the authenticated local API…","loading");
   try{
     const result=await edgFetch("/api/hardware");
@@ -43,15 +46,17 @@ async function initializeHardware(){
     const named=Number(result.named_category_count)||0;
     const connected=result.devices.filter(item=>item.connected===true).length;
     if(metrics) metrics.innerHTML=[
-      [total,"Planning categories"],[named,"Named design categories"],["Unknown","Purchases & physical instances"],[connected,"Verified connected devices"]
+      [total,"Planning categories"],[result.devices.filter(item=>item.category==="sensor").length,"Sensor categories"],["Unknown","Purchases & physical instances"],[connected,"Verified connected devices"]
     ].map(([value,title])=>'<article class="metric"><div class="metric-label">'+safeText(title)+'</div><div class="metric-number">'+safeText(value)+'</div><div class="metric-foot">Planning inventory only</div></article>').join("");
     if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">'+(device.connected?"Connected (API)":"Planned · unverified")+'</span></td></tr>').join("");
-    edgFeedback("hardware-feedback",total+" planned slots · "+named+" named · "+connected+" connected according to local API. No physical connection verified.","ok");
+    window.dispatchEvent(new CustomEvent("edgeops:hardware-state",{detail:{state:"ok",devices:result.devices}}));
+    edgFeedback("hardware-feedback",total+" planning categories · "+named+" named · "+connected+" connected according to local API. No physical connection verified.","ok");
   }catch(error){
     edgFeedback("hardware-feedback","Inventory unavailable: "+error.message+". Use Retry inventory to try again.","error");
     if(edg("hardware-table"))edg("hardware-table").innerHTML='<tr><td colspan="5" class="empty-state">Inventory could not be loaded. Previously displayed data is not reliable.</td></tr>';
     if(edg("hardware-metrics"))edg("hardware-metrics").textContent="";
-  }finally{if(button)button.disabled=false;}
+    window.dispatchEvent(new CustomEvent("edgeops:hardware-state",{detail:{state:"error"}}));
+  }finally{if(button){button.disabled=false;button.textContent=edg("hardware-feedback")?.dataset.state==="ok"?"Refresh catalog":"Retry inventory";}}
 }
 async function initializeAudit(){
   const button=edg("refresh-audit");
@@ -130,6 +135,7 @@ async function edgCheckConnection(){
     if(edg("hardware-table"))edg("hardware-table").innerHTML='<tr><td colspan="5" class="empty-state">Inventory unavailable until the local API reconnects.</td></tr>';
     if(edg("hardware-metrics"))edg("hardware-metrics").textContent="";
     if(edg("audit-entries"))edg("audit-entries").innerHTML='<tr><td colspan="4" class="empty-state">Audit history unavailable until the local API reconnects.</td></tr>';
+    window.dispatchEvent(new CustomEvent("edgeops:hardware-state",{detail:{state:"error"}}));
   }finally{if(retry)retry.disabled=false;}
 }
 

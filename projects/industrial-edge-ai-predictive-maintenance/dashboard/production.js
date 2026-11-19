@@ -29,6 +29,7 @@ const action=(label,page)=>'<button type="button" class="action-outline" data-pr
 const empty=(title,body)=>'<div class="product-empty"><span class="empty-orbit" aria-hidden="true">◇</span><h3>'+escapeText(title)+'</h3><p>'+escapeText(body)+'</p></div>';
 function productHero(kicker,title,description,aside='') {return '<div class="product-hero"><div><span class="section-kicker">'+escapeText(kicker)+'</span><h2>'+escapeText(title)+'</h2><p>'+escapeText(description)+'</p></div>'+aside+'</div>';}
 function productDialog(title,body){
+ window.dispatchEvent(new Event('edgeops:detail-opening'));
  $('product-dialog-title').textContent=title;$('product-dialog-body').innerHTML=body;$('product-dialog').showModal();
 }
 function renderProductProfiles(){
