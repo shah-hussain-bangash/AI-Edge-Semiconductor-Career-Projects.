@@ -5,6 +5,7 @@ on:
     branches: [dashboard-live-edit]
     paths:
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/sklearn_comparison.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/run_sklearn_comparison.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/tests/test_sklearn_comparison.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/offline_baseline.py"
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/requirements-ml.txt"
@@ -33,3 +34,5 @@ jobs:
         run: python -m pip install -r requirements-ml.txt
       - name: Run equal-holdout baseline tests
         run: python -m unittest discover -s tests -p test_sklearn_comparison.py -v
+      - name: Run read-only synthetic comparison CLI
+        run: python run_sklearn_comparison.py
