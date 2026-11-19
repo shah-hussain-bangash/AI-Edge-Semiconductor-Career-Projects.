@@ -79,6 +79,10 @@ class RecoveryTests(unittest.TestCase):
             recovery.restore_backup(self.backup, self.root)
         with self.assertRaises(ValueError):
             self.create()
+        with self.assertRaises(ValueError):
+            recovery.restore_backup(self.backup, self.backup / 'nested-restore')
+        self.assertFalse((self.backup / 'nested-restore').exists())
+        recovery.verify_backup(self.backup)
         self.assertEqual(snapshot, self.source.read_bytes())
 
     def test_missing_source_does_not_create_database_or_completed_backup(self):

@@ -216,6 +216,8 @@ def verify_backup(directory):
 def restore_backup(directory, output):
     manifest = verify_backup(directory)
     root = Path(directory).absolute()
+    if Path(output).resolve().is_relative_to(root.resolve()):
+        raise ValueError('Restore destination cannot be inside its backup source')
     destination, stage = new_stage(output)
     try:
         for item in manifest['files']:
