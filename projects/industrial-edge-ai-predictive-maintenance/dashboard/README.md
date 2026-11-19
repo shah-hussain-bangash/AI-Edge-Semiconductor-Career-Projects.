@@ -328,3 +328,22 @@ From the EDGEOPS dashboard folder, without starting a server:
 ```
 
 The command prints two content-addressed run IDs and a comparison of **synthetic holdout** metrics. It writes immutable JSON dataset snapshots, model parameter specifications and experiment reports into `.local/experiments/{datasets,models,runs}`. Re-running with identical inputs does not create a new run. The demo does not train or deploy a supervised industrial failure model; the labels and telemetry are generated exclusively for repeatable software testing.
+
+
+## Fair-split scikit-learn baseline comparison and report viewer (November 2026)
+
+**Offline model comparison:** optional `requirements-ml.txt` provides NumPy and scikit-learn. `sklearn_comparison.py` evaluates a transparent standardized-deviation baseline alongside an independently fitted `LogisticRegression` pipeline. Both use the **same chronological train, validation and test partitions**. Scaling is fit only on training; each threshold is chosen on validation; the common test set is not used for fitting or threshold selection. Scores and metrics are for invented **synthetic labels** and must never be described as equipment-failure accuracy, calibration or a production model.
+
+Run locally from `dashboard/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-ml.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_sklearn_comparison.py -v
+.\.venv\Scripts\python.exe run_sklearn_comparison.py
+```
+
+**Dashboard report viewer:** the existing `Reports` page now includes a read-only table populated by `GET /api/offline-experiments`. This endpoint requires a logged-in user and verifies SHA-256 dataset/model/run JSON artifacts from `.local/experiments` before returning **summary metrics only**. Corrupt or altered records are never displayed; the frontend shows an explicit empty/error state and a Retry control. It never returns raw dataset rows or enables model inference or equipment commands.
+
+To see the locally generated experiments, keep your authenticated local FastAPI server running on port 8877, open `http://127.0.0.1:8877/app#reports`, and select **Refresh experiments**. These previously saved registry experiments can have **different holdout sizes** and are not a fair model comparison. Use the separate scikit-learn CLI for equal-holdout offline comparisons. UI snapshot data remains illustrative.
+
+**Production blockers remain:** real labeled failure events, quality and leakage review, measured operational performance, model approval and deployment, physical hardware safeguards and independent security testing.
