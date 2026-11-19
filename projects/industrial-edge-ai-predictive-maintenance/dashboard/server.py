@@ -14,6 +14,9 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from typing import Literal
+
+import telemetry_store
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -32,13 +35,16 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
     if asset not in PUBLIC_ASSETS:
         raise HTTPException(404, "Not found")
-    return FileResponse(ROOT / asset)
+    candidate = ROOT / asset
+    if not candidate.is_file():
+        raise HTTPException(404, "Asset not installed")
+    return FileResponse(candidate)
 
 # Only hardware explicitly identified in prior user-provided inventory is named.
 # Slots 15–30 are NOT confirmed purchases or engineering-approved parts.
@@ -181,6 +187,16 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class SyntheticTelemetryInput(BaseModel):
+    """Explicit synthetic-only event; real sensor ingestion is not supported."""
+    event_id: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_-]+$")
+    asset_id: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    captured_at: datetime
+    vibration_mm_s: float = Field(ge=0, le=500, allow_inf_nan=False)
+    temperature_c: float = Field(ge=-40, le=180, allow_inf_nan=False)
+    current_a: float = Field(ge=0, le=100, allow_inf_nan=False)
+    provenance: Literal["synthetic-demo"]
+
 class AlertAction(BaseModel):
     alert_id: str = Field(pattern=r"^AL-[0-9]{4}$", max_length=7)
     note: str = Field(default="", max_length=200)
@@ -318,3 +334,67 @@ def acknowledge(request: Request, body: AlertAction):
     with database() as db:
         record_audit(db, current["email"], "demo_alert_ack", body.alert_id)
     return {"ok": True, "mode": "demo-audit-only", "persistent_alarm_state": False}
+
+
+@app.post("/api/synthetic-telemetry", status_code=201)
+def ingest_synthetic_telemetry(request: Request, event: SyntheticTelemetryInput, response: Response):
+    """Authenticated local fixture ingestion only; no hardware or model outputs."""
+    current = require_user(request)
+    require_csrf(request, current)
+    if current["role"] != "admin":
+        raise HTTPException(403, "Admin role required for synthetic fixture ingestion")
+    if event.captured_at.tzinfo is None or event.captured_at.utcoffset() is None:
+        raise HTTPException(422, "captured_at must contain a timezone offset")
+    try:
+        created, stored = telemetry_store.append_event(event)
+    except ValueError as error:
+        raise HTTPException(409, str(error))
+    response.status_code = 201 if created else 200
+    return {"inserted": created, "event": stored, "mode": "synthetic-demo", "model_deployed": False}
+
+
+@app.get("/api/synthetic-telemetry")
+def list_synthetic_telemetry(request: Request, asset_id: str | None = None, limit: int = 100):
+    require_user(request)
+    if asset_id is not None and (len(asset_id) > 64 or not asset_id.replace("_", "").replace("-", "").isalnum()):
+        raise HTTPException(422, "Invalid asset_id")
+    return {"events": telemetry_store.read_events(asset_id=asset_id, limit=limit),
+            "provenance": "synthetic-demo", "model_deployed": False, "hardware_connected": False}
+
+
+@app.get("/api/offline-experiments")
+def list_offline_experiments(request: Request, limit: int = 20):
+    """Read verified *local synthetic* run summaries; never expose raw datasets."""
+    require_user(request)
+    from experiment_registry import verify_experiment
+    root = Path(os.environ.get(
+        "EDGEOPS_OFFLINE_EXPERIMENT_ROOT", str(ROOT / ".local" / "experiments")
+    )).resolve()
+    if not root.is_dir() or not (root / "runs").is_dir():
+        return {"experiments": [], "mode": "synthetic-offline-only",
+                "model_deployed": False, "hardware_connected": False}
+    limit = max(1, min(50, limit))
+    result = []
+    # Sorted identifiers, never caller-provided filenames or unverified JSON.
+    for path in sorted((root / "runs").glob("*.json"))[:500]:
+        if len(result) >= limit:
+            break
+        try:
+            verified = verify_experiment(root, path.stem)
+        except (ValueError, OSError, TypeError, KeyError):
+            # Fail closed: do not display unverified or tampered reports.
+            continue
+        report = verified["report"]
+        result.append({
+            "run_id": path.stem,
+            "dataset_sha256": report["dataset_sha256"],
+            "model_kind": verified["model"].get("model_kind", "offline-baseline"),
+            "test_count": report["counts"]["test"],
+            "precision": report["test_metrics"]["precision"],
+            "recall": report["test_metrics"]["recall"],
+            "f1": report["test_metrics"]["f1"],
+            "evaluation_scope": report["evaluation_scope"],
+            "deployment_status": "not-deployed",
+        })
+    return {"experiments": result, "mode": "synthetic-offline-only",
+            "model_deployed": False, "hardware_connected": False}

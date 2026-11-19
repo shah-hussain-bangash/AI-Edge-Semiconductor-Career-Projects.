@@ -1,0 +1,35 @@
+name: EDGEOPS Offline Experiment Registry
+
+on:
+  push:
+    branches: [dashboard-live-edit]
+    paths:
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/experiment_registry.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/run_offline_experiment.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/offline_baseline.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/time_series_features.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/ml_evaluation.py"
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/tests/test_experiment_registry.py"
+      - ".github/workflows/edgeops-experiment-registry.yml"
+  pull_request:
+    paths:
+      - "projects/industrial-edge-ai-predictive-maintenance/dashboard/**"
+      - ".github/workflows/edgeops-experiment-registry.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  experiments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Experiment registry unit tests
+        run: python -m unittest discover -s tests -p test_experiment_registry.py -v

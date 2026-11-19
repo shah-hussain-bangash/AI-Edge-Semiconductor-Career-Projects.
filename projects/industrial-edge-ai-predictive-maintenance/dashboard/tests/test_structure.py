@@ -17,11 +17,11 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertIn('src="/static/app.js"', self.html)
 
     def test_02_synthetic_disclosure(self):
-        self.assertIn("SYNTHETIC DATA", self.html)
+        self.assertIn("SYNTHETIC DEMONSTRATION", self.html)
         self.assertIn("no real devices", self.html.lower())
 
-    def test_03_six_navigation_sections(self):
-        for page in ("overview", "telemetry", "assets", "alerts", "insights", "security"):
+    def test_03_complete_navigation_sections(self):
+        for page in ("overview", "telemetry", "assets", "alerts", "insights", "hardware", "architecture", "maintenance", "security", "governance", "reports", "settings"):
             with self.subTest(page=page):
                 self.assertIn('data-page="'+page+'"', self.html)
                 self.assertIn('id="page-'+page+'"', self.html)
@@ -36,21 +36,72 @@ class DashboardStructureTests(unittest.TestCase):
         self.assertNotRegex(self.html.lower(), r'(start motor|stop motor|energize)')
 
     def test_06_accessible_region_structure(self):
-        for snippet in ('<main id="main">', 'aria-label="Main navigation"', 'class="skip"', 'aria-live="polite"'):
+        for snippet in ('<main id="main" tabindex="-1">', 'aria-label="Main navigation"', 'class="skip"', 'aria-live="polite"'):
             self.assertIn(snippet, self.html)
 
     def test_07_responsive_layout_declared(self):
-        self.assertIn("max-width:760px", self.css)
-        self.assertIn("max-width:1220px", self.css)
+        self.assertIn("max-width:800px", self.css)
+        self.assertIn("max-width:1330px", self.css)
 
     def test_08_client_only_export_marked_as_demo(self):
         self.assertIn("edgeops-synthetic-dashboard-snapshot.json", self.js)
         self.assertIn("mode:\"synthetic-ui-prototype\"", self.js)
 
     def test_09_phase_one_has_no_production_auth_claim(self):
-        self.assertIn("does not implement user login", self.html)
+        self.assertIn("Authenticated local session", self.html)
 
-    def test_10_fixture_dataset_has_twelve_assets(self):
+    def test_10_industrial_images_are_local(self):
+        self.assertIn('/static/industrial-motor.svg', self.html)
+        self.assertIn('/static/industrial-plant.svg', self.html)
+        self.assertTrue((ROOT / "industrial-motor.svg").is_file())
+        self.assertTrue((ROOT / "industrial-plant.svg").is_file())
+
+    def test_11_signin_ui_is_complete(self):
+        html = (ROOT / "signin.html").read_text(encoding="utf-8")
+        for item in ('id="signin-form"', 'id="forgot-password"', 'id="sso-button"',
+                     'id="demo-button"', '/static/industrial-motor.svg'):
+            with self.subTest(item=item):
+                self.assertIn(item, html)
+
+    def test_12_operational_filters_and_focus(self):
+        for snippet in ('id="asset-filter"', 'id="asset-search"',
+                        'id="alert-filter"', 'id="focus-toggle"',
+                        'id="mobile-scrim"'):
+            with self.subTest(snippet=snippet):
+                self.assertIn(snippet, self.html)
+        for snippet in ('renderAssets', 'renderAlerts', 'focus-mode', 'asset-result-count'):
+            with self.subTest(snippet=snippet):
+                self.assertIn(snippet, self.js)
+
+    def test_13_enterprise_architecture_explorer(self):
+        arch = (ROOT / "architecture.js").read_text(encoding="utf-8")
+        self.assertIn('src="/static/architecture.js"', self.html)
+        self.assertIn('data-page="architecture"', self.html)
+        self.assertIn('id="arch-detail-security"', self.html)
+        self.assertIn('id="arch-detail-failure"', self.html)
+        self.assertIn('id="arch-detail-evidence"', self.html)
+        for node in ("sensors", "esp32", "mqtt", "gateway", "pipeline", "ai", "api", "dashboard"):
+            with self.subTest(node=node):
+                self.assertIn('data-arch-node="'+node+'"', self.html)
+                self.assertIn(node+':{', arch)
+        self.assertIn("NOT DEPLOYED", arch)
+        self.assertIn("No remote actuation", arch)
+
+    def test_14_ui_reliability_and_navigation(self):
+        auth = (ROOT / "dashboard-auth.js").read_text(encoding="utf-8")
+        for marker in ('id="connection-chip"', 'id="refresh-hardware"',
+                       'id="refresh-audit"', 'id="session-user"',
+                       'id="session-role"', 'id="session-expiry"',
+                       'id="audit-entries"'):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.html)
+        self.assertIn('"/api/audit?limit=30"', auth)
+        self.assertIn('"/api/system/health"', auth)
+        self.assertIn('AbortController()', auth)
+        self.assertIn('window.history.pushState', self.js)
+        self.assertIn('"popstate"', self.js)
+
+    def test_15_fixture_dataset_has_twelve_assets(self):
         assets_match = re.search(r'const assets = \[(.*?)\];', self.js, re.S)
         self.assertIsNotNone(assets_match)
         self.assertEqual(len(re.findall(r'id:"[^"]+",name:', assets_match.group(1))), 12)
