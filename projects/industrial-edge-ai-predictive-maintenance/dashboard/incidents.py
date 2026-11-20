@@ -16,6 +16,7 @@ BOUNDARY = {'scope': 'local-synthetic-incidents', 'source_type': 'synthetic',
             'hardware_connected': False, 'equipment_authorized': False, 'production_ready': False,
             'automatic_detection': False, 'external_notifications_sent': False}
 STATES = ('open', 'acknowledged', 'resolved')
+CURRENT_SEVERITY_SQL = 'COALESCE((SELECT severity FROM incident_triage WHERE incident_id=synthetic_incidents.id),synthetic_incidents.severity)'
 TRANSITIONS = {'acknowledge': ('open', 'acknowledged'), 'resolve': ('acknowledged', 'resolved'),
                'reopen': ('resolved', 'open')}
 MAX_INCIDENTS, MAX_REVISIONS = 1000, 200
@@ -57,6 +58,12 @@ class ObservationIncident(StrictModel):
     title: str = Field(strict=True, min_length=5, max_length=120)
     observation: str = Field(strict=True, min_length=10, max_length=2000)
     severity: Literal['info', 'watch', 'critical']
+
+
+class ReviewSeverity(StrictModel):
+    expected_revision: int = Field(strict=True, ge=1)
+    severity: Literal['info', 'watch', 'critical']
+    note: str = Field(strict=True, min_length=10, max_length=800)
 
 
 class AttachObservation(StrictModel):
@@ -135,6 +142,9 @@ def init_schema(db):
         request_key TEXT NOT NULL, request_hash TEXT NOT NULL, snapshot_json TEXT NOT NULL,
         PRIMARY KEY(incident_id,event_key), UNIQUE(incident_id,actor_id,request_key),
         FOREIGN KEY(incident_id,revision) REFERENCES synthetic_incident_events(incident_id,revision))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_triage(
+        incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id),
+        severity TEXT NOT NULL CHECK(severity IN ('info','watch','critical')), updated_at TEXT NOT NULL)''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
     db.execute('''CREATE TABLE IF NOT EXISTS incident_followups(
         incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id), due_at TEXT, updated_at TEXT NOT NULL)''')
@@ -193,9 +203,16 @@ def followup(db, row, now=None):
     return {'due_at':due,'status':status,'evaluated_at':now.isoformat(), 'clock_source':'local-service-clock'}
 
 
-def present(row, actor, owner=None, follow_up=None):
+def current_severity(db, incident_id):
+    row=db.execute('SELECT COALESCE(t.severity,i.severity) severity FROM synthetic_incidents i LEFT JOIN incident_triage t ON t.incident_id=i.id WHERE i.id=?',(incident_id,)).fetchone()
+    return row['severity']
+
+
+def present(row, actor, owner=None, follow_up=None, reviewed_severity=None):
     data = {key: value for key, value in dict(row).items() if key not in ('request_key','creation_hash','creator_id')}
     writable = actor['role'] in WRITE_ROLES and (actor['role'] == 'admin' or row['creator_id'] == actor['id'] or owner and owner['user_id']==actor['id'])
+    data['initial_severity']=row['severity']
+    data['current_severity']=reviewed_severity or row['severity']
     data['follow_up'] = follow_up
     data['can_set_follow_up'] = bool(writable and row['state']!='resolved' and row['revision']<MAX_REVISIONS)
     data['can_add_update'] = data['can_set_follow_up']
@@ -257,15 +274,18 @@ def detail(db, row, actor):
     count = db.execute('SELECT count(*) FROM incident_plan_links WHERE incident_id=?', (row['id'],)).fetchone()[0]
     attachments=observation_attachments(db,row['id'])
     by_revision={item['revision']:item['snapshot'] for item in attachments}
-    presented=present(row,actor,assignment(db,row['id']),followup(db,row))
+    presented=present(row,actor,assignment(db,row['id']),followup(db,row),current_severity(db,row['id']))
     history=[]
     for item in events:
         entry=dict(item);snapshot=json.loads(entry.pop('snapshot_json'))
         entry['assignment_recorded']='assignment' in snapshot;entry['assignment']=snapshot.get('assignment')
         entry['follow_up_recorded']='follow_up' in snapshot;entry['follow_up']=snapshot.get('follow_up')
+        entry['severity_recorded']='current_severity' in snapshot
+        entry['initial_severity']=snapshot.get('initial_severity',snapshot.get('severity'))
+        entry['current_severity']=snapshot.get('current_severity')
         entry['attached_observation']=by_revision.get(entry['revision'])
         history.append(entry)
-    return {'incident': presented, 'history': history,
+    return {'incident': presented, 'history': history, 'can_review_severity':presented['can_add_update'],
             'attached_observations':attachments,
             'can_attach_observation':presented['can_add_update'] and len(attachments)<MAX_ATTACHED_OBSERVATIONS,
             'attached_observation_limit':MAX_ATTACHED_OBSERVATIONS,
@@ -276,7 +296,7 @@ def detail(db, row, actor):
 
 
 def event(db, row, actor, action, note, evidence, audit):
-    snapshot = present(row, actor, assignment(db,row['id']), followup(db,row)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
+    snapshot = present(row, actor, assignment(db,row['id']), followup(db,row),current_severity(db,row['id'])); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
     db.execute('INSERT INTO synthetic_incident_events VALUES(?,?,?,?,?,?,?,?,?)',
                (row['id'], row['revision'], action, actor['id'], actor['email'], note, evidence,
                 row['updated_at'], json.dumps(snapshot, sort_keys=True)))
@@ -309,6 +329,21 @@ def install_routes(app, database, require_user, require_csrf, audit):
             row=visible(db,identifier,actor);event(db,row,actor,'create',body.observation,evidence,audit)
             audit(db,actor['email'],'synthetic_incident_observation_linked',json.dumps({'incident_id':identifier,'event_key':body.event_key}))
             return {**detail(db,row,actor),'created':True}
+
+    @app.post('/api/incidents/{incident_id}/severity')
+    def review_severity(incident_id: str, body: ReviewSeverity, request: Request):
+        current=require_user(request);require_csrf(request,current)
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
+            row=visible(db,incident_id,actor)
+            if row['revision']!=body.expected_revision or row['revision']>=MAX_REVISIONS or row['state']=='resolved':
+                raise HTTPException(409,'Incident changed, is resolved or reached history capacity; reopen the current record')
+            if current_severity(db,incident_id)==body.severity:raise HTTPException(409,'The selected severity is already current')
+            now=datetime.now(timezone.utc).isoformat()
+            db.execute('INSERT INTO incident_triage VALUES(?,?,?) ON CONFLICT(incident_id) DO UPDATE SET severity=excluded.severity,updated_at=excluded.updated_at',(incident_id,body.severity,now))
+            db.execute('UPDATE synthetic_incidents SET revision=revision+1,updated_at=? WHERE id=?',(now,incident_id))
+            row=visible(db,incident_id,actor);event(db,row,actor,'severity_reviewed',body.note,'',audit)
+            return detail(db,row,actor)
 
     @app.post('/api/incidents/{incident_id}/observations')
     def attach_observation(incident_id: str, body: AttachObservation, request: Request):
@@ -432,7 +467,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
             fields = planning.PlanFields(asset_id=incident['asset_id'], title=('Inspect: ' + incident['title'])[:120],
                 observation=incident['observation'], proposal=body.proposal,
                 evidence_refs='Synthetic incident ' + incident_id + ' revision ' + str(incident['revision']),
-                priority={'info': 'low', 'watch': 'medium', 'critical': 'critical'}[incident['severity']]).model_dump()
+                priority={'info': 'low', 'watch': 'medium', 'critical': 'critical'}[current_severity(db,incident_id)]).model_dump()
             key = hashlib.sha256(('incident-plan:' + incident_id).encode()).hexdigest()[:32]
             if db.execute('SELECT 1 FROM maintenance_requests WHERE creator_id=? AND request_key=?', (actor['id'], key)).fetchone():
                 raise HTTPException(409, 'The linked-plan save key is already in use; no existing plan was attached or changed')
@@ -443,7 +478,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',1,?,?)''',
                 (identifier, actor['id'], actor['email'], key, creation_hash, fields['asset_id'], fields['title'],
                  fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
-            snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
+            snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident),current_severity(db,incident_id)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
             snapshot['source_observation']=observation_source(db,incident_id)
             snapshot['attached_observations']=observation_attachments(db,incident_id)
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
@@ -457,7 +492,9 @@ def install_routes(app, database, require_user, require_csrf, audit):
     def list_incidents(request: Request, state: str = 'all', q: str = Query(default='', max_length=160),
                        offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50),
                        ownership: Literal['all','assigned','created','unassigned'] = 'all',
-                       follow_up: Literal['all','none','overdue','upcoming'] = 'all'):
+                       follow_up: Literal['all','none','overdue','upcoming'] = 'all',
+                       severity: Literal['all','info','watch','critical'] = 'all',
+                       sort: Literal['updated','severity'] = 'updated'):
         actor = require_user(request); require_role(actor, READ_ROLES)
         if state not in ('all', *STATES): raise HTTPException(422, 'Unknown incident state')
         observed_at=datetime.now(timezone.utc)
@@ -466,6 +503,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
         elif ownership=='created':scope+=' AND creator_id=?';args.append(actor['id'])
         elif ownership=='unassigned':scope+=' AND id NOT IN (SELECT incident_id FROM incident_assignments WHERE assignee_id IS NOT NULL)'
         where, values = scope, list(args)
+        if severity!='all':where+=' AND '+CURRENT_SEVERITY_SQL+'=?';values.append(severity)
         if follow_up=='none':
             where+=' AND id NOT IN (SELECT incident_id FROM incident_followups WHERE due_at IS NOT NULL)'
         elif follow_up in ('overdue','upcoming'):
@@ -480,9 +518,10 @@ def install_routes(app, database, require_user, require_csrf, audit):
             counts = {name: 0 for name in STATES}
             for row in db.execute('SELECT state,count(*) n FROM synthetic_incidents WHERE ' + scope + ' GROUP BY state', args): counts[row['state']] = row['n']
             total = db.execute('SELECT count(*) FROM synthetic_incidents WHERE ' + where, values).fetchone()[0]
-            rows = db.execute('SELECT * FROM synthetic_incidents WHERE ' + where + ' ORDER BY updated_at DESC,id DESC LIMIT ? OFFSET ?', [*values, limit, offset]).fetchall()
-            presented=[present(row, actor, assignment(db,row['id']), followup(db,row,observed_at)) for row in rows]
-        return {'incidents': presented, 'counts': counts, 'total': total,
+            order=("CASE "+CURRENT_SEVERITY_SQL+" WHEN 'critical' THEN 0 WHEN 'watch' THEN 1 ELSE 2 END,") if sort=='severity' else ''
+            rows = db.execute('SELECT * FROM synthetic_incidents WHERE ' + where + ' ORDER BY '+order+'updated_at DESC,id DESC LIMIT ? OFFSET ?', [*values, limit, offset]).fetchall()
+            presented=[present(row, actor, assignment(db,row['id']), followup(db,row,observed_at),current_severity(db,row['id'])) for row in rows]
+        return {'incidents': presented, 'counts': counts, 'total': total, 'severity_filter':severity,'sort':sort,
                 'offset': offset, 'limit': limit, 'can_create': actor['role'] in WRITE_ROLES,
                 'visibility': 'created by or assigned to you' if actor['role'] == 'operator' else 'all local records', **BOUNDARY}
 

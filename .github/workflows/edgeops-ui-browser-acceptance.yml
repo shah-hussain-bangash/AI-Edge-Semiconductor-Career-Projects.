@@ -60,6 +60,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_incidents.cjs
       - name: Incident observation attachment acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_attachments.cjs
+      - name: Incident severity review and scoped queue acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_triage.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
