@@ -108,7 +108,7 @@ class IncidentPlanningTests(unittest.TestCase):
         recovery.create_backup(self.server.DB_PATH,backup);recovery.restore_backup(backup,restored)
         with closing(sqlite3.connect(restored/'dashboard.sqlite3')) as db:
             db.row_factory=sqlite3.Row
-            self.assertEqual(incidents.plan_source(db,plan['id'])['snapshot']['title'],incident['title'])
+            self.assertEqual(incidents.plan_source(db,plan['id'],{'role':'admin','id':1})['snapshot']['title'],incident['title'])
 
     def test_strict_payload_and_capacity_are_enforced(self):
         incident=self.create()

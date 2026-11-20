@@ -126,7 +126,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
             from incidents import plan_source
             snapshot = plans.present(plan, actor); snapshot.pop('actions')
             snapshot.pop('is_creator', None)
-            snapshot['source_incident'] = plan_source(db, plan_id)
+            snapshot['source_incident'] = plan_source(db, plan_id, actor)
             now = datetime.now(timezone.utc).isoformat(); identifier = secrets.token_hex(16)
             db.execute('''INSERT INTO maintenance_exercises VALUES(?,?,?,?,?,?,'draft',1,?,'','',NULL,NULL,?,?)''',
                 (identifier, plan_id, plan['revision'], actor['id'], actor['email'], json.dumps(snapshot, sort_keys=True),

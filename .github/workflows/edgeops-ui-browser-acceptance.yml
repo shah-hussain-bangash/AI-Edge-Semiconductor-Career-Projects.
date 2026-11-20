@@ -52,6 +52,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incidents.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
+      - name: Local administrator team management acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_team.cjs
       - name: Complete production readiness register acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_readiness.cjs
       - name: Upload desktop and mobile review screenshots

@@ -26,6 +26,7 @@ import operations
 import telemetry_store
 import maintenance_requests
 import maintenance_exercises
+import team_accounts
 import production_readiness
 from pathlib import Path
 
@@ -46,7 +47,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError):
@@ -129,6 +130,7 @@ def init_db():
             status TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT NOT NULL,
             reviewed_at TEXT NOT NULL, PRIMARY KEY(comparison_id,revision))""")
         incidents.init_schema(db)
+        team_accounts.init_schema(db)
         maintenance_requests.init_schema(db)
         maintenance_exercises.init_schema(db)
         production_readiness.init_schema(db)
@@ -534,3 +536,5 @@ delivery_service.install_routes(app, database, require_user, require_csrf, recor
 observation_queries.install_routes(app, database, require_user)
 
 physical_build.install_routes(app, require_user, ROOT)
+
+team_accounts.install_routes(app, database, require_user, require_csrf, password_hash, password_matches, record_audit)

@@ -74,14 +74,17 @@ def init_schema(db):
         UNIQUE(incident_id,creator_id))''')
 
 
-def plan_source(db, plan_id):
-    row = db.execute('''SELECT l.*,i.revision current_revision,i.state current_state
+def plan_source(db, plan_id, actor):
+    row = db.execute('''SELECT l.*,i.revision current_revision,i.state current_state,i.creator_id source_creator_id
         FROM incident_plan_links l JOIN synthetic_incidents i ON i.id=l.incident_id
         WHERE l.plan_id=?''', (plan_id,)).fetchone()
     if not row: return None
+    accessible = actor['role'] in ('admin','auditor') or row['source_creator_id'] == actor['id']
     return {'id': row['incident_id'], 'revision': row['incident_revision'],
-            'snapshot': json.loads(row['snapshot_json']), 'current_revision': row['current_revision'],
-            'current_state': row['current_state'], 'changed_since_capture': row['incident_revision'] != row['current_revision']}
+            'snapshot': json.loads(row['snapshot_json']), 'current_accessible': accessible,
+            'current_revision': row['current_revision'] if accessible else None,
+            'current_state': row['current_state'] if accessible else None,
+            'changed_since_capture': row['incident_revision'] != row['current_revision'] if accessible else None}
 
 
 def linked_plans(db, incident_id, actor):

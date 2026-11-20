@@ -138,7 +138,7 @@ def detail(db, row, actor):
     events = db.execute("""SELECT revision,action,actor_email,note,time_utc
         FROM maintenance_request_events WHERE request_id=? ORDER BY revision DESC""", (row["id"],)).fetchall()
     return {"request": present(row, actor), "history": [dict(event) for event in events],
-            "source_incident": plan_source(db, row['id']), **summary(db, row, actor), **BOUNDARY}
+            "source_incident": plan_source(db, row['id'], actor), **summary(db, row, actor), **BOUNDARY}
 
 
 def append_event(db, row, actor, action, note, record_audit):
@@ -226,7 +226,7 @@ def install_routes(app, database, require_user, require_csrf, record_audit):
             snapshot = json.loads(event["snapshot_json"])
             snapshot.pop("creator_id", None)
             from incidents import plan_source
-            return {"snapshot": snapshot, "read_only": True, "source_incident": plan_source(db, plan_id), **BOUNDARY}
+            return {"snapshot": snapshot, "read_only": True, "source_incident": plan_source(db, plan_id, actor), **BOUNDARY}
 
     @app.put("/api/maintenance-requests/{plan_id}")
     def edit_plan(plan_id: str, body: EditPlan, request: Request):
@@ -245,7 +245,7 @@ def install_routes(app, database, require_user, require_csrf, record_audit):
                 raise HTTPException(409, "Withdraw the submitted request before editing")
             fields = body.model_dump(exclude={"expected_revision"})
             from incidents import plan_source
-            source = plan_source(db, plan_id)
+            source = plan_source(db, plan_id, actor)
             if source and fields['asset_id'] != source['snapshot']['asset_id']:
                 raise HTTPException(409, 'A linked plan must retain the source incident asset')
             now = datetime.now(timezone.utc).isoformat()
