@@ -34,3 +34,5 @@
 @media(max-width:600px){.incident-queue-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.incident-queue-card{padding:12px}}
 
 #incident-queue-summary{scroll-margin-top:84px}
+
+.incident-handover-actions{display:flex;gap:12px;flex-wrap:wrap}#incident-handover-feedback{overflow-wrap:anywhere;color:#29445f}
