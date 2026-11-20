@@ -44,7 +44,7 @@ def database_status(path, detailed=False):
 
 def diagnostics(database, root):
     store = database_status(database, detailed=True)
-    files = ('server.py', 'acquisition_registry.py', 'delivery_service.py', 'edge_delivery.py', 'request_limits.py', 'operations.py', 'recovery.py',
+    files = ('server.py', 'acquisition_registry.py', 'delivery_service.py', 'edge_delivery.py', 'observation_queries.py', 'request_limits.py', 'operations.py', 'recovery.py',
              'maintenance_requests.py', 'production_readiness.py', 'readiness_catalog.json')
     try:
         fingerprint = hashlib.sha256()

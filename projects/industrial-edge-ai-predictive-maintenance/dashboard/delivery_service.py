@@ -22,6 +22,8 @@ def init_schema(db):
         committed_at TEXT NOT NULL,actor TEXT NOT NULL,
         FOREIGN KEY(device_id) REFERENCES acquisition_bindings(device_id))''')
 
+    db.execute('CREATE INDEX IF NOT EXISTS acquisition_history ON acquisition_observations(device_id,committed_at DESC,event_key DESC)')
+
 
 def matching_binding(db,body):
     obs=body.observation

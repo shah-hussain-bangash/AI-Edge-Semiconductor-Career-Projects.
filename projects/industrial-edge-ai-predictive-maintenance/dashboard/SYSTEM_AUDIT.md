@@ -26,7 +26,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 | REQ-05 Durable delivery | Bounded local synthetic spool, retry scheduling, conflict-aware central receipts and a tested loopback HTTP worker implemented; supervised service/device identity, broker integration and measured cutover remain pending |
 | REQ-06 Backend/storage | Transactional local review/planning/readiness domains; production database migrations, authoritative asset/incident/device APIs, retention and scale pending |
 | REQ-07 Identity/security | Local sessions/CSRF/audit and bounded body parsing; enterprise identity/MFA/provisioning, device credentials, scoped policy, distributed throttling and TLS deployment pending |
-| REQ-08 Connected dashboard | 18 usable views; most equipment views remain fixtures until authoritative APIs are implemented |
+| REQ-08 Connected dashboard | 18 usable views; telemetry now reads persisted local synthetic observations with quality/age/history; other equipment views remain fixtures and measured integration is pending |
 | REQ-09 Incidents | Browser examples; persisted correlation, assignments, expiry/escalation, resolution/reopening and operational effects pending |
 | REQ-10 Maintenance | Saved synthetic planning and independent review work; technician execution, evidence, independent verification and operational closure pending |
 | REQ-11 Real models | Synthetic chronological evaluation and reviewed immutable comparisons work; representative real labels, thresholds and independent evaluation pending |
@@ -56,3 +56,7 @@ The next B2 slice adds an authenticated persistent synthetic binding registry an
 ## Durable delivery follow-up - 20 November 2026
 
 DURABLE_DELIVERY.md records the new local synthetic spool, exact commit boundaries, finite retry/lease/capacity rules and independent HTTP worker test. The Device workspace exposes queue and receipt state. No unattended worker, broker, measured source or operational domain effect is installed.
+
+## Persisted telemetry follow-up - 20 November 2026
+
+The Telemetry explorer now reads centrally committed synthetic observations, preserves zero/null/units, distinguishes source and receipt time, exposes explicit clock/age states and retains retired-device history. PERSISTED_TELEMETRY.md records the exact query, integrity, chart and display-policy limits. It does not establish live hardware health.
