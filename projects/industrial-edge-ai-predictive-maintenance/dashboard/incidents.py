@@ -496,9 +496,10 @@ def install_routes(app, database, require_user, require_csrf, audit):
                        severity: Literal['all','info','watch','critical'] = 'all',
                        sort: Literal['updated','severity'] = 'updated'):
         actor = require_user(request); require_role(actor, READ_ROLES)
-        if state not in ('all', *STATES): raise HTTPException(422, 'Unknown incident state')
+        if state not in ('all', 'active', *STATES): raise HTTPException(422, 'Unknown incident state')
         observed_at=datetime.now(timezone.utc)
         scope, args = ('(creator_id=? OR id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?))', [actor['id'],actor['id']]) if actor['role'] == 'operator' else ('1=1', [])
+        actor_scope, actor_args = scope, list(args)
         if ownership=='assigned':scope+=' AND id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?)';args.append(actor['id'])
         elif ownership=='created':scope+=' AND creator_id=?';args.append(actor['id'])
         elif ownership=='unassigned':scope+=' AND id NOT IN (SELECT incident_id FROM incident_assignments WHERE assignee_id IS NOT NULL)'
@@ -509,19 +510,31 @@ def install_routes(app, database, require_user, require_csrf, audit):
         elif follow_up in ('overdue','upcoming'):
             where+=" AND state!='resolved' AND id IN (SELECT incident_id FROM incident_followups WHERE due_at "+('<=' if follow_up=='overdue' else '>')+' ?)'
             values.append(observed_at.isoformat(timespec='microseconds'))
-        if state != 'all': where += ' AND state=?'; values.append(state)
+        if state == 'active': where += " AND state IN ('open','acknowledged')"
+        elif state != 'all': where += ' AND state=?'; values.append(state)
         if q.strip():
             query = '%' + q.strip().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
             where += " AND (title LIKE ? ESCAPE '\\' OR asset_id LIKE ? ESCAPE '\\')"; values += [query, query]
         with database() as db:
             db.execute('BEGIN')
+            # Aggregate the actor's complete active queue in this same read snapshot.
+            # Filtered totals and ownership counts below retain their existing meaning.
+            summary = db.execute("SELECT count(*) active, "
+                "COALESCE(SUM(CASE WHEN " + CURRENT_SEVERITY_SQL + "='critical' THEN 1 ELSE 0 END),0) critical_active, "
+                "COALESCE(SUM(CASE WHEN id IN (SELECT incident_id FROM incident_followups WHERE due_at<=?) THEN 1 ELSE 0 END),0) overdue_active, "
+                "COALESCE(SUM(CASE WHEN id NOT IN (SELECT incident_id FROM incident_assignments WHERE assignee_id IS NOT NULL) THEN 1 ELSE 0 END),0) unassigned_active, "
+                "COALESCE(SUM(CASE WHEN id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?) THEN 1 ELSE 0 END),0) assigned_to_me_active "
+                "FROM synthetic_incidents WHERE " + actor_scope + " AND state IN ('open','acknowledged')",
+                [observed_at.isoformat(timespec='microseconds'), actor['id'], *actor_args]).fetchone()
+            queue_summary = {**dict(summary), 'scope': 'all-accessible-saved-incidents',
+                             'as_of': observed_at.isoformat(timespec='microseconds')}
             counts = {name: 0 for name in STATES}
             for row in db.execute('SELECT state,count(*) n FROM synthetic_incidents WHERE ' + scope + ' GROUP BY state', args): counts[row['state']] = row['n']
             total = db.execute('SELECT count(*) FROM synthetic_incidents WHERE ' + where, values).fetchone()[0]
             order=("CASE "+CURRENT_SEVERITY_SQL+" WHEN 'critical' THEN 0 WHEN 'watch' THEN 1 ELSE 2 END,") if sort=='severity' else ''
             rows = db.execute('SELECT * FROM synthetic_incidents WHERE ' + where + ' ORDER BY '+order+'updated_at DESC,id DESC LIMIT ? OFFSET ?', [*values, limit, offset]).fetchall()
             presented=[present(row, actor, assignment(db,row['id']), followup(db,row,observed_at),current_severity(db,row['id'])) for row in rows]
-        return {'incidents': presented, 'counts': counts, 'total': total, 'severity_filter':severity,'sort':sort,
+        return {'incidents': presented, 'counts': counts, 'queue_summary': queue_summary, 'total': total, 'severity_filter':severity,'sort':sort,
                 'offset': offset, 'limit': limit, 'can_create': actor['role'] in WRITE_ROLES,
                 'visibility': 'created by or assigned to you' if actor['role'] == 'operator' else 'all local records', **BOUNDARY}
 

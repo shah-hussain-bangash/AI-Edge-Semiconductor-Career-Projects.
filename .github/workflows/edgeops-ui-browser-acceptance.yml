@@ -68,6 +68,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_capture_comparison.cjs
       - name: Unsaved incident draft protection acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_drafts.cjs
+      - name: Scoped incident overview and guarded quick views
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_queue_summary.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
