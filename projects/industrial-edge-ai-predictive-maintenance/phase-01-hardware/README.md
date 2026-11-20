@@ -37,3 +37,5 @@ Numbers above are examples only.
 ## Physical bench preparation
 
 The [physical connection preparation pack](docs/physical-connection-pack/README.md) maps all 30 product categories to bench roles, provides the GPIO21/22/4 sensor schedule and separates optional equipment, instruments and spares. It uses the newer 19 November GitHub sourcing requirements, with the user reporting ordered hardware on 20 November. Exact board and motor-power compatibility still require confirmation before energizing.
+
+**Fixed hardware scope (user instruction, 20 November 2026): use the same 30 already selected/ordered products from the GitHub list. No replacement components or additional hardware are authorized. Preserve the existing identifiers and record unresolved connection compatibility without substituting parts.**

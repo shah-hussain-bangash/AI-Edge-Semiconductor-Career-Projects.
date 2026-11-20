@@ -2,13 +2,19 @@
 
 Basis: the [newer GitHub 30-product sourcing table](https://github.com/zenithdevelopers7-source/AI-Edge-Semiconductor-Career-Projects./blob/b2c327be2841b2b2faa9055d8240b1feb4b6e7b0/projects/industrial-edge-ai-predictive-maintenance/HARDWARE_30_PRODUCTS_TEMU_SOURCING.md), not the older blanket 12V/5A assumption. The user reports hardware ordered; actual received board revisions, current ratings and wiring have not been verified. P01-P30 correspond to the existing BOM-01-BOM-30 category numbers. This pack prepares physical layout and a conditional sensor wire schedule. It does not certify a motor-power circuit or mark anything connected in software.
 
+## Fixed hardware scope - user instruction, 20 November 2026
+
+Use the same 30 products already selected and ordered by the user, as listed in the GitHub hardware table. Do not recommend or substitute different boards, motors, sensors, supplies, drivers or accessories. Do not expand the list with additional hardware. Keep P01-P30 / BOM-01-BOM-30 identities unchanged. Mechanical parts, instruments, optional installation items and spares remain part of the same set, even when they are not electrically connected together.
+
+If an ordered part has an unresolved rating or incompatible terminal arrangement, leave that specific power/connection step pending and record the issue. Do not silently replace the part or infer that the ordered combination has been verified. Ordering, receipt, connection, calibration and commissioning remain separate facts.
+
 ## 1. Lay out three separate bench zones
 
 1. Pi zone: P01/P08/P09/P10/P11. Dedicated Pi USB-C supply, case, cooler and storage.
 2. Sensor zone: P02/P03/P04/P05/P12/P13/P14/P16. Motor power disconnected. One USB source powers the ESP32; only verified 3.3V-safe sensor supply/logic joins it.
 3. Motor zone: P06/P07/P17-P25 plus optional P29. Mount and guard mechanically; final power/control terminals remain pending exact-part current/driver/measurement review. No motor current passes through the breadboard or controller.
 
-P15 is a tool. P26-P29 are optional and are not connected just to use all products. P30 is a cold spare. The selected 200x120x75mm ABS electronics enclosure is additional to the 30 categories; usable internal dimensions and ventilation are not established.
+P15 is a tool. P26-P29 retain their optional installation roles within the same selected set; they are not connected merely to consume every item. P30 is a cold spare. No separate enclosure or other product outside P01-P30 is added by this connection pack.
 
 ## 2. Conditional sensor wire schedule - no motor supply
 
