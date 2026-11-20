@@ -8,6 +8,7 @@ from typing import Literal
 from fastapi import HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from maintenance_requests import ASSETS, READ_ROLES, WRITE_ROLES, fresh_actor, require_role
+import maintenance_requests as planning
 
 BOUNDARY = {'scope': 'local-synthetic-incidents', 'source_type': 'synthetic',
             'hardware_connected': False, 'equipment_authorized': False, 'production_ready': False,
@@ -16,6 +17,7 @@ STATES = ('open', 'acknowledged', 'resolved')
 TRANSITIONS = {'acknowledge': ('open', 'acknowledged'), 'resolve': ('acknowledged', 'resolved'),
                'reopen': ('resolved', 'open')}
 MAX_INCIDENTS, MAX_REVISIONS = 1000, 200
+MAX_LINKS_PER_INCIDENT = 20
 
 
 class StrictModel(BaseModel):
@@ -45,6 +47,11 @@ class IncidentAction(StrictModel):
     evidence_refs: str = Field(default='', max_length=1000, strict=True)
 
 
+class LinkedPlan(StrictModel):
+    expected_revision: int = Field(strict=True, ge=1)
+    proposal: str = Field(strict=True, min_length=10, max_length=2000)
+
+
 def init_schema(db):
     db.execute('''CREATE TABLE IF NOT EXISTS synthetic_incidents(
         id TEXT PRIMARY KEY, creator_id INTEGER NOT NULL REFERENCES users(id), creator_email TEXT NOT NULL,
@@ -59,6 +66,31 @@ def init_schema(db):
         note TEXT NOT NULL, evidence_refs TEXT NOT NULL, time_utc TEXT NOT NULL, snapshot_json TEXT NOT NULL,
         PRIMARY KEY(incident_id,revision))''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_plan_links(
+        plan_id TEXT PRIMARY KEY REFERENCES maintenance_requests(id),
+        incident_id TEXT NOT NULL REFERENCES synthetic_incidents(id),
+        creator_id INTEGER NOT NULL REFERENCES users(id), incident_revision INTEGER NOT NULL,
+        request_hash TEXT NOT NULL, snapshot_json TEXT NOT NULL, created_at TEXT NOT NULL,
+        UNIQUE(incident_id,creator_id))''')
+
+
+def plan_source(db, plan_id):
+    row = db.execute('''SELECT l.*,i.revision current_revision,i.state current_state
+        FROM incident_plan_links l JOIN synthetic_incidents i ON i.id=l.incident_id
+        WHERE l.plan_id=?''', (plan_id,)).fetchone()
+    if not row: return None
+    return {'id': row['incident_id'], 'revision': row['incident_revision'],
+            'snapshot': json.loads(row['snapshot_json']), 'current_revision': row['current_revision'],
+            'current_state': row['current_state'], 'changed_since_capture': row['incident_revision'] != row['current_revision']}
+
+
+def linked_plans(db, incident_id, actor):
+    where = ' AND p.creator_id=?' if actor['role'] == 'operator' else ''
+    args = [incident_id, actor['id']] if actor['role'] == 'operator' else [incident_id]
+    rows = db.execute('''SELECT p.id,p.title,p.status,p.revision,p.creator_email,l.incident_revision
+        FROM incident_plan_links l JOIN maintenance_requests p ON p.id=l.plan_id
+        WHERE l.incident_id=?''' + where + ' ORDER BY l.created_at,p.id LIMIT ?', [*args, MAX_LINKS_PER_INCIDENT]).fetchall()
+    return [dict(row) for row in rows]
 
 
 def present(row, actor):
@@ -81,7 +113,12 @@ def detail(db, row, actor):
     events = db.execute('''SELECT revision,action,actor_email,note,evidence_refs,time_utc
         FROM synthetic_incident_events WHERE incident_id=? ORDER BY revision DESC LIMIT ?''',
                         (row['id'], MAX_REVISIONS)).fetchall()
-    return {'incident': present(row, actor), 'history': [dict(event) for event in events], **BOUNDARY}
+    own = db.execute('SELECT 1 FROM incident_plan_links WHERE incident_id=? AND creator_id=?', (row['id'], actor['id'])).fetchone()
+    count = db.execute('SELECT count(*) FROM incident_plan_links WHERE incident_id=?', (row['id'],)).fetchone()[0]
+    return {'incident': present(row, actor), 'history': [dict(event) for event in events],
+            'linked_plans': linked_plans(db, row['id'], actor),
+            'can_prepare_plan': actor['role'] in WRITE_ROLES and row['state'] != 'resolved' and not own and count < MAX_LINKS_PER_INCIDENT,
+            **BOUNDARY}
 
 
 def event(db, row, actor, action, note, evidence, audit):
@@ -94,6 +131,45 @@ def event(db, row, actor, action, note, evidence, audit):
 
 
 def install_routes(app, database, require_user, require_csrf, audit):
+    @app.post('/api/incidents/{incident_id}/maintenance-plan')
+    def prepare_plan(incident_id: str, body: LinkedPlan, request: Request):
+        current = require_user(request); require_csrf(request, current)
+        digest = hashlib.sha256(json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE')
+            actor = fresh_actor(db, current); require_role(actor, WRITE_ROLES)
+            incident = visible(db, incident_id, actor)
+            existing = db.execute('SELECT * FROM incident_plan_links WHERE incident_id=? AND creator_id=?', (incident_id, actor['id'])).fetchone()
+            if existing:
+                if existing['request_hash'] != digest: raise HTTPException(409, 'A plan is already linked for this account; open and revise that plan instead')
+                row = planning.visible_plan(db, existing['plan_id'], actor)
+                return {**planning.detail(db, row, actor), 'created': False}
+            if incident['revision'] != body.expected_revision: raise HTTPException(409, 'Incident changed; reopen its current revision before preparing a plan')
+            if incident['state'] == 'resolved': raise HTTPException(409, 'Reopen the incident exercise before preparing a new plan')
+            if db.execute('SELECT count(*) FROM incident_plan_links WHERE incident_id=?', (incident_id,)).fetchone()[0] >= MAX_LINKS_PER_INCIDENT:
+                raise HTTPException(409, 'Linked-plan capacity reached; existing records remain retained')
+            fields = planning.PlanFields(asset_id=incident['asset_id'], title=('Inspect: ' + incident['title'])[:120],
+                observation=incident['observation'], proposal=body.proposal,
+                evidence_refs='Synthetic incident ' + incident_id + ' revision ' + str(incident['revision']),
+                priority={'info': 'low', 'watch': 'medium', 'critical': 'critical'}[incident['severity']]).model_dump()
+            key = hashlib.sha256(('incident-plan:' + incident_id).encode()).hexdigest()[:32]
+            if db.execute('SELECT 1 FROM maintenance_requests WHERE creator_id=? AND request_key=?', (actor['id'], key)).fetchone():
+                raise HTTPException(409, 'The linked-plan save key is already in use; no existing plan was attached or changed')
+            identifier = secrets.token_hex(16); now = datetime.now(timezone.utc).isoformat()
+            creation_hash = hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
+            db.execute('''INSERT INTO maintenance_requests(id,creator_id,creator_email,request_key,creation_hash,
+                asset_id,title,observation,proposal,evidence_refs,priority,status,revision,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',1,?,?)''',
+                (identifier, actor['id'], actor['email'], key, creation_hash, fields['asset_id'], fields['title'],
+                 fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
+            snapshot = present(incident, actor); snapshot.pop('actions')
+            db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
+                (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
+            row = planning.visible_plan(db, identifier, actor)
+            planning.append_event(db, row, actor, 'created', 'Synthetic planning draft prepared from a frozen incident revision.', audit)
+            audit(db, actor['email'], 'synthetic_incident_plan_linked', json.dumps({'incident_id': incident_id, 'incident_revision': incident['revision'], 'plan_id': identifier}))
+            return {**planning.detail(db, row, actor), 'created': True}
+
     @app.get('/api/incidents')
     def list_incidents(request: Request, state: str = 'all', q: str = Query(default='', max_length=160),
                        offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50)):

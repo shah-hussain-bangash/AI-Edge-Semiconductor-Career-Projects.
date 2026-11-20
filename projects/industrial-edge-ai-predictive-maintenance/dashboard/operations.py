@@ -11,7 +11,7 @@ CORE_TABLES = ('users', 'sessions', 'audit', 'comparison_reviews', 'comparison_r
                'maintenance_requests', 'maintenance_request_events', 'readiness_records',
                'readiness_events', 'readiness_release_scope', 'readiness_scope_events',
                'acquisition_bindings', 'acquisition_binding_events', 'acquisition_observations',
-               'synthetic_incidents', 'synthetic_incident_events')
+               'synthetic_incidents', 'synthetic_incident_events', 'incident_plan_links')
 
 
 def database_status(path, detailed=False):

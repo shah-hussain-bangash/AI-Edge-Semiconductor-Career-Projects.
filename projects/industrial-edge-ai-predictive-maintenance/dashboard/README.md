@@ -51,7 +51,7 @@ These checks cannot establish sensor freshness, model performance, accepted reco
 
 ## Saved synthetic incidents
 
-Alert center now saves explicit incident exercises with acknowledgement, resolution evidence references, reopening, revision conflict checks and full history/export. Operators see their own records; administrators and auditors can read all local exercises, with auditors read-only. See [incident workflow and limits](INCIDENT_WORKFLOW.md). No incidents are seeded, and these records perform no live detection, escalation, equipment action or repair verification.
+Alert center now saves explicit incident exercises with acknowledgement, resolution evidence references, reopening, revision conflict checks and full history/export. Operators see their own records; administrators and auditors can read all local exercises, with auditors read-only. Open or acknowledged incidents can create linked maintenance drafts with a frozen source revision and visible change warnings; approval still requires an independent reviewer. See [incident workflow and limits](INCIDENT_WORKFLOW.md). No incidents are seeded, and these records perform no live detection, escalation, equipment action or repair verification.
 
 ## Hardware arrival download
 

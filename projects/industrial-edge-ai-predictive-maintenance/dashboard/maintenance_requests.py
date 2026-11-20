@@ -133,9 +133,11 @@ def present(row, actor):
 
 
 def detail(db, row, actor):
+    from incidents import plan_source
     events = db.execute("""SELECT revision,action,actor_email,note,time_utc
         FROM maintenance_request_events WHERE request_id=? ORDER BY revision DESC""", (row["id"],)).fetchall()
-    return {"request": present(row, actor), "history": [dict(event) for event in events], **BOUNDARY}
+    return {"request": present(row, actor), "history": [dict(event) for event in events],
+            "source_incident": plan_source(db, row['id']), **BOUNDARY}
 
 
 def append_event(db, row, actor, action, note, record_audit):
@@ -222,7 +224,8 @@ def install_routes(app, database, require_user, require_csrf, record_audit):
                 raise HTTPException(404, "Planning revision not found")
             snapshot = json.loads(event["snapshot_json"])
             snapshot.pop("creator_id", None)
-            return {"snapshot": snapshot, "read_only": True, **BOUNDARY}
+            from incidents import plan_source
+            return {"snapshot": snapshot, "read_only": True, "source_incident": plan_source(db, plan_id), **BOUNDARY}
 
     @app.put("/api/maintenance-requests/{plan_id}")
     def edit_plan(plan_id: str, body: EditPlan, request: Request):
@@ -240,6 +243,10 @@ def install_routes(app, database, require_user, require_csrf, record_audit):
             if row["status"] == "submitted":
                 raise HTTPException(409, "Withdraw the submitted request before editing")
             fields = body.model_dump(exclude={"expected_revision"})
+            from incidents import plan_source
+            source = plan_source(db, plan_id)
+            if source and fields['asset_id'] != source['snapshot']['asset_id']:
+                raise HTTPException(409, 'A linked plan must retain the source incident asset')
             now = datetime.now(timezone.utc).isoformat()
             db.execute("""UPDATE maintenance_requests SET asset_id=?,title=?,observation=?,proposal=?,
                 evidence_refs=?,priority=?,status='draft',reviewed_revision=NULL,reviewer_email=NULL,

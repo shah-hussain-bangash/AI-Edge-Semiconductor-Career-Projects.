@@ -26,6 +26,18 @@ Input is bounded and unknown fields are rejected. Only `source_type: synthetic` 
 
 All responses declare the synthetic scope, `hardware_connected: false`, `equipment_authorized: false`, `production_ready: false`, `automatic_detection: false` and `external_notifications_sent: false`. Resolving an exercise is a local record transition; it does not establish a repaired or safe machine. Evidence references are declarations, not independently verified files or calibration evidence.
 
+## Linked maintenance planning
+
+An authorized writer can now prepare a maintenance draft directly from an open or acknowledged incident exercise. The writer supplies the proposed inspection explicitly. Creation binds the current incident revision, title, original observation, asset, severity, initial evidence references and timestamps in an immutable context snapshot. A synthetic draft is created in the existing maintenance workflow, with its ordinary creator ownership and independent review requirements.
+
+The incident and plan show links in both directions. Planning details show the captured revision and whether the current incident has changed. The plan continues to refer to the captured context; later incident actions do not silently rewrite it or approve a new context. Review/approval is bound to the planning revision and captured incident context, not to future incident changes. Opening current source context is an explicit action. Approval does not resolve an incident, verify repair, authorize field work or deploy anything.
+
+Only one linked plan per incident per creator is allowed, with at most 20 links per incident. An exact creation retry returns the existing draft/current plan, even after the incident changes; changed request content is rejected and the user must revise the existing plan through its normal revision flow. Stale incident revisions and new plans for resolved incidents are rejected. Reopen the exercise before preparing a new plan. A linked plan's asset cannot be reassigned. Other planning edits still clear earlier approval under existing rules.
+
+`POST /api/incidents/{id}/maintenance-plan` accepts exactly `expected_revision` and `proposal`, requires CSRF, and rechecks current session/role inside the write transaction. Draft creation, link snapshot, initial plan history and both audit entries commit together or roll back together. Source incident state/revision is unchanged by creating a draft. Operator visibility respects both domains: another account's linked plan is not exposed merely because the operator can see the incident. Administrators/auditors retain their existing read scopes; auditors cannot create links. All links and captured context are retained by backup/restore and counted in diagnostics.
+
+Nine additional API checks cover creation, concurrency/retry, stale/resolved input, role/CSRF/visibility, snapshot preservation and asset locking, independent review, audit rollback, backup/restore and strict input/capacity. Chromium verifies draft creation, navigation both ways, captured context, changed-source warnings and auditor controls as part of the incident workflow suite.
+
 ## Remaining operational work
 
 Automatic correlation with real observations, deduplication of detected fault episodes, assignment to other technicians, deadlines/escalations, notification delivery, maintenance execution/verification, authorized operational closure, real device/asset identity and deployed multi-tenant policy remain pending. This slice does not implement those capabilities or mark their readiness criteria complete.
