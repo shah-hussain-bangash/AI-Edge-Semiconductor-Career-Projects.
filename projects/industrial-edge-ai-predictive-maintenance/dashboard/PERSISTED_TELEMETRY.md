@@ -41,3 +41,10 @@ This slice adds one history index and no seeded observations or changes to exist
 ## Empty-state and selection refinement
 
 Telemetry now offers a picker populated from the first 100 existing test bindings, with explicit refresh and manual ID entry for other pages. Selecting a device fetches its history; it never creates a record. With no selection, no committed records, unavailable history, or no numeric values for the selected channel, the interface presents a clear empty/setup message instead of an unexplained blank chart. The table and pagination stay hidden until applicable. Device setup and existing demonstration charts are directly reachable; synthetic records remain opt-in operator actions.
+
+
+## Explicit incident preparation
+
+Administrators/operators can choose Create incident for a saved observation whose immutable binding asset matches one of the existing dashboard assets. The form shows all six channels/declared sensor quality and asks for interpretation/severity. The server rechecks source contract/hash/receipt/identity and the binding under the write lock, then saves a frozen source capture with the incident. No threshold, model or reading creates cases automatically. Arbitrary test asset IDs remain valid for telemetry, but are not mapped to dashboard assets implicitly. Auditors retain read-only history access.
+
+Incident details retain units, zero/null values, declared clock/gateway times/quality and source identity without a live freshness/health claim; export and linked planning retain that capture. Exact retries avoid duplicate cases, and one source case per creating account/observation is allowed. Failed saves preserve interpretation; filter/device changes close stale creation editors. See INCIDENT_WORKFLOW.md for API, permission, recovery and verification details. No hardware or production readiness changes.

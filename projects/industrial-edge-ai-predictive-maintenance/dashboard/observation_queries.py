@@ -7,7 +7,7 @@ import re
 from fastapi import HTTPException,Query,Request
 from acquisition_registry import DeliveryInput
 from edge_delivery import identity
-from maintenance_requests import require_role,READ_ROLES
+from maintenance_requests import require_role,READ_ROLES,WRITE_ROLES,ASSETS
 
 CHANNELS={
     'acceleration_x_mps2':{'label':'Acceleration X','unit':'m/s²','sensor':'adxl345'},
@@ -61,7 +61,7 @@ def install_routes(app,database,require_user):
     @app.get('/api/acquisition/observations')
     def history(request:Request,device_id:str=Query(min_length=1,max_length=64,pattern=r'^[A-Za-z0-9_-]+$'),
                 limit:int=Query(default=50,ge=1,le=100),before:str='',max_age_seconds:int=Query(default=60,ge=1,le=86400)):
-        require_role(require_user(request),READ_ROLES)
+        actor=require_user(request);require_role(actor,READ_ROLES)
         cutoff=decode_cursor(before) if before else None
         clause='device_id=?';params=[device_id]
         if cutoff:
@@ -75,7 +75,8 @@ def install_routes(app,database,require_user):
         records=[present(row,now,max_age_seconds) for row in selected]
         if any(record['observation']['site_id']!=binding['site_id'] or record['observation']['asset_id']!=binding['asset_id'] for record in records):
             raise HTTPException(503,'Stored observation does not match its immutable binding')
-        return {**BOUNDARY,'device_id':device_id,'site_id':binding['site_id'],'asset_id':binding['asset_id'],
+        return {**BOUNDARY,'can_prepare_incident':actor['role'] in WRITE_ROLES and binding['asset_id'] in ASSETS,
+                'incident_asset_matches':binding['asset_id'] in ASSETS,'device_id':device_id,'site_id':binding['site_id'],'asset_id':binding['asset_id'],
                 'binding_status':binding['status'],'as_of':now.isoformat(),'channels':CHANNELS,
                 'max_age_seconds':max_age_seconds,'age_policy':'Operator display threshold; not an accepted operating target',
                 'records':records,
