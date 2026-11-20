@@ -20,6 +20,7 @@ TRANSITIONS = {'acknowledge': ('open', 'acknowledged'), 'resolve': ('acknowledge
                'reopen': ('resolved', 'open')}
 MAX_INCIDENTS, MAX_REVISIONS = 1000, 200
 MAX_LINKS_PER_INCIDENT = 20
+MAX_ATTACHED_OBSERVATIONS = 20
 
 
 class StrictModel(BaseModel):
@@ -56,6 +57,14 @@ class ObservationIncident(StrictModel):
     title: str = Field(strict=True, min_length=5, max_length=120)
     observation: str = Field(strict=True, min_length=10, max_length=2000)
     severity: Literal['info', 'watch', 'critical']
+
+
+class AttachObservation(StrictModel):
+    request_key: str = Field(pattern=r'^[0-9a-f]{32}$', strict=True)
+    expected_revision: int = Field(strict=True, ge=1)
+    event_key: str = Field(pattern=r'^[0-9a-f]{64}$', strict=True)
+    content_hash: str = Field(pattern=r'^[0-9a-f]{64}$', strict=True)
+    note: str = Field(strict=True, min_length=10, max_length=800)
 
 
 class InvestigationUpdate(StrictModel):
@@ -120,6 +129,12 @@ def init_schema(db):
         event_key TEXT NOT NULL REFERENCES acquisition_observations(event_key),
         creator_id INTEGER NOT NULL REFERENCES users(id), snapshot_json TEXT NOT NULL,
         UNIQUE(creator_id,event_key))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_observation_attachments(
+        incident_id TEXT NOT NULL, event_key TEXT NOT NULL REFERENCES acquisition_observations(event_key),
+        revision INTEGER NOT NULL, actor_id INTEGER NOT NULL REFERENCES users(id),
+        request_key TEXT NOT NULL, request_hash TEXT NOT NULL, snapshot_json TEXT NOT NULL,
+        PRIMARY KEY(incident_id,event_key), UNIQUE(incident_id,actor_id,request_key),
+        FOREIGN KEY(incident_id,revision) REFERENCES synthetic_incident_events(incident_id,revision))''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
     db.execute('''CREATE TABLE IF NOT EXISTS incident_followups(
         incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id), due_at TEXT, updated_at TEXT NOT NULL)''')
@@ -200,9 +215,38 @@ def visible(db, incident_id, actor):
     return row
 
 
+def capture_observation(db, event_key, content_hash):
+    source=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(event_key,)).fetchone()
+    if not source:raise HTTPException(404,'Committed synthetic observation not found')
+    if source['content_hash']!=content_hash:raise HTTPException(409,'Observation identity changed; refresh its saved history')
+    now=datetime.now(timezone.utc)
+    snapshot=observations.present(source,now,60)
+    sample=snapshot['observation']
+    binding=db.execute('SELECT * FROM acquisition_bindings WHERE device_id=?',(source['device_id'],)).fetchone()
+    if not binding or binding['site_id']!=sample['site_id'] or binding['asset_id']!=sample['asset_id'] or binding['revision']<source['binding_revision']:
+        raise HTTPException(503,'Stored observation does not match its immutable test binding')
+    if sample['asset_id'] not in ASSETS:
+        raise HTTPException(422,'The test binding asset has no matching dashboard asset; no asset mapping was inferred')
+    try:
+        definition=Binding.model_validate_json(binding['definition']).model_dump()
+        if any(definition[key]!=binding[key] for key in ('site_id','asset_id','device_id')):raise ValueError()
+    except (ValueError,TypeError,KeyError):
+        raise HTTPException(503,'Stored test binding definition failed its contract or identity checks')
+    snapshot.pop('freshness');snapshot.pop('central_age_seconds')
+    snapshot['channels']=observations.CHANNELS
+    snapshot['captured_at']=now.isoformat()
+    snapshot['binding_at_capture']={**definition,'revision':binding['revision'],'status':binding['status']}
+    return snapshot
+
+
 def observation_source(db, incident_id):
     source=db.execute('SELECT snapshot_json FROM incident_observation_sources WHERE incident_id=?',(incident_id,)).fetchone()
     return json.loads(source['snapshot_json']) if source else None
+
+
+def observation_attachments(db, incident_id):
+    return [{'revision':row['revision'],'snapshot':json.loads(row['snapshot_json'])} for row in db.execute(
+        'SELECT revision,snapshot_json FROM incident_observation_attachments WHERE incident_id=? ORDER BY revision',(incident_id,))]
 
 
 def detail(db, row, actor):
@@ -211,13 +255,20 @@ def detail(db, row, actor):
                         (row['id'], MAX_REVISIONS)).fetchall()
     own = db.execute('SELECT 1 FROM incident_plan_links WHERE incident_id=? AND creator_id=?', (row['id'], actor['id'])).fetchone()
     count = db.execute('SELECT count(*) FROM incident_plan_links WHERE incident_id=?', (row['id'],)).fetchone()[0]
+    attachments=observation_attachments(db,row['id'])
+    by_revision={item['revision']:item['snapshot'] for item in attachments}
+    presented=present(row,actor,assignment(db,row['id']),followup(db,row))
     history=[]
     for item in events:
         entry=dict(item);snapshot=json.loads(entry.pop('snapshot_json'))
         entry['assignment_recorded']='assignment' in snapshot;entry['assignment']=snapshot.get('assignment')
         entry['follow_up_recorded']='follow_up' in snapshot;entry['follow_up']=snapshot.get('follow_up')
+        entry['attached_observation']=by_revision.get(entry['revision'])
         history.append(entry)
-    return {'incident': present(row, actor, assignment(db,row['id']), followup(db,row)), 'history': history,
+    return {'incident': presented, 'history': history,
+            'attached_observations':attachments,
+            'can_attach_observation':presented['can_add_update'] and len(attachments)<MAX_ATTACHED_OBSERVATIONS,
+            'attached_observation_limit':MAX_ATTACHED_OBSERVATIONS,
             'source_observation': observation_source(db,row['id']),
             'linked_plans': linked_plans(db, row['id'], actor),
             'can_prepare_plan': actor['role'] in WRITE_ROLES and row['state'] != 'resolved' and not own and count < MAX_LINKS_PER_INCIDENT,
@@ -247,35 +298,47 @@ def install_routes(app, database, require_user, require_csrf, audit):
                 return {**detail(db,prior,actor),'created':False}
             if db.execute('SELECT 1 FROM incident_observation_sources WHERE creator_id=? AND event_key=?',(actor['id'],body.event_key)).fetchone():
                 raise HTTPException(409,'You already created an incident from this observation; open it in Alerts and add an investigation update')
-            source=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(body.event_key,)).fetchone()
-            if not source:raise HTTPException(404,'Committed synthetic observation not found')
-            if source['content_hash']!=body.content_hash:raise HTTPException(409,'Observation identity changed; refresh its saved history')
-            now=datetime.now(timezone.utc)
-            snapshot=observations.present(source,now,60)
+            snapshot=capture_observation(db,body.event_key,body.content_hash)
             sample=snapshot['observation']
-            binding=db.execute('SELECT * FROM acquisition_bindings WHERE device_id=?',(source['device_id'],)).fetchone()
-            if not binding or binding['site_id']!=sample['site_id'] or binding['asset_id']!=sample['asset_id'] or binding['revision']<source['binding_revision']:
-                raise HTTPException(503,'Stored observation does not match its immutable test binding')
-            if sample['asset_id'] not in ASSETS:
-                raise HTTPException(422,'The test binding asset has no matching dashboard asset; no asset mapping was inferred')
-            try:
-                definition=Binding.model_validate_json(binding['definition']).model_dump()
-                if any(definition[key]!=binding[key] for key in ('site_id','asset_id','device_id')):raise ValueError()
-            except (ValueError,TypeError,KeyError):
-                raise HTTPException(503,'Stored test binding definition failed its contract or identity checks')
             if db.execute('SELECT count(*) FROM synthetic_incidents').fetchone()[0]>=MAX_INCIDENTS:
                 raise HTTPException(409,'Local exercise capacity reached; no records are automatically deleted')
-            snapshot.pop('freshness');snapshot.pop('central_age_seconds')
-            snapshot['channels']=observations.CHANNELS
-            snapshot['captured_at']=now.isoformat()
-            snapshot['binding_at_capture']={**definition,'revision':binding['revision'],'status':binding['status']}
-            identifier=secrets.token_hex(16);time=now.isoformat();evidence='Committed synthetic observation '+body.event_key
+            identifier=secrets.token_hex(16);time=snapshot['captured_at'];evidence='Committed synthetic observation '+body.event_key
             db.execute('''INSERT INTO synthetic_incidents VALUES(?,?,?,?,?,?,?,?,?,'open',1,?,?,?)''',
                        (identifier,actor['id'],actor['email'],body.request_key,digest,sample['asset_id'],body.title,body.observation,body.severity,evidence,time,time))
             db.execute('INSERT INTO incident_observation_sources VALUES(?,?,?,?)',(identifier,body.event_key,actor['id'],json.dumps(snapshot,sort_keys=True)))
             row=visible(db,identifier,actor);event(db,row,actor,'create',body.observation,evidence,audit)
             audit(db,actor['email'],'synthetic_incident_observation_linked',json.dumps({'incident_id':identifier,'event_key':body.event_key}))
             return {**detail(db,row,actor),'created':True}
+
+    @app.post('/api/incidents/{incident_id}/observations')
+    def attach_observation(incident_id: str, body: AttachObservation, request: Request):
+        current=require_user(request);require_csrf(request,current)
+        digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_key'}),sort_keys=True).encode()).hexdigest()
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
+            row=visible(db,incident_id,actor)
+            prior=db.execute('SELECT request_hash,revision FROM incident_observation_attachments WHERE incident_id=? AND actor_id=? AND request_key=?',
+                             (incident_id,actor['id'],body.request_key)).fetchone()
+            if prior:
+                if prior['request_hash']!=digest:raise HTTPException(409,'Attachment key already has different contents; inspect the current incident')
+                return {**detail(db,row,actor),'created':False,'attachment_revision':prior['revision']}
+            if row['revision']!=body.expected_revision or row['revision']>=MAX_REVISIONS or row['state']=='resolved':
+                raise HTTPException(409,'Incident changed, is resolved or reached history capacity; reopen the current record')
+            initial=observation_source(db,incident_id);attached=observation_attachments(db,incident_id)
+            if len(attached)>=MAX_ATTACHED_OBSERVATIONS:raise HTTPException(409,'Saved-observation attachment capacity reached; existing evidence is retained')
+            if (initial and initial['event_key']==body.event_key) or any(item['snapshot']['event_key']==body.event_key for item in attached):
+                raise HTTPException(409,'This observation is already captured in the incident')
+            snapshot=capture_observation(db,body.event_key,body.content_hash)
+            if snapshot['observation']['asset_id']!=row['asset_id']:raise HTTPException(422,'Observation asset must exactly match the incident asset')
+            context=initial or (attached[0]['snapshot'] if attached else None)
+            if context and context['observation']['site_id']!=snapshot['observation']['site_id']:
+                raise HTTPException(422,'Observation site must match the incident captured context')
+            db.execute('UPDATE synthetic_incidents SET revision=revision+1,updated_at=? WHERE id=?',(snapshot['captured_at'],incident_id))
+            row=visible(db,incident_id,actor)
+            event(db,row,actor,'observation_attached',body.note,'Committed synthetic observation '+body.event_key,audit)
+            db.execute('INSERT INTO incident_observation_attachments VALUES(?,?,?,?,?,?,?)',
+                       (incident_id,body.event_key,row['revision'],actor['id'],body.request_key,digest,json.dumps(snapshot,sort_keys=True)))
+            return {**detail(db,row,actor),'created':True,'attachment_revision':row['revision']}
 
     @app.post('/api/incidents/{incident_id}/investigation')
     def investigate(incident_id: str, body: InvestigationUpdate, request: Request):
@@ -382,6 +445,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
                  fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
             snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
             snapshot['source_observation']=observation_source(db,incident_id)
+            snapshot['attached_observations']=observation_attachments(db,incident_id)
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
                 (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
             row = planning.visible_plan(db, identifier, actor)
