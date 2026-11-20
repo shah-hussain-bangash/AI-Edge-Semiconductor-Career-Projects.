@@ -117,6 +117,18 @@ class Observation(StrictModel):
         return self
 
 
+
+class DeliveryInput(StrictModel):
+    binding_revision:int=Field(strict=True,ge=1)
+    observation:Observation
+
+    @model_validator(mode='after')
+    def verified_synthetic_session(self):
+        if self.observation.boot_id is None or self.observation.quality.session_quality!='verified':
+            raise ValueError('Delivery needs an explicit synthetic boot/session identity; preflight-only ambiguous sessions cannot be deduplicated')
+        return self
+
+
 def init_schema(db):
     db.execute('''CREATE TABLE IF NOT EXISTS acquisition_bindings(
         device_id TEXT PRIMARY KEY, site_id TEXT NOT NULL, asset_id TEXT NOT NULL,

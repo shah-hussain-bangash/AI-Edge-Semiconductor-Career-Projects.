@@ -40,3 +40,7 @@ Missing/corrupt databases, broken foreign keys, altered artifacts, duplicate/tra
 The verification suite exercises committed WAL data, preservation and session invalidation, corruption, unsafe paths, unsupported additions, existing destinations and missing sources. It does not establish field reliability, encrypted off-site storage, full disaster recovery or a production SLA.
 
 Implementation reference: [Python sqlite3 backup API](https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.backup).
+
+## Delivery spool
+
+If present, include the configured delivery spool with `--delivery-spool .local/delivery-spool.sqlite3` during backup. This preserves pending/delivered/blocked identities, receipt records and inflight leases. On restoration, expired leases are reclaimed by the next worker attempt; unexpired leases wait. Include the dashboard database and spool together, stopping writers for a coordinated recovery point. The tool does not start a worker or requeue blocked entries.

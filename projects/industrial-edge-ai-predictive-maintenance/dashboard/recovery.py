@@ -58,7 +58,7 @@ def database_counts(path, kind):
             raise ValueError('Database contains broken references')
         names = [row[0] for row in db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
-        required = {'users', 'sessions', 'audit'} if kind == 'dashboard' else {'synthetic_telemetry'}
+        required = {'users', 'sessions', 'audit'} if kind == 'dashboard' else {'delivery_spool'} if kind == 'delivery' else {'synthetic_telemetry'}
         if not required.issubset(names) or len(names) > 200:
             raise ValueError('Unexpected database schema')
         return {name: db.execute('SELECT COUNT(*) FROM "' + name.replace('"', '""') + '"').fetchone()[0]
@@ -95,7 +95,7 @@ def publish(stage, destination):
     stage.rename(destination)
 
 
-def create_backup(database, output, telemetry=None, artifacts=None):
+def create_backup(database, output, telemetry=None, artifacts=None, delivery_spool=None):
     database = Path(database).absolute()
     database_counts(database, 'dashboard')
     destination, stage = new_stage(output)
@@ -107,6 +107,11 @@ def create_backup(database, output, telemetry=None, artifacts=None):
             database_counts(telemetry, 'telemetry')
             snapshot(telemetry, stage / 'synthetic-telemetry.sqlite3')
             roles['synthetic-telemetry.sqlite3'] = 'telemetry'
+        if delivery_spool is not None:
+            delivery_spool = Path(delivery_spool).absolute()
+            database_counts(delivery_spool, 'delivery')
+            snapshot(delivery_spool, stage / 'delivery-spool.sqlite3')
+            roles['delivery-spool.sqlite3'] = 'delivery'
         if artifacts is not None:
             root = Path(artifacts).absolute()
             if not root.is_dir() or root.is_symlink() or getattr(root, 'is_junction', lambda: False)():
@@ -175,6 +180,8 @@ def verify_backup(directory):
         if role == 'dashboard' and name == 'dashboard.sqlite3':
             pass
         elif role == 'telemetry' and name == 'synthetic-telemetry.sqlite3':
+            pass
+        elif role == 'delivery' and name == 'delivery-spool.sqlite3':
             pass
         elif (role == 'artifact' and len(rel.parts) == 3 and rel.parts[0] == 'artifacts'
               and rel.parts[1] in ARTIFACT_KINDS and re.fullmatch(r'[0-9a-f]{64}\.json', rel.name)):
@@ -263,6 +270,7 @@ def main():
     backup.add_argument('--database', required=True)
     backup.add_argument('--telemetry')
     backup.add_argument('--artifacts')
+    backup.add_argument('--delivery-spool')
     backup.add_argument('--output', required=True)
     verify = commands.add_parser('verify')
     verify.add_argument('directory')
@@ -272,7 +280,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == 'backup':
-            result = create_backup(args.database, args.output, args.telemetry, args.artifacts)
+            result = create_backup(args.database, args.output, args.telemetry, args.artifacts, args.delivery_spool)
         elif args.command == 'verify':
             manifest = verify_backup(args.directory)
             result = {'verified': True, 'file_count': len(manifest['files']), 'production_ready': False}

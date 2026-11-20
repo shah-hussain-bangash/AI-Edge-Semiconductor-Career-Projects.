@@ -23,7 +23,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 | REQ-02 Physical hardware | 30-category design catalog; actual inventory, exact ratings/wiring and commissioning pending |
 | REQ-03 Sensor acquisition | Existing embedded/serial source is a starting point; real timing, units, calibration and fault evidence pending |
 | REQ-04 Device identity | Synthetic site/asset/device test bindings and strict V2 preflight implemented; real enrollment, scoped credentials and hardware replacement remain pending |
-| REQ-05 Durable delivery | Historical synthetic MQTT/HTTP lab exists; automatic bounded spool/retry, conflicts and measured transport cutover pending |
+| REQ-05 Durable delivery | Bounded local synthetic spool, retry scheduling, conflict-aware central receipts and a tested loopback HTTP worker implemented; supervised service/device identity, broker integration and measured cutover remain pending |
 | REQ-06 Backend/storage | Transactional local review/planning/readiness domains; production database migrations, authoritative asset/incident/device APIs, retention and scale pending |
 | REQ-07 Identity/security | Local sessions/CSRF/audit and bounded body parsing; enterprise identity/MFA/provisioning, device credentials, scoped policy, distributed throttling and TLS deployment pending |
 | REQ-08 Connected dashboard | 18 usable views; most equipment views remain fixtures until authoritative APIs are implemented |
@@ -52,3 +52,7 @@ Each slice needs tested code and observed evidence. A checklist, green local pro
 ## Acquisition foundation follow-up
 
 The next B2 slice adds an authenticated persistent synthetic binding registry and a strict synthetic-only V2 observation preflight to Device operations. It does not store observations or issue delivery receipts. See ACQUISITION_FOUNDATION.md. Production multi-tenant identity, live ingestion and durable edge delivery remain open.
+
+## Durable delivery follow-up - 20 November 2026
+
+DURABLE_DELIVERY.md records the new local synthetic spool, exact commit boundaries, finite retry/lease/capacity rules and independent HTTP worker test. The Device workspace exposes queue and receipt state. No unattended worker, broker, measured source or operational domain effect is installed.

@@ -10,7 +10,7 @@ This implementation provides 18 connected workspace views plus sign-in, with a l
 | Fleet | Consistent fixture counts, attention queue, asset spotlight | Synthetic equipment |
 | Assets | Search, status filter, sort, details, sensor-design context and catalog/device investigation links | Synthetic registry; commissioning/calibration persistence pending |
 | Telemetry | Four signals, accessible sample table, CSV and units | Fixed synthetic samples; live ranges/resolution pending ingestion |
-| Device operations | Persistent synthetic bindings, strict observation preflight, retirement, commissioning checklist and three receipt boundaries | No physical enrollment, credentials, observation persistence or spool integration |
+| Device operations | Persistent synthetic bindings, strict observation preflight, retirement, saved synthetic queue/receipts and local relay, commissioning checklist and three receipt boundaries | Synthetic local persistence only; no physical enrollment, production credentials or broker integration |
 | Incidents | Filter, session acknowledgment, case context and proposed timeline | Assignment, suppression, escalation and operational decisions pending service |
 | Maintenance | Authenticated saved planning requests, creator revisions/submission/withdrawal, independent admin review, decision history; separate seven-step execution preview and session scratchpad | Synthetic local planning only; no operational work order or field-execution authorization |
 | AI assistant | Illustrative insights, evidence requirements, knowledge navigation | Retrieval and generation unavailable |
