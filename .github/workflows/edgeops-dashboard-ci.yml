@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/**"
+      - "projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/**"
+      - "projects/industrial-edge-ai-predictive-maintenance/enterprise-architecture/contracts/**"
       - ".github/workflows/edgeops-dashboard-ci.yml"
   pull_request:
     paths:
       - "projects/industrial-edge-ai-predictive-maintenance/dashboard/**"
+      - "projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/**"
+      - "projects/industrial-edge-ai-predictive-maintenance/enterprise-architecture/contracts/**"
       - ".github/workflows/edgeops-dashboard-ci.yml"
   workflow_dispatch:
 
@@ -46,3 +50,7 @@ jobs:
           python -m unittest discover -s tests -p test_recovery.py -v
       - name: Python syntax checks
         run: python -m compileall -q server.py tests
+      - name: Offline serial capture compatibility checks (synthetic fixtures)
+        run: |
+          python -m pip install -r ../phase-01-hardware/tests/requirements.txt
+          python -m unittest discover -s ../phase-01-hardware/tests -v

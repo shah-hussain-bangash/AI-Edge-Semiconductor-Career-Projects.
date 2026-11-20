@@ -2,6 +2,8 @@
 
 This is **starter source code**, not a claim of tested hardware. The firmware supports ESP32 + ADXL345 (I2C), INA219 (I2C), and DS18B20 (GPIO4). It prints one JSON Lines record per second. A laptop capture utility saves and validates the records.
 
+Hardware arrival is pending. The [offline capture handoff](docs/OFFLINE_CAPTURE_HANDOFF.md) prepares existing V1 capture CSV files as candidate V2 evidence without connecting devices or importing measured readings into the dashboard. The same 30-product selection remains unchanged.
+
 ## Quick start
 1. Read [wiring and safety](docs/WIRING_AND_SAFETY.md) before powering anything. Keep the motor disconnected during initial tests.
 2. Install VS Code with PlatformIO. Open `firmware/` as a PlatformIO project.
@@ -9,7 +11,7 @@ This is **starter source code**, not a claim of tested hardware. The firmware su
 4. In a separate terminal install Python 3.11+, then `python -m pip install -r scripts/requirements.txt`.
 5. Identify serial port (macOS often `/dev/cu.usbserial-*`, Windows `COM3`, Linux `/dev/ttyUSB0`).
 6. Capture: `python scripts/capture_serial.py --port /dev/cu.usbserial-XXXX --seconds 600 --output data/baseline.csv` (replace port).
-7. Run offline tests: `python -m unittest discover -s tests -v`.
+7. For offline software checks, install `python -m pip install -r tests/requirements.txt`, then run `python -m unittest discover -s tests -v` (Python 3.12+ for the complete adapter suite).
 8. Inspect valid-record rate, sample interval, invalid sensor flags, and save a test report.
 
 ## Scope and limitations
