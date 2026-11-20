@@ -34,7 +34,7 @@ Assignment shares the incident with the selected operator. Its creator remains a
 
 The Alert center can filter accessible records by assigned-to-me, created-by-me or unassigned. Counts respect the selected ownership view. Assignment changes consume an incident revision and record the actor, reason, timestamp and selected ownership in the same event/audit transaction. Stale/concurrent requests are rejected and failures roll back assignment, revision and history together. Existing incident states/assignments are not seeded or changed during installation. Earlier history without assignment data is labelled not recorded; it is not rewritten to invent ownership.
 
-If an assigned account is disabled or changes to an ineligible role, its declared assignment remains visible as unavailable, with no silent reassignment. Its current account permissions/session revocation still apply. Creator/admin action is required to hand it off. Assignment does not send email/messages, dispatch a technician, establish identity/qualification, create an external work order or authorize equipment. Automatic escalation/deadlines remain pending.
+If an assigned account is disabled or changes to an ineligible role, its declared assignment remains visible as unavailable, with no silent reassignment. Its current account permissions/session revocation still apply. Creator/admin action is required to hand it off. Assignment does not send email/messages, dispatch a technician, establish identity/qualification, create an external work order or authorize equipment. Automatic escalation and operational SLA enforcement remain pending.
 
 `GET /api/incidents/{id}/assignment-candidates` is restricted to creators/admins who can assign the current incident. `POST /api/incidents/{id}/assignment` accepts exactly `expected_revision`, `assignee_id` (or null to remove it) and `note`; authentication, CSRF, enabled target/role, session, revision and capacity are checked inside the serialized write transaction. The additive assignment table is included in diagnostics and backup/restore. Existing physical and production flags remain false.
 
@@ -54,7 +54,7 @@ Nine additional API checks cover creation, concurrency/retry, stale/resolved inp
 
 ## Remaining operational work
 
-Automatic correlation with real observations, deduplication of detected fault episodes, verified technician dispatch, deadlines/escalations, notification delivery, maintenance execution/verification, authorized operational closure, real device/asset identity and deployed multi-tenant policy remain pending. This slice does not implement those capabilities or mark their readiness criteria complete.
+Automatic correlation with real observations, deduplication of detected fault episodes, verified technician dispatch, operational SLA enforcement/escalations, notification delivery, maintenance execution/verification, authorized operational closure, real device/asset identity and deployed multi-tenant policy remain pending. This slice does not implement those capabilities or mark their readiness criteria complete.
 
 ## Verification
 
@@ -65,3 +65,13 @@ Ten API checks use disposable databases, including lifecycle persistence, role/C
 ```
 
 GitHub runs these checks and `tests/browser_incidents.cjs` against disposable stores. Consult actual current-head results; no hardware is connected or tested by these checks.
+
+## Declared incident follow-up dates
+
+Alerts now shows each incident's follow-up date and filters for overdue, upcoming or undated records. Open a record and choose Change follow-up date. The date editor explicitly uses UTC; leave it blank to remove the date. Past dates support synthetic overdue exercises. A reason is required for setting, changing or clearing a date. Creator, current assignee and administrator writers can change dates on unresolved records; auditors remain read-only.
+
+Dates are normalized to UTC with an explicit offset required by the API. Status is calculated against the local service clock when read; refresh to update it. This clock is not verified device time. Resolved incidents retain their date but leave the overdue/upcoming filters; reopening may make an old date overdue again. No background scheduler, reminder, notification, escalation, dispatch, equipment operation or production SLA is implemented.
+
+`POST /api/incidents/{id}/follow-up` accepts only `expected_revision`, `due_at` (ISO timestamp with offset, or null) and `note`. Dates range from 2000 through 2100. Authentication, CSRF, current session/role, scoped incident visibility, revision and history capacity are checked in the serialized transaction. Date, incident revision, event and audit commit atomically. No-op and stale writes are rejected; failed saves preserve browser input. Read operations never advance revisions. History and frozen planning context capture the declared date without a misleading live overdue status; older events explicitly identify unrecorded follow-up context. The additive table participates in diagnostics and private backup/restore. No existing incident is assigned a date during installation.
+
+Ten API checks cover frozen planning dates, normalization, strict dates, filters and scope, clearing, resolved/reopened behavior, assignee/auditor permissions, CSRF/session/capacity, concurrent/no-op writes, rollback, truthful legacy history, read-only status evaluation and actual backup/restore. Chromium checks date persistence, overdue/undated views, clearing, stale edits and outage input preservation, auditor access, contrast and five widths. All fixtures are disposable synthetic data.

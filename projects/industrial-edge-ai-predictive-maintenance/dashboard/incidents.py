@@ -47,6 +47,26 @@ class IncidentAction(StrictModel):
     evidence_refs: str = Field(default='', max_length=1000, strict=True)
 
 
+class FollowUp(StrictModel):
+    expected_revision: int = Field(strict=True, ge=1)
+    due_at: str | None = Field(max_length=40, strict=True)
+    note: str = Field(strict=True, min_length=10, max_length=800)
+
+    @field_validator('due_at')
+    @classmethod
+    def utc_date(cls, value):
+        if value is None: return None
+        try:
+            parsed=datetime.fromisoformat(value)
+            if parsed.tzinfo is None or parsed.utcoffset() is None or not 2000<=parsed.year<=2100:
+                raise ValueError()
+            normalized=parsed.astimezone(timezone.utc)
+            if not 2000<=normalized.year<=2100: raise ValueError()
+            return normalized.isoformat(timespec='microseconds')
+        except (ValueError, OverflowError):
+            raise ValueError('Use a date from 2000 through 2100 with an explicit UTC offset')
+
+
 class LinkedPlan(StrictModel):
     expected_revision: int = Field(strict=True, ge=1)
     proposal: str = Field(strict=True, min_length=10, max_length=2000)
@@ -72,6 +92,8 @@ def init_schema(db):
         note TEXT NOT NULL, evidence_refs TEXT NOT NULL, time_utc TEXT NOT NULL, snapshot_json TEXT NOT NULL,
         PRIMARY KEY(incident_id,revision))''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_followups(
+        incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id), due_at TEXT, updated_at TEXT NOT NULL)''')
     db.execute('''CREATE TABLE IF NOT EXISTS incident_assignments(
         incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id),
         assignee_id INTEGER REFERENCES users(id), assignee_email TEXT, updated_at TEXT NOT NULL)''')
@@ -119,9 +141,19 @@ def controls_assignment(row, actor):
     return actor['role'] in WRITE_ROLES and (actor['role']=='admin' or row['creator_id']==actor['id'])
 
 
-def present(row, actor, owner=None):
+def followup(db, row, now=None):
+    saved=db.execute('SELECT due_at FROM incident_followups WHERE incident_id=?',(row['id'],)).fetchone()
+    due=saved['due_at'] if saved else None
+    now=now or datetime.now(timezone.utc)
+    status='none' if due is None else 'resolved' if row['state']=='resolved' else 'overdue' if datetime.fromisoformat(due)<=now else 'upcoming'
+    return {'due_at':due,'status':status,'evaluated_at':now.isoformat(), 'clock_source':'local-service-clock'}
+
+
+def present(row, actor, owner=None, follow_up=None):
     data = {key: value for key, value in dict(row).items() if key not in ('request_key','creation_hash','creator_id')}
     writable = actor['role'] in WRITE_ROLES and (actor['role'] == 'admin' or row['creator_id'] == actor['id'] or owner and owner['user_id']==actor['id'])
+    data['follow_up'] = follow_up
+    data['can_set_follow_up'] = bool(writable and row['state']!='resolved' and row['revision']<MAX_REVISIONS)
     data['assignment'] = owner
     data['can_assign'] = controls_assignment(row,actor) and row['state']!='resolved' and row['revision']<MAX_REVISIONS
     data['actions'] = [action for action, (start, _) in TRANSITIONS.items()
@@ -148,15 +180,16 @@ def detail(db, row, actor):
     for item in events:
         entry=dict(item);snapshot=json.loads(entry.pop('snapshot_json'))
         entry['assignment_recorded']='assignment' in snapshot;entry['assignment']=snapshot.get('assignment')
+        entry['follow_up_recorded']='follow_up' in snapshot;entry['follow_up']=snapshot.get('follow_up')
         history.append(entry)
-    return {'incident': present(row, actor, assignment(db,row['id'])), 'history': history,
+    return {'incident': present(row, actor, assignment(db,row['id']), followup(db,row)), 'history': history,
             'linked_plans': linked_plans(db, row['id'], actor),
             'can_prepare_plan': actor['role'] in WRITE_ROLES and row['state'] != 'resolved' and not own and count < MAX_LINKS_PER_INCIDENT,
             **BOUNDARY}
 
 
 def event(db, row, actor, action, note, evidence, audit):
-    snapshot = present(row, actor, assignment(db,row['id'])); snapshot.pop('actions');snapshot.pop('can_assign')
+    snapshot = present(row, actor, assignment(db,row['id']), followup(db,row)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
     db.execute('INSERT INTO synthetic_incident_events VALUES(?,?,?,?,?,?,?,?,?)',
                (row['id'], row['revision'], action, actor['id'], actor['email'], note, evidence,
                 row['updated_at'], json.dumps(snapshot, sort_keys=True)))
@@ -165,6 +198,21 @@ def event(db, row, actor, action, note, evidence, audit):
 
 
 def install_routes(app, database, require_user, require_csrf, audit):
+    @app.post('/api/incidents/{incident_id}/follow-up')
+    def set_followup(incident_id: str, body: FollowUp, request: Request):
+        current=require_user(request);require_csrf(request,current)
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
+            row=visible(db,incident_id,actor)
+            if row['revision']!=body.expected_revision or row['revision']>=MAX_REVISIONS or row['state']=='resolved':
+                raise HTTPException(409,'Incident changed, is resolved or reached history capacity; reopen the current record')
+            if followup(db,row)['due_at']==body.due_at:raise HTTPException(409,'The requested follow-up date is already current')
+            now=datetime.now(timezone.utc).isoformat()
+            db.execute('INSERT INTO incident_followups VALUES(?,?,?) ON CONFLICT(incident_id) DO UPDATE SET due_at=excluded.due_at,updated_at=excluded.updated_at',(incident_id,body.due_at,now))
+            db.execute('UPDATE synthetic_incidents SET revision=revision+1,updated_at=? WHERE id=?',(now,incident_id))
+            row=visible(db,incident_id,actor);event(db,row,actor,'follow_up_changed',body.note,'',audit)
+            return detail(db,row,actor)
+
     @app.get('/api/incidents/{incident_id}/assignment-candidates')
     def candidates(incident_id: str, request: Request):
         actor=require_user(request)
@@ -229,7 +277,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',1,?,?)''',
                 (identifier, actor['id'], actor['email'], key, creation_hash, fields['asset_id'], fields['title'],
                  fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
-            snapshot = present(incident, actor, assignment(db,incident_id)); snapshot.pop('actions');snapshot.pop('can_assign')
+            snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
                 (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
             row = planning.visible_plan(db, identifier, actor)
@@ -240,14 +288,21 @@ def install_routes(app, database, require_user, require_csrf, audit):
     @app.get('/api/incidents')
     def list_incidents(request: Request, state: str = 'all', q: str = Query(default='', max_length=160),
                        offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50),
-                       ownership: Literal['all','assigned','created','unassigned'] = 'all'):
+                       ownership: Literal['all','assigned','created','unassigned'] = 'all',
+                       follow_up: Literal['all','none','overdue','upcoming'] = 'all'):
         actor = require_user(request); require_role(actor, READ_ROLES)
         if state not in ('all', *STATES): raise HTTPException(422, 'Unknown incident state')
+        observed_at=datetime.now(timezone.utc)
         scope, args = ('(creator_id=? OR id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?))', [actor['id'],actor['id']]) if actor['role'] == 'operator' else ('1=1', [])
         if ownership=='assigned':scope+=' AND id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?)';args.append(actor['id'])
         elif ownership=='created':scope+=' AND creator_id=?';args.append(actor['id'])
         elif ownership=='unassigned':scope+=' AND id NOT IN (SELECT incident_id FROM incident_assignments WHERE assignee_id IS NOT NULL)'
         where, values = scope, list(args)
+        if follow_up=='none':
+            where+=' AND id NOT IN (SELECT incident_id FROM incident_followups WHERE due_at IS NOT NULL)'
+        elif follow_up in ('overdue','upcoming'):
+            where+=" AND state!='resolved' AND id IN (SELECT incident_id FROM incident_followups WHERE due_at "+('<=' if follow_up=='overdue' else '>')+' ?)'
+            values.append(observed_at.isoformat(timespec='microseconds'))
         if state != 'all': where += ' AND state=?'; values.append(state)
         if q.strip():
             query = '%' + q.strip().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
@@ -258,7 +313,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
             for row in db.execute('SELECT state,count(*) n FROM synthetic_incidents WHERE ' + scope + ' GROUP BY state', args): counts[row['state']] = row['n']
             total = db.execute('SELECT count(*) FROM synthetic_incidents WHERE ' + where, values).fetchone()[0]
             rows = db.execute('SELECT * FROM synthetic_incidents WHERE ' + where + ' ORDER BY updated_at DESC,id DESC LIMIT ? OFFSET ?', [*values, limit, offset]).fetchall()
-            presented=[present(row, actor, assignment(db,row['id'])) for row in rows]
+            presented=[present(row, actor, assignment(db,row['id']), followup(db,row,observed_at)) for row in rows]
         return {'incidents': presented, 'counts': counts, 'total': total,
                 'offset': offset, 'limit': limit, 'can_create': actor['role'] in WRITE_ROLES,
                 'visibility': 'created by or assigned to you' if actor['role'] == 'operator' else 'all local records', **BOUNDARY}
