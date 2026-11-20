@@ -11,7 +11,7 @@ The supported local roles are:
 | Role | Local capabilities |
 | --- | --- |
 | Administrator | Manage local account access, read local domain records and independently review another creator's submissions |
-| Operator | Create and manage own incident, planning and documentation-exercise records within their existing scopes |
+| Operator | Create own records and handle explicitly assigned incidents; planning and documentation-exercise records remain creator-scoped |
 | Auditor | Read/export existing domain records under the existing read scopes; no writes and no team-management access |
 
 No role enables physical equipment operation, real device enrollment or production acceptance.

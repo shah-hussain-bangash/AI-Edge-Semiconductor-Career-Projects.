@@ -52,6 +52,12 @@ class LinkedPlan(StrictModel):
     proposal: str = Field(strict=True, min_length=10, max_length=2000)
 
 
+class AssignIncident(StrictModel):
+    expected_revision: int = Field(strict=True, ge=1)
+    assignee_id: int | None = Field(strict=True, ge=1)
+    note: str = Field(strict=True, min_length=10, max_length=800)
+
+
 def init_schema(db):
     db.execute('''CREATE TABLE IF NOT EXISTS synthetic_incidents(
         id TEXT PRIMARY KEY, creator_id INTEGER NOT NULL REFERENCES users(id), creator_email TEXT NOT NULL,
@@ -66,6 +72,9 @@ def init_schema(db):
         note TEXT NOT NULL, evidence_refs TEXT NOT NULL, time_utc TEXT NOT NULL, snapshot_json TEXT NOT NULL,
         PRIMARY KEY(incident_id,revision))''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_assignments(
+        incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id),
+        assignee_id INTEGER REFERENCES users(id), assignee_email TEXT, updated_at TEXT NOT NULL)''')
     db.execute('''CREATE TABLE IF NOT EXISTS incident_plan_links(
         plan_id TEXT PRIMARY KEY REFERENCES maintenance_requests(id),
         incident_id TEXT NOT NULL REFERENCES synthetic_incidents(id),
@@ -75,11 +84,13 @@ def init_schema(db):
 
 
 def plan_source(db, plan_id, actor):
-    row = db.execute('''SELECT l.*,i.revision current_revision,i.state current_state,i.creator_id source_creator_id
+    row = db.execute('''SELECT l.*,i.revision current_revision,i.state current_state,i.creator_id source_creator_id,
+        a.assignee_id source_assignee_id
         FROM incident_plan_links l JOIN synthetic_incidents i ON i.id=l.incident_id
+        LEFT JOIN incident_assignments a ON a.incident_id=i.id
         WHERE l.plan_id=?''', (plan_id,)).fetchone()
     if not row: return None
-    accessible = actor['role'] in ('admin','auditor') or row['source_creator_id'] == actor['id']
+    accessible = actor['role'] in ('admin','auditor') or actor['id'] in (row['source_creator_id'],row['source_assignee_id'])
     return {'id': row['incident_id'], 'revision': row['incident_revision'],
             'snapshot': json.loads(row['snapshot_json']), 'current_accessible': accessible,
             'current_revision': row['current_revision'] if accessible else None,
@@ -96,9 +107,23 @@ def linked_plans(db, incident_id, actor):
     return [dict(row) for row in rows]
 
 
-def present(row, actor):
+def assignment(db, incident_id):
+    row = db.execute('''SELECT a.assignee_id,a.assignee_email,u.role,u.disabled
+        FROM incident_assignments a LEFT JOIN users u ON u.id=a.assignee_id WHERE a.incident_id=?''', (incident_id,)).fetchone()
+    if not row or row['assignee_id'] is None: return None
+    return {'user_id': row['assignee_id'], 'email': row['assignee_email'],
+            'eligible': row['role'] in WRITE_ROLES and not row['disabled']}
+
+
+def controls_assignment(row, actor):
+    return actor['role'] in WRITE_ROLES and (actor['role']=='admin' or row['creator_id']==actor['id'])
+
+
+def present(row, actor, owner=None):
     data = {key: value for key, value in dict(row).items() if key not in ('request_key','creation_hash','creator_id')}
-    writable = actor['role'] in WRITE_ROLES and (actor['role'] == 'admin' or row['creator_id'] == actor['id'])
+    writable = actor['role'] in WRITE_ROLES and (actor['role'] == 'admin' or row['creator_id'] == actor['id'] or owner and owner['user_id']==actor['id'])
+    data['assignment'] = owner
+    data['can_assign'] = controls_assignment(row,actor) and row['state']!='resolved' and row['revision']<MAX_REVISIONS
     data['actions'] = [action for action, (start, _) in TRANSITIONS.items()
                        if writable and row['state'] == start and row['revision'] < MAX_REVISIONS]
     return data
@@ -107,25 +132,31 @@ def present(row, actor):
 def visible(db, incident_id, actor):
     require_role(actor, READ_ROLES)
     row = db.execute('SELECT * FROM synthetic_incidents WHERE id=?', (incident_id,)).fetchone()
-    if not row or actor['role'] == 'operator' and row['creator_id'] != actor['id']:
+    assigned = db.execute('SELECT 1 FROM incident_assignments WHERE incident_id=? AND assignee_id=?', (incident_id,actor['id'])).fetchone()
+    if not row or actor['role'] == 'operator' and row['creator_id'] != actor['id'] and not assigned:
         raise HTTPException(404, 'Incident exercise not found')
     return row
 
 
 def detail(db, row, actor):
-    events = db.execute('''SELECT revision,action,actor_email,note,evidence_refs,time_utc
+    events = db.execute('''SELECT revision,action,actor_email,note,evidence_refs,time_utc,snapshot_json
         FROM synthetic_incident_events WHERE incident_id=? ORDER BY revision DESC LIMIT ?''',
                         (row['id'], MAX_REVISIONS)).fetchall()
     own = db.execute('SELECT 1 FROM incident_plan_links WHERE incident_id=? AND creator_id=?', (row['id'], actor['id'])).fetchone()
     count = db.execute('SELECT count(*) FROM incident_plan_links WHERE incident_id=?', (row['id'],)).fetchone()[0]
-    return {'incident': present(row, actor), 'history': [dict(event) for event in events],
+    history=[]
+    for item in events:
+        entry=dict(item);snapshot=json.loads(entry.pop('snapshot_json'))
+        entry['assignment_recorded']='assignment' in snapshot;entry['assignment']=snapshot.get('assignment')
+        history.append(entry)
+    return {'incident': present(row, actor, assignment(db,row['id'])), 'history': history,
             'linked_plans': linked_plans(db, row['id'], actor),
             'can_prepare_plan': actor['role'] in WRITE_ROLES and row['state'] != 'resolved' and not own and count < MAX_LINKS_PER_INCIDENT,
             **BOUNDARY}
 
 
 def event(db, row, actor, action, note, evidence, audit):
-    snapshot = present(row, actor); snapshot.pop('actions')
+    snapshot = present(row, actor, assignment(db,row['id'])); snapshot.pop('actions');snapshot.pop('can_assign')
     db.execute('INSERT INTO synthetic_incident_events VALUES(?,?,?,?,?,?,?,?,?)',
                (row['id'], row['revision'], action, actor['id'], actor['email'], note, evidence,
                 row['updated_at'], json.dumps(snapshot, sort_keys=True)))
@@ -134,6 +165,39 @@ def event(db, row, actor, action, note, evidence, audit):
 
 
 def install_routes(app, database, require_user, require_csrf, audit):
+    @app.get('/api/incidents/{incident_id}/assignment-candidates')
+    def candidates(incident_id: str, request: Request):
+        actor=require_user(request)
+        with database() as db:
+            db.execute('BEGIN');row=visible(db,incident_id,actor)
+            if not controls_assignment(row,actor):raise HTTPException(403,'Only the creator or an administrator can choose incident ownership')
+            if row['state']=='resolved' or row['revision']>=MAX_REVISIONS:raise HTTPException(409,'Assignment is unavailable for the current incident state or history limit')
+            rows=db.execute("SELECT id,email,role FROM users WHERE disabled=0 AND role IN ('admin','operator') ORDER BY email LIMIT 100").fetchall()
+        return {'candidates':[dict(row) for row in rows],**BOUNDARY}
+
+    @app.post('/api/incidents/{incident_id}/assignment')
+    def assign(incident_id: str, body: AssignIncident, request: Request):
+        current=require_user(request);require_csrf(request,current)
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
+            row=visible(db,incident_id,actor)
+            if not controls_assignment(row,actor):raise HTTPException(403,'Only the creator or an administrator can change incident ownership')
+            if row['revision']!=body.expected_revision or row['revision']>=MAX_REVISIONS or row['state']=='resolved':
+                raise HTTPException(409,'Incident changed, is resolved or reached history capacity; reopen the current record')
+            target=None
+            if body.assignee_id is not None:
+                target=db.execute("SELECT id,email FROM users WHERE id=? AND disabled=0 AND role IN ('admin','operator')",(body.assignee_id,)).fetchone()
+                if not target:raise HTTPException(422,'Choose an enabled Administrator or Operator account')
+            prior=assignment(db,incident_id)
+            if (prior['user_id'] if prior else None)==body.assignee_id:raise HTTPException(409,'The requested assignment is already current')
+            now=datetime.now(timezone.utc).isoformat()
+            db.execute('''INSERT INTO incident_assignments VALUES(?,?,?,?) ON CONFLICT(incident_id)
+                DO UPDATE SET assignee_id=excluded.assignee_id,assignee_email=excluded.assignee_email,updated_at=excluded.updated_at''',
+                (incident_id,body.assignee_id,target['email'] if target else None,now))
+            db.execute('UPDATE synthetic_incidents SET revision=revision+1,updated_at=? WHERE id=?',(now,incident_id))
+            row=visible(db,incident_id,actor);event(db,row,actor,'assigned' if target else 'unassigned',body.note,'',audit)
+            return detail(db,row,actor)
+
     @app.post('/api/incidents/{incident_id}/maintenance-plan')
     def prepare_plan(incident_id: str, body: LinkedPlan, request: Request):
         current = require_user(request); require_csrf(request, current)
@@ -165,7 +229,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',1,?,?)''',
                 (identifier, actor['id'], actor['email'], key, creation_hash, fields['asset_id'], fields['title'],
                  fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
-            snapshot = present(incident, actor); snapshot.pop('actions')
+            snapshot = present(incident, actor, assignment(db,incident_id)); snapshot.pop('actions');snapshot.pop('can_assign')
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
                 (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
             row = planning.visible_plan(db, identifier, actor)
@@ -175,10 +239,14 @@ def install_routes(app, database, require_user, require_csrf, audit):
 
     @app.get('/api/incidents')
     def list_incidents(request: Request, state: str = 'all', q: str = Query(default='', max_length=160),
-                       offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50)):
+                       offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50),
+                       ownership: Literal['all','assigned','created','unassigned'] = 'all'):
         actor = require_user(request); require_role(actor, READ_ROLES)
         if state not in ('all', *STATES): raise HTTPException(422, 'Unknown incident state')
-        scope, args = ('creator_id=?', [actor['id']]) if actor['role'] == 'operator' else ('1=1', [])
+        scope, args = ('(creator_id=? OR id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?))', [actor['id'],actor['id']]) if actor['role'] == 'operator' else ('1=1', [])
+        if ownership=='assigned':scope+=' AND id IN (SELECT incident_id FROM incident_assignments WHERE assignee_id=?)';args.append(actor['id'])
+        elif ownership=='created':scope+=' AND creator_id=?';args.append(actor['id'])
+        elif ownership=='unassigned':scope+=' AND id NOT IN (SELECT incident_id FROM incident_assignments WHERE assignee_id IS NOT NULL)'
         where, values = scope, list(args)
         if state != 'all': where += ' AND state=?'; values.append(state)
         if q.strip():
@@ -190,9 +258,10 @@ def install_routes(app, database, require_user, require_csrf, audit):
             for row in db.execute('SELECT state,count(*) n FROM synthetic_incidents WHERE ' + scope + ' GROUP BY state', args): counts[row['state']] = row['n']
             total = db.execute('SELECT count(*) FROM synthetic_incidents WHERE ' + where, values).fetchone()[0]
             rows = db.execute('SELECT * FROM synthetic_incidents WHERE ' + where + ' ORDER BY updated_at DESC,id DESC LIMIT ? OFFSET ?', [*values, limit, offset]).fetchall()
-        return {'incidents': [present(row, actor) for row in rows], 'counts': counts, 'total': total,
+            presented=[present(row, actor, assignment(db,row['id'])) for row in rows]
+        return {'incidents': presented, 'counts': counts, 'total': total,
                 'offset': offset, 'limit': limit, 'can_create': actor['role'] in WRITE_ROLES,
-                'visibility': 'own records' if actor['role'] == 'operator' else 'all local records', **BOUNDARY}
+                'visibility': 'created by or assigned to you' if actor['role'] == 'operator' else 'all local records', **BOUNDARY}
 
     @app.get('/api/incidents/{incident_id}')
     def get_incident(incident_id: str, request: Request):
