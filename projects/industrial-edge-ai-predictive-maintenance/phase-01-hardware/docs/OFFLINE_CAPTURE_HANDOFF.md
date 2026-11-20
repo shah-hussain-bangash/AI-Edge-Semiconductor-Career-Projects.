@@ -62,7 +62,7 @@ python -m pip install -r tests/requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-The 25 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, and capture-to-adapter compatibility. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+The 28 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, and capture-to-adapter compatibility, and compile-record inventory boundaries. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
 
 ### Capture behavior and result interpretation
 

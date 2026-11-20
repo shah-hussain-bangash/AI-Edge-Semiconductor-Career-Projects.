@@ -11,7 +11,8 @@ from fastapi import HTTPException
 from physical_build import read_plan
 
 HARDWARE_FILES = (
-    'README.md', 'firmware/platformio.ini', 'firmware/src/main.cpp',
+    'README.md', 'firmware/platformio.ini', 'firmware/src/main.cpp', 'requirements-build.txt',
+    'scripts/record_firmware_build.py', 'tests/test_firmware_build.py', 'docs/FIRMWARE_BUILD.md',
     'scripts/capture_serial.py', 'scripts/prepare_capture.py', 'scripts/requirements.txt',
     'tests/test_capture.py', 'tests/test_prepare_capture.py', 'tests/requirements.txt',
     'examples/offline-capture/synthetic.capture.csv', 'examples/offline-capture/synthetic.attachment.json',
@@ -45,6 +46,7 @@ No substitutions or additional hardware are authorized by this pack.
 4. Firmware source and PlatformIO configuration are included for the existing
    ESP32 target. Dependency installation, compilation and upload are separate
    steps; this download does not establish a successful build or exact-board fit.
+   See phase-01-hardware/docs/FIRMWARE_BUILD.md for compile-only instructions.
 5. To run offline software checks after installing test dependencies, use the
    commands in the handoff guide from phase-01-hardware. No hardware is needed.
 

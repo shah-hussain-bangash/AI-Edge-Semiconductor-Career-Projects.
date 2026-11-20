@@ -4,6 +4,8 @@ This is **starter source code**, not a claim of tested hardware. The firmware su
 
 Hardware arrival is pending. The [offline capture handoff](docs/OFFLINE_CAPTURE_HANDOFF.md) prepares existing V1 capture CSV files as candidate V2 evidence without connecting devices or importing measured readings into the dashboard. The same 30-product selection remains unchanged.
 
+Use the [compile-only build guide](docs/FIRMWARE_BUILD.md) to check the existing ESP32 firmware before hardware arrives. Build tools/platform/direct libraries are fixed to explicit versions; GitHub compiles the target without uploading it. Compilation does not establish physical compatibility or acceptance.
+
 ## Quick start
 1. Read [wiring and safety](docs/WIRING_AND_SAFETY.md) before powering anything. Keep the motor disconnected during initial tests.
 2. Install VS Code with PlatformIO. Open `firmware/` as a PlatformIO project.

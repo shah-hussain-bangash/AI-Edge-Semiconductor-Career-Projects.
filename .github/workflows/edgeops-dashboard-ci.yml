@@ -19,6 +19,40 @@ permissions:
   contents: read
 
 jobs:
+  esp32-firmware-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware
+    env:
+      PLATFORMIO_CORE_DIR: ${{ runner.temp }}/edgeops-platformio
+      PLATFORMIO_SETTING_ENABLE_TELEMETRY: "No"
+      PLATFORMIO_DISABLE_UPGRADE_CHECK: "true"
+      PLATFORMIO_RUN_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install fixed build tool
+        run: python -m pip install -r requirements-build.txt
+      - name: Compile existing ESP32 target (no upload)
+        run: python -m platformio run --project-dir firmware --environment esp32dev
+      - name: Record build artifacts (not hardware acceptance)
+        run: python scripts/record_firmware_build.py
+      - name: Retain firmware build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeops-esp32-compile-only
+          path: |
+            projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware/build-evidence.json
+            projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware/.pio/build/esp32dev/firmware.bin
+            projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware/.pio/build/esp32dev/firmware.elf
+            projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware/.pio/build/esp32dev/bootloader.bin
+            projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware/.pio/build/esp32dev/partitions.bin
+          if-no-files-found: error
+          retention-days: 14
   dashboard-unit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
