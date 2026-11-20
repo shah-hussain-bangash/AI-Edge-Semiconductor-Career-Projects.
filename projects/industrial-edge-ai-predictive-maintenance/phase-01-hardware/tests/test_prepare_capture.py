@@ -20,6 +20,7 @@ def load(name, path):
 
 
 adapter = load('prepare_capture', ROOT / 'scripts/prepare_capture.py')
+serial_capture = load('serial_capture', ROOT / 'scripts/capture_serial.py')
 contract = load('v2_contract', ROOT.parent / 'enterprise-architecture/contracts/tests/test_telemetry_v2_contract.py')
 MAPPING = dict(profile='edgeops.serial-attachment.v1', site_id='synthetic-lab', asset_id='fixture-motor',
                device_id='fixture-esp32', v1_device_id='motor-001', serial_port='NOT-CONNECTED',
@@ -38,6 +39,26 @@ def capture(rows, fields=adapter.FIELDS):
 
 
 class PrepareCaptureTests(unittest.TestCase):
+    def test_fragmented_capture_to_evidence_handoff(self):
+        import contextlib
+        values = {key: value for key, value in ROW.items() if key != 'gateway_utc'}
+        for key in ('seq', 'uptime_ms'): values[key] = int(values[key])
+        for key in serial_capture.NUMERIC: values[key] = float(values[key])
+        for key in ('adxl345_valid', 'ds18b20_valid', 'ina219_valid', 'valid'): values[key] = values[key] == 'True'
+        values['schema_version'] = 1
+        raw = (json.dumps(values) + '\n').encode()
+        chunks = [raw[:20], b'', raw[20:]]
+        class Port:
+            def readline(self, size): return chunks.pop(0)
+        ticks = iter([0, 0, 0, 0, 99])
+        stream = io.StringIO(newline='')
+        with contextlib.redirect_stdout(io.StringIO()):
+            serial_capture.capture_stream(Port(), stream, 1, monotonic=lambda: next(ticks), receipt=lambda: ROW['gateway_utc'])
+        records, rejected, _, _ = adapter.normalize(stream.getvalue().encode(), MAPPING)
+        self.assertEqual(rejected, [])
+        self.assertEqual(contract.failures(records[0]), [])
+        self.assertEqual(records[0]['measurements']['current_a'], 0.125)
+
     def test_units_zero_and_provenance_match_contract(self):
         result, _ = adapter.convert(ROW, MAPPING)
         self.assertEqual(result['measurements']['current_a'], 0.125)
