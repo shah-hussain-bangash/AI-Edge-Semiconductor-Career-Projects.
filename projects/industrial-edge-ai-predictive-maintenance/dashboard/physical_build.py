@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from fastapi import HTTPException,Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from maintenance_requests import require_role,READ_ROLES
 
 
@@ -30,6 +30,14 @@ def read_plan(root):
 
 def install_routes(app,require_user,root):
     root=Path(root)
+    @app.get('/api/hardware/physical-plan/arrival-pack')
+    def arrival_pack(request:Request):
+        require_role(require_user(request),READ_ROLES)
+        from hardware_handover import build_pack
+        return Response(build_pack(root), media_type='application/zip', headers={
+            'Content-Disposition':'attachment; filename="edgeops-hardware-arrival-pack.zip"',
+            'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff'})
+
     @app.get('/api/hardware/physical-plan')
     def physical_plan(request:Request):
         require_role(require_user(request),READ_ROLES)

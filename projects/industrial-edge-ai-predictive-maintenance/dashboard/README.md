@@ -49,6 +49,12 @@ Settings > Service checks & recovery shows the current data-store check, service
 
 These checks cannot establish sensor freshness, model performance, accepted recovery targets or production availability. A healthy software probe never marks a readiness criterion accepted.
 
+## Hardware arrival download
+
+Inventory > Your ordered hardware now offers **Download hardware arrival pack**. All signed-in read roles can download the fixed 30-product worksheet, conditional connection references, firmware source, V1 capture/V2 evidence tools, synthetic examples and their offline software tests. The authenticated ZIP endpoint is `/api/hardware/physical-plan/arrival-pack`; it exports only a fixed source-file list, never the dashboard database, credentials or local captures. A missing source or changed hardware matrix fails the whole download. File hashes support corruption checks, not source authentication or release acceptance.
+
+Start with `START-HERE.md` in the ZIP. The receipt worksheet is an offline copy; editing it does not update the dashboard or establish receipt, connection, calibration or production readiness. All 30 selected products retain their identities and existing roles.
+
 ## Verification
 
 ```powershell

@@ -57,7 +57,7 @@ Disconnect all power. Identify every module's actual labels and cable ends; arra
 
 ## 6. Software boundary at physical handover
 
-The current firmware uses GPIO21/22/4, I2C at 100kHz, USB serial at 115200 baud, and one V1 summary record per second. It has no Wi-Fi/MQTT or motor-control implementation. V1 flags invalid fields separately while numeric placeholders may be zero; future measured ingestion must respect those flags, retain acceleration m/s2 and convert current mA to A once. The current dashboard ingestion is synthetic-only and will reject measured claims. A reviewed serial identity/contract adapter and measured commissioning path are still required; plugging in boards does not automatically populate the current synthetic charts.
+The current firmware uses GPIO21/22/4, I2C at 100kHz, USB serial at 115200 baud, and one V1 summary record per second. It has no Wi-Fi/MQTT or motor-control implementation. V1 flags invalid fields separately while numeric placeholders may be zero. The [offline capture handoff](../OFFLINE_CAPTURE_HANDOFF.md) now supplies an offline V1-to-candidate-V2 adapter that retains acceleration m/s2, converts current mA to A once, and maps invalid sensor groups to null. It does not authenticate physical identity or create verified boot/time provenance. The current dashboard ingestion remains synthetic-only and rejects measured claims. A reviewed measured commissioning and ingestion path is still required; plugging in boards does not automatically populate the synthetic charts.
 
 ## 7. Engineering references
 
