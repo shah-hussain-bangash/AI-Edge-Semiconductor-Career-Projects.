@@ -52,6 +52,17 @@ class ChangeAccount(StrictModel):
     disabled: bool = Field(strict=True)
 
 
+class RotatePassword(StrictModel):
+    expected_revision: int = Field(strict=True, ge=1)
+    new_password: str = Field(strict=True, min_length=14, max_length=256)
+
+    @field_validator('new_password')
+    @classmethod
+    def nonblank_password(cls, value):
+        if not value.strip(): raise ValueError('New password cannot be entirely whitespace')
+        return value
+
+
 def init_schema(db):
     db.execute('''CREATE TABLE IF NOT EXISTS account_controls(
         user_id INTEGER PRIMARY KEY REFERENCES users(id), revision INTEGER NOT NULL, updated_at TEXT NOT NULL)''')
@@ -106,6 +117,26 @@ def event(db, row, actor, action, reason, audit):
 
 
 def install_routes(app, database, require_user, require_csrf, hash_password, matches, audit):
+    @app.post('/api/team/{identifier}/password')
+    def rotate_password(identifier: int, body: RotatePassword, request: Request):
+        current = require_user(request); require_csrf(request, current)
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE')
+            actor = reauthenticate(db, current, body.current_password, matches, audit)
+            row = account(db, identifier)
+            if row['revision'] != body.expected_revision: raise HTTPException(409, 'Account changed; reload the current revision before changing its password')
+            if row['revision'] >= MAX_REVISIONS: raise HTTPException(409, 'Account history capacity reached; no password was changed')
+            old_hash = db.execute('SELECT password_hash FROM users WHERE id=?', (identifier,)).fetchone()[0]
+            if matches(body.new_password, old_hash): raise HTTPException(409, 'Choose a different new password; the current password was retained')
+            db.execute('UPDATE users SET password_hash=? WHERE id=?', (hash_password(body.new_password), identifier))
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute('''INSERT INTO account_controls VALUES(?,?,?) ON CONFLICT(user_id)
+                DO UPDATE SET revision=excluded.revision,updated_at=excluded.updated_at''', (identifier, row['revision']+1, now))
+            revoked = db.execute('DELETE FROM sessions WHERE user_id=?', (identifier,)).rowcount
+            row = account(db, identifier); event(db, row, actor, 'password_changed', body.reason, audit)
+            return {**detail(db, row), 'sessions_revoked': revoked,
+                    'sign_in_again': actor['id'] == identifier, 'password_changed': True}
+
     @app.get('/api/team')
     def list_accounts(request: Request, q: str = Query(default='', max_length=160),
                       offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=50)):

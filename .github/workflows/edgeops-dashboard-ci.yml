@@ -71,7 +71,9 @@ jobs:
       - name: Authentication and API tests
         run: python -m unittest discover -s tests -p test_server.py -v
       - name: Local team administration and credential-boundary checks
-        run: python -m unittest discover -s tests -p test_team_accounts.py -v
+        run: |
+          python -m unittest discover -s tests -p test_team_accounts.py -v
+          python -m unittest discover -s tests -p test_password_rotation.py -v
       - name: Maintenance planning authorization and revision checks
         run: |
           python -m unittest discover -s tests -p test_maintenance_requests.py -v

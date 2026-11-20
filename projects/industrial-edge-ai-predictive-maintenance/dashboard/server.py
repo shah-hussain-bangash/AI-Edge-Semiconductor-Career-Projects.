@@ -276,6 +276,17 @@ def login(request: Request, body: LoginInput):
             # Persist the denial before propagating the HTTP exception.
             db.commit()
             raise HTTPException(401, "Invalid email or password")
+        # Password hashing can overlap a credential/access change. Serialize the
+        # final credential check with session issuance so an old password cannot
+        # create a new session after a successful password rotation.
+        db.execute("BEGIN IMMEDIATE")
+        latest = db.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+        if not latest or latest["disabled"] or latest["password_hash"] != user["password_hash"]:
+            FAILED_LOGINS[ipkey] = attempts + [now_epoch()]
+            record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
+            db.commit()
+            raise HTTPException(401, "Invalid email or password")
+        user = latest
         FAILED_LOGINS.pop(ipkey, None)
         token = secrets.token_hex(32)
         csrf = secrets.token_urlsafe(32)

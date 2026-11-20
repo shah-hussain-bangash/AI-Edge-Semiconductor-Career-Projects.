@@ -59,7 +59,7 @@ Current independently approved plans now offer saved synthetic documentation exe
 
 ## Local team accounts
 
-Administrators can now manage local account creation, roles and access from Settings > Accounts for independent review. Every change requires the administrator password, a reason and a fresh revision; access changes revoke target sessions and protect the last active administrator. Existing credentials are preserved and no accounts are seeded. See [local account controls and remaining identity work](TEAM_ACCOUNTS.md).
+Administrators can now manage local account creation, roles and access from Settings > Accounts for independent review. Administrators can also rotate a local password explicitly, with confirmation and session revocation. Every change requires the administrator password, a reason and a fresh revision; access changes revoke target sessions and protect the last active administrator. Existing credentials are preserved and no accounts are seeded. See [local account controls and remaining identity work](TEAM_ACCOUNTS.md).
 
 ## Hardware arrival download
 

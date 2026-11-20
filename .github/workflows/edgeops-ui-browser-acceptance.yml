@@ -54,6 +54,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_team.cjs
+      - name: Explicit local password rotation acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_passwords.cjs
       - name: Complete production readiness register acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_readiness.cjs
       - name: Upload desktop and mobile review screenshots
