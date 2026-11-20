@@ -53,6 +53,10 @@ These checks cannot establish sensor freshness, model performance, accepted reco
 
 Alert center now saves explicit incident exercises with acknowledgement, resolution evidence references, reopening, revision conflict checks and full history/export. Operators see their own records; administrators and auditors can read all local exercises, with auditors read-only. Open or acknowledged incidents can create linked maintenance drafts with a frozen source revision and visible change warnings; approval still requires an independent reviewer. See [incident workflow and limits](INCIDENT_WORKFLOW.md). No incidents are seeded, and these records perform no live detection, escalation, equipment action or repair verification.
 
+## Maintenance documentation exercises
+
+Current independently approved plans now offer saved synthetic documentation exercises with notes, evidence references, independent exercise review, history/export and plan-revision guards. Exercise review never verifies physical work or authorizes equipment. See [maintenance exercise workflow and limits](MAINTENANCE_EXERCISES.md). No exercise records are seeded.
+
 ## Hardware arrival download
 
 Inventory > Your ordered hardware now offers **Download hardware arrival pack**. All signed-in read roles can download the fixed 30-product worksheet, conditional connection references, firmware source, V1 capture/V2 evidence tools, synthetic examples and their offline software tests. The authenticated ZIP endpoint is `/api/hardware/physical-plan/arrival-pack`; it exports only a fixed source-file list, never the dashboard database, credentials or local captures. A missing source or changed hardware matrix fails the whole download. File hashes support corruption checks, not source authentication or release acceptance.

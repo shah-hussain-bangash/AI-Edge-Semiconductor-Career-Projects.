@@ -11,7 +11,7 @@ CORE_TABLES = ('users', 'sessions', 'audit', 'comparison_reviews', 'comparison_r
                'maintenance_requests', 'maintenance_request_events', 'readiness_records',
                'readiness_events', 'readiness_release_scope', 'readiness_scope_events',
                'acquisition_bindings', 'acquisition_binding_events', 'acquisition_observations',
-               'synthetic_incidents', 'synthetic_incident_events', 'incident_plan_links')
+               'synthetic_incidents', 'synthetic_incident_events', 'incident_plan_links', 'maintenance_exercises', 'maintenance_exercise_events')
 
 
 def database_status(path, detailed=False):
@@ -45,7 +45,7 @@ def database_status(path, detailed=False):
 
 def diagnostics(database, root):
     store = database_status(database, detailed=True)
-    files = ('server.py', 'incidents.py', 'acquisition_registry.py', 'delivery_service.py', 'edge_delivery.py', 'observation_queries.py', 'physical_build.py', 'physical-build-plan.json', 'request_limits.py', 'operations.py', 'recovery.py',
+    files = ('server.py', 'maintenance_exercises.py', 'incidents.py', 'acquisition_registry.py', 'delivery_service.py', 'edge_delivery.py', 'observation_queries.py', 'physical_build.py', 'physical-build-plan.json', 'request_limits.py', 'operations.py', 'recovery.py',
              'maintenance_requests.py', 'production_readiness.py', 'readiness_catalog.json')
     try:
         fingerprint = hashlib.sha256()

@@ -134,10 +134,11 @@ def present(row, actor):
 
 def detail(db, row, actor):
     from incidents import plan_source
+    from maintenance_exercises import summary
     events = db.execute("""SELECT revision,action,actor_email,note,time_utc
         FROM maintenance_request_events WHERE request_id=? ORDER BY revision DESC""", (row["id"],)).fetchall()
     return {"request": present(row, actor), "history": [dict(event) for event in events],
-            "source_incident": plan_source(db, row['id']), **BOUNDARY}
+            "source_incident": plan_source(db, row['id']), **summary(db, row, actor), **BOUNDARY}
 
 
 def append_event(db, row, actor, action, note, record_audit):
