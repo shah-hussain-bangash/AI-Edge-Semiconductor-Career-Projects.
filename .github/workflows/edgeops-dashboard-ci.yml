@@ -26,7 +26,7 @@ jobs:
       run:
         working-directory: projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware
     env:
-      PLATFORMIO_CORE_DIR: ${{ runner.temp }}/edgeops-platformio
+      PLATFORMIO_CORE_DIR: ${{ github.workspace }}/.local-platformio-build
       PLATFORMIO_SETTING_ENABLE_TELEMETRY: "No"
       PLATFORMIO_DISABLE_UPGRADE_CHECK: "true"
       PLATFORMIO_RUN_JOBS: "2"
