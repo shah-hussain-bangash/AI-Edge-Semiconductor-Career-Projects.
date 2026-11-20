@@ -49,6 +49,10 @@ Settings > Service checks & recovery shows the current data-store check, service
 
 These checks cannot establish sensor freshness, model performance, accepted recovery targets or production availability. A healthy software probe never marks a readiness criterion accepted.
 
+## Saved synthetic incidents
+
+Alert center now saves explicit incident exercises with acknowledgement, resolution evidence references, reopening, revision conflict checks and full history/export. Operators see their own records; administrators and auditors can read all local exercises, with auditors read-only. See [incident workflow and limits](INCIDENT_WORKFLOW.md). No incidents are seeded, and these records perform no live detection, escalation, equipment action or repair verification.
+
 ## Hardware arrival download
 
 Inventory > Your ordered hardware now offers **Download hardware arrival pack**. All signed-in read roles can download the fixed 30-product worksheet, conditional connection references, firmware source, V1 capture/V2 evidence tools, synthetic examples and their offline software tests. The authenticated ZIP endpoint is `/api/hardware/physical-plan/arrival-pack`; it exports only a fixed source-file list, never the dashboard database, credentials or local captures. A missing source or changed hardware matrix fails the whole download. File hashes support corruption checks, not source authentication or release acceptance.

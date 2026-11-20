@@ -27,7 +27,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 | REQ-06 Backend/storage | Transactional local review/planning/readiness domains; production database migrations, authoritative asset/incident/device APIs, retention and scale pending |
 | REQ-07 Identity/security | Local sessions/CSRF/audit and bounded body parsing; enterprise identity/MFA/provisioning, device credentials, scoped policy, distributed throttling and TLS deployment pending |
 | REQ-08 Connected dashboard | 18 usable views; telemetry now reads persisted local synthetic observations with quality/age/history; other equipment views remain fixtures and measured integration is pending |
-| REQ-09 Incidents | Browser examples; persisted correlation, assignments, expiry/escalation, resolution/reopening and operational effects pending |
+| REQ-09 Incidents | Saved manual synthetic incident exercises now implement acknowledgement, resolution/reopening, revision history, audit, export and recovery. Real observation correlation, assignments, expiry/escalation and verified operational effects remain pending; see INCIDENT_WORKFLOW.md |
 | REQ-10 Maintenance | Saved synthetic planning and independent review work; technician execution, evidence, independent verification and operational closure pending |
 | REQ-11 Real models | Synthetic chronological evaluation and reviewed immutable comparisons work; representative real labels, thresholds and independent evaluation pending |
 | REQ-12 Deployment | No deployable/approved edge bundle, gateway parity, promotion, monitoring or rollback implementation established |

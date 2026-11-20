@@ -33,7 +33,7 @@ const headings = {
   architecture:["Enterprise Architecture Explorer","Interactive system blueprint: device acquisition, mTLS delivery, edge validation, persistence, AI and human review.","ARCHITECTURE / LAB + DESIGN"],
   telemetry:["Telemetry explorer","Inspect synthetic vibration, temperature, voltage and current sensor signals.","Live telemetry"],
   assets:["Asset registry","Browse the synthetic equipment and demo health classifications.","Assets & devices"],
-  alerts:["Alert management","Review local demonstration events and browser-only acknowledgments.","Alerts"],
+  alerts:["Alert management","Track saved synthetic incident exercises and review demonstration alerts.","Alerts"],
   insights:["AI maintenance insights","Illustrative maintenance recommendations; no deployed predictive model.","AI insights"],
   hardware:["Hardware inventory","View the engineering catalog and component readiness without connecting to equipment.","Hardware inventory"],
   maintenance:["Maintenance planning","Save and independently review local inspection plans for synthetic assets.","MAINTENANCE / LOCAL PLANNING"],

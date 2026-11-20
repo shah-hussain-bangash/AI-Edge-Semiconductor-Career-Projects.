@@ -48,6 +48,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_workspace.cjs
       - name: Authenticated maintenance planning acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_maintenance.cjs
+      - name: Saved synthetic incident lifecycle acceptance
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incidents.cjs
       - name: Complete production readiness register acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_readiness.cjs
       - name: Upload desktop and mobile review screenshots

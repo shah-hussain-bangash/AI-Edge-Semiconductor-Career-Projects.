@@ -72,6 +72,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_server.py -v
       - name: Maintenance planning authorization and revision checks
         run: python -m unittest discover -s tests -p test_maintenance_requests.py -v
+      - name: Synthetic incident lifecycle, permissions and recovery checks
+        run: python -m unittest discover -s tests -p test_incidents.py -v
       - name: Complete readiness register and acceptance boundary checks
         run: python -m unittest discover -s tests -p test_production_readiness.py -v
       - name: Request boundaries, service observations and recovery drills

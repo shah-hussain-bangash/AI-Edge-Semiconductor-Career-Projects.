@@ -18,6 +18,7 @@ from typing import Literal
 
 from request_limits import RequestBodyLimit, SECURITY_HEADERS
 import physical_build
+import incidents
 import observation_queries
 import delivery_service
 import acquisition_registry
@@ -44,7 +45,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError):
@@ -126,6 +127,7 @@ def init_db():
             comparison_id TEXT NOT NULL, revision INTEGER NOT NULL,
             status TEXT NOT NULL, reviewer TEXT NOT NULL, note TEXT NOT NULL,
             reviewed_at TEXT NOT NULL, PRIMARY KEY(comparison_id,revision))""")
+        incidents.init_schema(db)
         maintenance_requests.init_schema(db)
         production_readiness.init_schema(db)
         acquisition_registry.init_schema(db)
@@ -514,6 +516,8 @@ def review_model_comparison(comparison_id: str, body: ComparisonReviewInput, req
     return {"review": review, "approval_scope": "offline-report-only", "model_deployed": False,
             "hardware_connected": False}
 
+
+incidents.install_routes(app, database, require_user, require_csrf, record_audit)
 
 maintenance_requests.install_routes(app, database, require_user, require_csrf, record_audit)
 
