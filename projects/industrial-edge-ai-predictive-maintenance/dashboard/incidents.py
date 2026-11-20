@@ -47,6 +47,14 @@ class IncidentAction(StrictModel):
     evidence_refs: str = Field(default='', max_length=1000, strict=True)
 
 
+class InvestigationUpdate(StrictModel):
+    request_key: str = Field(pattern=r'^[0-9a-f]{32}$', strict=True)
+    expected_revision: int = Field(strict=True, ge=1)
+    kind: Literal['update', 'analysis', 'evidence']
+    note: str = Field(strict=True, min_length=10, max_length=800)
+    evidence_refs: str = Field(default='', strict=True, max_length=1000)
+
+
 class FollowUp(StrictModel):
     expected_revision: int = Field(strict=True, ge=1)
     due_at: str | None = Field(max_length=40, strict=True)
@@ -91,6 +99,11 @@ def init_schema(db):
         action TEXT NOT NULL, actor_id INTEGER NOT NULL REFERENCES users(id), actor_email TEXT NOT NULL,
         note TEXT NOT NULL, evidence_refs TEXT NOT NULL, time_utc TEXT NOT NULL, snapshot_json TEXT NOT NULL,
         PRIMARY KEY(incident_id,revision))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS incident_investigation_keys(
+        incident_id TEXT NOT NULL, actor_id INTEGER NOT NULL REFERENCES users(id),
+        request_key TEXT NOT NULL, request_hash TEXT NOT NULL, revision INTEGER NOT NULL,
+        PRIMARY KEY(incident_id,actor_id,request_key),
+        FOREIGN KEY(incident_id,revision) REFERENCES synthetic_incident_events(incident_id,revision))''')
     db.execute('CREATE INDEX IF NOT EXISTS incident_creator_state ON synthetic_incidents(creator_id,state,updated_at)')
     db.execute('''CREATE TABLE IF NOT EXISTS incident_followups(
         incident_id TEXT PRIMARY KEY REFERENCES synthetic_incidents(id), due_at TEXT, updated_at TEXT NOT NULL)''')
@@ -154,6 +167,7 @@ def present(row, actor, owner=None, follow_up=None):
     writable = actor['role'] in WRITE_ROLES and (actor['role'] == 'admin' or row['creator_id'] == actor['id'] or owner and owner['user_id']==actor['id'])
     data['follow_up'] = follow_up
     data['can_set_follow_up'] = bool(writable and row['state']!='resolved' and row['revision']<MAX_REVISIONS)
+    data['can_add_update'] = data['can_set_follow_up']
     data['assignment'] = owner
     data['can_assign'] = controls_assignment(row,actor) and row['state']!='resolved' and row['revision']<MAX_REVISIONS
     data['actions'] = [action for action, (start, _) in TRANSITIONS.items()
@@ -189,7 +203,7 @@ def detail(db, row, actor):
 
 
 def event(db, row, actor, action, note, evidence, audit):
-    snapshot = present(row, actor, assignment(db,row['id']), followup(db,row)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
+    snapshot = present(row, actor, assignment(db,row['id']), followup(db,row)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
     db.execute('INSERT INTO synthetic_incident_events VALUES(?,?,?,?,?,?,?,?,?)',
                (row['id'], row['revision'], action, actor['id'], actor['email'], note, evidence,
                 row['updated_at'], json.dumps(snapshot, sort_keys=True)))
@@ -198,6 +212,30 @@ def event(db, row, actor, action, note, evidence, audit):
 
 
 def install_routes(app, database, require_user, require_csrf, audit):
+    @app.post('/api/incidents/{incident_id}/investigation')
+    def investigate(incident_id: str, body: InvestigationUpdate, request: Request):
+        current=require_user(request);require_csrf(request,current)
+        if body.kind=='evidence' and not body.evidence_refs:
+            raise HTTPException(422,'Evidence updates require a reference; reference text is not independently verified')
+        digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_key'}),sort_keys=True).encode()).hexdigest()
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
+            row=visible(db,incident_id,actor)
+            prior=db.execute('SELECT request_hash,revision FROM incident_investigation_keys WHERE incident_id=? AND actor_id=? AND request_key=?',
+                             (incident_id,actor['id'],body.request_key)).fetchone()
+            if prior:
+                if prior['request_hash']!=digest:raise HTTPException(409,'This update key was already used with different contents; reopen the incident before adding a new update')
+                return {**detail(db,row,actor),'created':False,'update_revision':prior['revision']}
+            if row['revision']!=body.expected_revision or row['revision']>=MAX_REVISIONS or row['state']=='resolved':
+                raise HTTPException(409,'Incident changed, is resolved or reached history capacity; reopen the current record')
+            now=datetime.now(timezone.utc).isoformat()
+            db.execute('UPDATE synthetic_incidents SET revision=revision+1,updated_at=? WHERE id=?',(now,incident_id))
+            row=visible(db,incident_id,actor)
+            event(db,row,actor,'investigation_'+body.kind,body.note,body.evidence_refs,audit)
+            db.execute('INSERT INTO incident_investigation_keys VALUES(?,?,?,?,?)',
+                       (incident_id,actor['id'],body.request_key,digest,row['revision']))
+            return {**detail(db,row,actor),'created':True,'update_revision':row['revision']}
+
     @app.post('/api/incidents/{incident_id}/follow-up')
     def set_followup(incident_id: str, body: FollowUp, request: Request):
         current=require_user(request);require_csrf(request,current)
@@ -277,7 +315,7 @@ def install_routes(app, database, require_user, require_csrf, audit):
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',1,?,?)''',
                 (identifier, actor['id'], actor['email'], key, creation_hash, fields['asset_id'], fields['title'],
                  fields['observation'], fields['proposal'], fields['evidence_refs'], fields['priority'], now, now))
-            snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
+            snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
                 (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
             row = planning.visible_plan(db, identifier, actor)
