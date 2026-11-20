@@ -20,7 +20,7 @@ This audit inspected the current dashboard/authentication, SQLite domain stores,
 | Requirement | Current boundary and remaining work |
 | --- | --- |
 | REQ-01 Scope/architecture | Consolidated design exists; deployment scope, owners and acceptance targets require agreement |
-| REQ-02 Physical hardware | 30-category design catalog; actual inventory, exact ratings/wiring and commissioning pending |
+| REQ-02 Physical hardware | Same 30 products now shown as ordered-user-reported with physical preparation map/stages; actual receipt, ratings, installed wiring and commissioning pending |
 | REQ-03 Sensor acquisition | Existing embedded/serial source is a starting point; real timing, units, calibration and fault evidence pending |
 | REQ-04 Device identity | Synthetic site/asset/device test bindings and strict V2 preflight implemented; real enrollment, scoped credentials and hardware replacement remain pending |
 | REQ-05 Durable delivery | Bounded local synthetic spool, retry scheduling, conflict-aware central receipts and a tested loopback HTTP worker implemented; supervised service/device identity, broker integration and measured cutover remain pending |

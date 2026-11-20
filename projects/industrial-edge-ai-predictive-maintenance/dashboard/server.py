@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from request_limits import RequestBodyLimit, SECURITY_HEADERS
+import physical_build
 import observation_queries
 import delivery_service
 import acquisition_registry
@@ -43,7 +44,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError):
@@ -302,12 +303,13 @@ def logout(request: Request):
 @app.get("/api/hardware")
 def hardware(request: Request):
     require_user(request)
-    return {"mode": "proposed-inventory", "confirmed_hardware_count": 0, "named_category_count": 30,
+    return {"mode": "declared-order-inventory", "confirmed_hardware_count": 0, "named_category_count": 30,
             "catalog_version": "production-design-bom-v1",
             "slots_total": 30, "purchased_count": None,
+            "ordered_count_user_reported": 30, "order_reported_on": "2026-11-20",
             "devices": [{"id": i, "name": n, "purpose": p, "category": c,
                          "confirmed_inventory_name": False, "connected": False,
-                         "lifecycle": "planned", "purchase_verified": False}
+                         "lifecycle": "ordered-user-reported", "purchase_verified": False}
                         for i, n, p, c in HARDWARE]}
 
 
@@ -522,3 +524,5 @@ acquisition_registry.install_routes(app, database, require_user, require_csrf, r
 delivery_service.install_routes(app, database, require_user, require_csrf, record_audit, DB_PATH.parent / "delivery-spool.sqlite3")
 
 observation_queries.install_routes(app, database, require_user)
+
+physical_build.install_routes(app, require_user, ROOT)

@@ -46,9 +46,9 @@ async function initializeHardware(){
     const named=Number(result.named_category_count)||0;
     const connected=result.devices.filter(item=>item.connected===true).length;
     if(metrics) metrics.innerHTML=[
-      [total,"Planning categories"],[result.devices.filter(item=>item.category==="sensor").length,"Sensor categories"],["Unknown","Purchases & physical instances"],[connected,"Verified connected devices"]
-    ].map(([value,title])=>'<article class="metric"><div class="metric-label">'+safeText(title)+'</div><div class="metric-number">'+safeText(value)+'</div><div class="metric-foot">Planning inventory only</div></article>').join("");
-    if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">'+(device.connected?"Connected (API)":"Planned · unverified")+'</span></td></tr>').join("");
+      [total,"Planning categories"],[result.devices.filter(item=>item.category==="sensor").length,"Sensor categories"],[result.ordered_count_user_reported??"Unknown","Ordered · user-reported"],[connected,"Verified connected devices"]
+    ].map(([value,title])=>'<article class="metric"><div class="metric-label">'+safeText(title)+'</div><div class="metric-number">'+safeText(value)+'</div><div class="metric-foot">Order report; physical state unverified</div></article>').join("");
+    if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">'+(device.connected?"Connected (API)":"Ordered · user-reported")+'</span></td></tr>').join("");
     window.dispatchEvent(new CustomEvent("edgeops:hardware-state",{detail:{state:"ok",devices:result.devices}}));
     edgFeedback("hardware-feedback",total+" planning categories · "+named+" named · "+connected+" connected according to local API. No physical connection verified.","ok");
   }catch(error){

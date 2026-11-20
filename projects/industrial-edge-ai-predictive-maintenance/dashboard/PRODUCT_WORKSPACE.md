@@ -16,7 +16,7 @@ This implementation provides 18 connected workspace views plus sign-in, with a l
 | AI assistant | Illustrative insights, evidence requirements, knowledge navigation | Retrieval and generation unavailable |
 | Knowledge | Searchable design catalog, source context and revision/approval state | Catalog references are not approved SOPs or indexed documents |
 | Models | Lifecycle, lineage, blocked release checklist, verified comparison link | Offline report review works; deployment and rollback unavailable |
-| Hardware | Search, category/quick filters, details, commissioning gates, filtered CSV, 30 authenticated BOM categories | All planned; purchases, instances, ratings and commissioning unverified |
+| Hardware | Fixed 30-product physical build view, ordered-user-reported status, sensor map, preparation stages, exact-part checks, search/filters/details and exports | Same selected products; order is user-reported, receipt/instances/ratings/connection/commissioning remain unverified |
 | Simulation | Three deterministic scenarios, next sample/reset, explicit missing values | Browser fixture only; no firmware/broker/model execution |
 | Security/audit | Authenticated local audit records and session boundary | Enterprise grant/session administration pending |
 | Governance | Readiness and physical/security/model acceptance context | No release authorization inferred |

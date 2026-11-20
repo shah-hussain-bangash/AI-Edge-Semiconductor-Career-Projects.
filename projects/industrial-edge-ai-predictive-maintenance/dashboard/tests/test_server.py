@@ -77,7 +77,7 @@ class DashboardApiTests(unittest.TestCase):
         self.assertEqual(data["confirmed_hardware_count"], 0)
         self.assertEqual(data["named_category_count"], 30)
         self.assertEqual([d["id"] for d in data["devices"]], [f"BOM-{i:02d}" for i in range(1,31)])
-        self.assertTrue(all(d["lifecycle"] == "planned" and not d["purchase_verified"] for d in data["devices"]))
+        self.assertTrue(all(d["lifecycle"] == "ordered-user-reported" and not d["purchase_verified"] for d in data["devices"]))
         self.assertEqual(sum(1 for d in data["devices"] if d["connected"]), 0)
 
     def test_06_static_file_allowlist_blocks_secrets(self):

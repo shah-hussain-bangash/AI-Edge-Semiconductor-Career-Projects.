@@ -1,4 +1,4 @@
-"""Canonical planning categories, never a claim of purchase or commissioning."""
+"""Canonical fixed 30 categories; order declaration is separate from verified purchase/commissioning."""
 HARDWARE = [
     ("BOM-01", "Raspberry Pi 5 (4 GB)", "Edge validation, storage and relay", "edge"),
     ("BOM-02", "ESP32-WROOM-32 development board", "Sensor acquisition", "embedded"),

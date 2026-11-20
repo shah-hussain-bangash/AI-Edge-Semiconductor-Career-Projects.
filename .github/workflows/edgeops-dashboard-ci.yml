@@ -38,6 +38,7 @@ jobs:
         run: python -m unittest discover -s tests -p test_production_readiness.py -v
       - name: Request boundaries, service observations and recovery drills
         run: |
+          python -m unittest discover -s tests -p test_physical_build.py -v
           python -m unittest discover -s tests -p test_observation_queries.py -v
           python -m unittest discover -s tests -p test_delivery.py -v
           python -m unittest discover -s tests -p test_acquisition_registry.py -v
