@@ -33,3 +33,7 @@ Numbers above are examples only.
 - [ ] Exact hardware part numbers, photos, electrical schematic and measurements documented
 - [ ] Safe motor test only after independent power/current/guarding review
 - [ ] Baseline measurements and known limitations recorded
+
+## Physical bench preparation
+
+The [physical connection preparation pack](docs/physical-connection-pack/README.md) maps all 30 product categories to bench roles, provides the GPIO21/22/4 sensor schedule and separates optional equipment, instruments and spares. It uses the newer 19 November GitHub sourcing requirements, with the user reporting ordered hardware on 20 November. Exact board and motor-power compatibility still require confirmation before energizing.
