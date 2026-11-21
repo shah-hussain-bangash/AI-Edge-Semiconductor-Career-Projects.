@@ -84,6 +84,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_comparison.cjs
       - name: Read-only persisted observation inspection
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_inspector.cjs
+      - name: Read-only same-page observation comparison
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_comparison.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
