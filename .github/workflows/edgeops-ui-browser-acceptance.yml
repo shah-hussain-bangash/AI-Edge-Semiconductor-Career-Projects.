@@ -76,6 +76,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_saved_check.cjs
       - name: Frozen incident context in maintenance planning
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_source_context.cjs
+      - name: Maintenance planning and exercise draft protection
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_drafts.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
