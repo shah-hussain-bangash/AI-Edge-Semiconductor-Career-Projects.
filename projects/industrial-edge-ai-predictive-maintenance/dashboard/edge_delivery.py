@@ -140,6 +140,7 @@ class Spool:
             db.execute('BEGIN')
             counts={state:0 for state in ('pending','inflight','delivered','blocked')}
             counts.update(dict(db.execute('SELECT state,COUNT(*) FROM delivery_spool GROUP BY state').fetchall()))
+            usage=db.execute('SELECT COUNT(*) AS records,COALESCE(SUM(length(CAST(payload AS BLOB))),0) AS payload_bytes FROM delivery_spool').fetchone()
             clauses=[];params=[]
             if state:clauses.append('state=?');params.append(state)
             if position:clauses.append('(created_at<? OR (created_at=? AND event_key>?))');params.extend((position[0],position[0],position[1]))
@@ -150,4 +151,5 @@ class Spool:
         return {'counts':counts,'records':[{key:row[key] for key in ('event_key','state','attempts','last_error','receipt')} for row in page],
                 'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key'],state) if len(rows)>limit else None,'order':'created-desc-event-asc','state':state},
                 'limits':{'records':self.max_rows,'payload_bytes':self.max_bytes},
+                'usage':dict(usage),
                 'retention':'No automatic deletion; delivered identities count toward capacity.'}
