@@ -1,7 +1,7 @@
 /* Local, authenticated planning records. The execution walkthrough stays separate. */
 "use strict";
 const planningState={verified:false,canCreate:false,rows:[],total:0,offset:0,limit:25,status:'all',query:'',sequence:0,selected:null};
-let planningDialogSequence=0;
+let planningDialogSequence=0,planningSigninPending=false;
 const planningLabel=value=>({draft:'Draft',submitted:'Submitted',approved:'Approved plan',rejected:'Rejected'})[value]||value;
 const planningBadge=value=>'<span class="planning-status '+escapeText(value)+'">'+escapeText(planningLabel(value))+'</span>';
 const planningDate=value=>new Date(value).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -9,7 +9,7 @@ async function planningFetch(url,options={}){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
  try{
   const response=await fetch(url,{credentials:'same-origin',signal:controller.signal,...options});
-  if(response.status===401){location.assign('/signin');throw new Error('Session expired. Sign in again.');}
+  if(response.status===401){if(!planningSigninPending){planningSigninPending=true;location.assign('/signin');}throw new Error('Session expired. Sign in again.');}
   let data;try{data=await response.json();}catch{throw new Error('The planning service returned an unreadable response. Retry to verify the current records.');}
   if(!response.ok){const error=new Error(typeof data.detail==='string'?data.detail:response.status===422?'Check the required fields and try again.':'Planning service returned '+response.status);error.status=response.status;throw error;}
   if(data.scope!=='local-synthetic-planning'||data.equipment_authorized!==false||data.execution_enabled!==false||data.hardware_connected!==false)throw new Error('Unexpected planning-service scope. Refresh the connection.');
@@ -65,6 +65,7 @@ function renderPlanningDetail(data){
  showPlanningDialog(title,planningWorkbenchMarkup(data,sourceMarkup,creatorBoundary,buttons),'detail');
  bindExerciseSummary(data);
  bindPlanningWorkbench(data);
+ bindPlanningRevisionComparison(data);
  $('planning-source-incident')?.addEventListener('click',()=>{$('planning-dialog').close();navigate('alerts');openIncident(source.id);});
 }
 function openPlanningDetail(id){return guardPlanningDeparture(()=>loadPlanningDetail(id),'Open another saved request and discard unsaved maintenance changes?');}
