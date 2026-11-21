@@ -14,19 +14,27 @@ import time
 from acquisition_registry import DeliveryInput
 
 
-def history_cursor(created_at,event_key):
-    value=json.dumps([1,created_at,event_key],separators=(',',':'),allow_nan=False)
+HISTORY_STATES=('', 'pending', 'inflight', 'delivered', 'blocked')
+
+
+def history_cursor(created_at,event_key,state=''):
+    value=json.dumps([2,created_at,event_key,state] if state else [1,created_at,event_key],separators=(',',':'),allow_nan=False)
     return base64.urlsafe_b64encode(value.encode()).decode().rstrip('=')
 
 
-def history_position(before):
+def history_position(before,state=''):
     if not isinstance(before,str) or len(before)>256:raise ValueError('Invalid delivery history cursor')
     if not before:return None
     try:
         if any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_' for c in before):raise ValueError()
         value=json.loads(base64.b64decode(before+'='*(-len(before)%4),altchars=b'-_',validate=True))
-        if (not isinstance(value,list) or len(value)!=3 or type(value[0]) is not int or value[0]!=1
-                or type(value[1]) not in (int,float) or not math.isfinite(value[1]) or value[1]<0
+        if not isinstance(value,list) or not value or type(value[0]) is not int:raise ValueError()
+        if value[0]==1:
+            if len(value)!=3 or state:raise ValueError()
+        elif value[0]==2:
+            if len(value)!=4 or value[3] not in HISTORY_STATES[1:] or value[3]!=state:raise ValueError()
+        else:raise ValueError()
+        if (type(value[1]) not in (int,float) or not math.isfinite(value[1]) or value[1]<0
                 or not isinstance(value[2],str) or len(value[2])!=64 or any(c not in '0123456789abcdef' for c in value[2])):raise ValueError()
         return value[1],value[2]
     except (ValueError,TypeError,OverflowError,UnicodeError):raise ValueError('Invalid delivery history cursor') from None
@@ -56,6 +64,7 @@ class Spool:
                 created_at REAL NOT NULL,updated_at REAL NOT NULL)''')
             db.execute('CREATE INDEX IF NOT EXISTS delivery_due ON delivery_spool(state,next_at,lease_until)')
             db.execute('CREATE INDEX IF NOT EXISTS delivery_history ON delivery_spool(created_at DESC,event_key ASC)')
+            db.execute('CREATE INDEX IF NOT EXISTS delivery_state_history ON delivery_spool(state,created_at DESC,event_key ASC)')
 
     @contextmanager
     def db(self):
@@ -123,18 +132,22 @@ class Spool:
             self.finish(claim,error='transport-unavailable')
         return {'attempted':True,'event_key':claim['event_key']}
 
-    def status(self,before='',limit=20):
+    def status(self,before='',limit=20,state=''):
         if type(limit) is not int or not 1<=limit<=100:raise ValueError('Delivery history limit must be 1-100')
-        position=history_position(before)
+        if not isinstance(state,str) or state not in HISTORY_STATES:raise ValueError('Invalid delivery history state')
+        position=history_position(before,state)
         with self.db() as db:
             db.execute('BEGIN')
             counts={state:0 for state in ('pending','inflight','delivered','blocked')}
             counts.update(dict(db.execute('SELECT state,COUNT(*) FROM delivery_spool GROUP BY state').fetchall()))
-            where=' WHERE created_at<? OR (created_at=? AND event_key>?)' if position else ''
-            params=(position[0],position[0],position[1],limit+1) if position else (limit+1,)
+            clauses=[];params=[]
+            if state:clauses.append('state=?');params.append(state)
+            if position:clauses.append('(created_at<? OR (created_at=? AND event_key>?))');params.extend((position[0],position[0],position[1]))
+            where=' WHERE '+' AND '.join(clauses) if clauses else ''
+            params.append(limit+1)
             rows=db.execute('SELECT created_at,event_key,state,attempts,last_error,receipt FROM delivery_spool'+where+' ORDER BY created_at DESC,event_key ASC LIMIT ?',params).fetchall()
         page=rows[:limit]
         return {'counts':counts,'records':[{key:row[key] for key in ('event_key','state','attempts','last_error','receipt')} for row in page],
-                'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key']) if len(rows)>limit else None,'order':'created-desc-event-asc'},
+                'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key'],state) if len(rows)>limit else None,'order':'created-desc-event-asc','state':state},
                 'limits':{'records':self.max_rows,'payload_bytes':self.max_bytes},
                 'retention':'No automatic deletion; delivered identities count toward capacity.'}

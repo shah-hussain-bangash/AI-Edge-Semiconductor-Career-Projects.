@@ -63,6 +63,38 @@ class SpoolHistoryTests(unittest.TestCase):
             with self.subTest(limit=limit),self.assertRaises(ValueError):self.spool.status(limit=limit)
         self.assertEqual(sum(self.spool.status()['counts'].values()),28)
 
+    def test_filtered_ties_and_newer_arrivals_preserve_original_positions_and_global_counts(self):
+        blocked=self.keys[::2]
+        with self.spool.db() as db:
+            db.executemany("UPDATE delivery_spool SET state='blocked',attempts=1,last_error='http-403' WHERE event_key=?",[(key,) for key in blocked])
+        first=self.spool.status(state='blocked',limit=5)
+        self.assertEqual(first['page']['state'],'blocked');self.assertEqual(first['counts']['pending'],14)
+        self.assertEqual([r['event_key'] for r in first['records']],sorted(blocked)[:5])
+        data=envelope();data['observation']['sequence']=100
+        new_key=self.spool.enqueue(data)['event_key']
+        with self.spool.db() as db:db.execute("UPDATE delivery_spool SET state='blocked',attempts=1,last_error='http-403' WHERE event_key=?",(new_key,))
+        seen=[r['event_key'] for r in first['records']];cursor=first['page']['next_before']
+        while cursor:
+            page=self.spool.status(state='blocked',before=cursor,limit=5)
+            self.assertEqual(page['counts']['pending'],14);self.assertEqual(page['counts']['blocked'],15)
+            self.assertTrue(all(r['state']=='blocked' for r in page['records']))
+            seen.extend(r['event_key'] for r in page['records']);cursor=page['page']['next_before']
+        self.assertEqual(seen,sorted(blocked));self.assertEqual(self.spool.status(state='blocked')['records'][0]['event_key'],new_key)
+        with self.spool.db() as db:db.execute("UPDATE delivery_spool SET state='pending',last_error=NULL WHERE event_key=?",(new_key,))
+        refreshed=self.spool.status(state='blocked');self.assertEqual(refreshed['counts']['pending'],15)
+        self.assertNotIn(new_key,[r['event_key'] for r in refreshed['records']])
+        empty=self.spool.status(state='delivered');self.assertEqual(empty['records'],[]);self.assertIsNone(empty['page']['next_before'])
+
+    def test_cursors_are_bound_to_filter_and_legacy_all_state_positions_remain_valid(self):
+        all_cursor=self.spool.status(limit=5)['page']['next_before']
+        pending_cursor=self.spool.status(state='pending',limit=5)['page']['next_before']
+        for state,cursor in [('pending',all_cursor),('',pending_cursor),('blocked',pending_cursor)]:
+            with self.subTest(state=state),self.assertRaises(ValueError):self.spool.status(state=state,before=cursor)
+        self.assertEqual(len(self.spool.status(before=all_cursor)['records']),20)
+        self.assertEqual(len(self.spool.status(state='pending',before=pending_cursor)['records']),20)
+        for state in ['all','Pending','unknown',True,None]:
+            with self.subTest(state=state),self.assertRaises(ValueError):self.spool.status(state=state)
+
 
 class DeliveryHistoryApiTests(unittest.TestCase):
     login=fixtures.AcquisitionRegistryApiTests.login
@@ -95,3 +127,19 @@ class DeliveryHistoryApiTests(unittest.TestCase):
             with self.subTest(params=params):self.assertEqual(response.status_code,422)
         self.assertEqual(len(self.http.get('/api/acquisition/delivery',params={'limit':1}).json()['records']),1)
         self.assertEqual(len(self.http.get('/api/acquisition/delivery',params={'limit':100}).json()['records']),24)
+
+    def test_state_filters_roles_empty_matches_and_context_mismatch(self):
+        for role in ('admin','operator','auditor'):
+            self.login(role)
+            response=self.http.get('/api/acquisition/delivery',params={'state':'pending','limit':5})
+            self.assertEqual(response.status_code,200);data=response.json()
+            self.assertEqual(data['page']['state'],'pending');self.assertEqual(len(data['records']),5)
+            self.assertEqual(data['counts']['pending'],24)
+            older=self.http.get('/api/acquisition/delivery',params={'state':'pending','before':data['page']['next_before']})
+            self.assertEqual(older.status_code,200);self.assertEqual(len(older.json()['records']),19)
+            empty=self.http.get('/api/acquisition/delivery',params={'state':'blocked'}).json()
+            self.assertEqual(empty['records'],[]);self.assertEqual(empty['counts']['pending'],24)
+            for state in ('','blocked'):
+                self.assertEqual(self.http.get('/api/acquisition/delivery',params={'state':state,'before':data['page']['next_before']}).status_code,422)
+        for state in ('all','Pending','unknown'):
+            self.assertEqual(self.http.get('/api/acquisition/delivery',params={'state':state}).status_code,422)

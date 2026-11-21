@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+from typing import Literal
 
 from fastapi import HTTPException,Request,Response,Query
 from acquisition_registry import DeliveryInput
@@ -78,12 +79,12 @@ def install_routes(app,database,require_user,require_csrf,audit,default_spool_pa
         return {**BOUNDARY,**receipt,'central_committed':False}
 
     @app.get('/api/acquisition/delivery')
-    def delivery_status(request:Request,before:str=Query(default='',max_length=256),limit:int=Query(default=20,ge=1,le=100)):
+    def delivery_status(request:Request,before:str=Query(default='',max_length=256),limit:int=Query(default=20,ge=1,le=100),state:Literal['','pending','inflight','delivered','blocked']=''):
         require_role(require_user(request),READ_ROLES)
-        try:state=spool().status(before=before,limit=limit)
+        try:result=spool().status(before=before,limit=limit,state=state)
         except ValueError:raise HTTPException(422,'Invalid delivery history cursor or limit') from None
         with database() as db:central=db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]
-        return {**BOUNDARY,**state,'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}
+        return {**BOUNDARY,**result,'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}
 
     @app.post('/api/acquisition/deliver-once')
     def deliver_once(request:Request):
