@@ -4,7 +4,7 @@ const {spawn,spawnSync}=require('child_process');
 const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),crypto=require('crypto');
 const root=path.resolve(__dirname,'..'),python=process.env.PYTHON_BINARY||'python';
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'edgeops-delivery-inspector-')),password=crypto.randomBytes(24).toString('hex');
-const env={...process.env,PYTHONDONTWRITEBYTECODE:'1',EDGEOPS_DASHBOARD_DB:path.join(temp,'auth.db'),EDGEOPS_ADMIN_EMAIL:'admin@example.invalid',EDGEOPS_ADMIN_PASSWORD:password};
+const env={...process.env,PYTHONDONTWRITEBYTECODE:'1',EDGEOPS_DASHBOARD_DB:path.join(temp,'auth.db'),EDGEOPS_DELIVERY_SPOOL_DB:path.join(temp,'delivery-spool.sqlite3'),EDGEOPS_ADMIN_EMAIL:'admin@example.invalid',EDGEOPS_ADMIN_PASSWORD:password};
 const seed=spawnSync(python,['-c',`import server,os
 server.init_db()
 with server.database() as db:
