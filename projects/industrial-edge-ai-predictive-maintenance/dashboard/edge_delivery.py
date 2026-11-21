@@ -3,6 +3,7 @@
 No physical device credentials, broker acknowledgment or actuation is provided.
 """
 from contextlib import contextmanager
+from datetime import datetime,timezone
 import base64
 import hashlib
 import json
@@ -15,6 +16,25 @@ from acquisition_registry import DeliveryInput
 
 
 HISTORY_STATES=('', 'pending', 'inflight', 'delivered', 'blocked')
+
+
+class SpoolReadError(RuntimeError):
+    """Required saved timing metadata is not safe to present as an outcome."""
+
+
+def saved_time_utc(value):
+    try:
+        if type(value) not in (int,float) or not math.isfinite(value) or value<0:raise ValueError()
+        return datetime.fromtimestamp(value,timezone.utc).isoformat()
+    except (ValueError,OverflowError,OSError):raise SpoolReadError('Unsupported saved queue timing') from None
+
+
+def saved_timing(row):
+    if row['state'] not in HISTORY_STATES[1:]:raise SpoolReadError('Unsupported saved queue state')
+    return {'queued_at_utc':saved_time_utc(row['created_at']),
+            'updated_at_utc':saved_time_utc(row['updated_at']),
+            'retry_not_before_utc':saved_time_utc(row['next_at']) if row['state']=='pending' else None,
+            'lease_expires_at_utc':saved_time_utc(row['lease_until']) if row['state']=='inflight' else None}
 
 
 def history_cursor(created_at,event_key,state=''):
@@ -146,9 +166,9 @@ class Spool:
             if position:clauses.append('(created_at<? OR (created_at=? AND event_key>?))');params.extend((position[0],position[0],position[1]))
             where=' WHERE '+' AND '.join(clauses) if clauses else ''
             params.append(limit+1)
-            rows=db.execute('SELECT created_at,event_key,state,attempts,last_error,receipt FROM delivery_spool'+where+' ORDER BY created_at DESC,event_key ASC LIMIT ?',params).fetchall()
+            rows=db.execute('SELECT created_at,updated_at,next_at,lease_until,event_key,state,attempts,last_error,receipt FROM delivery_spool'+where+' ORDER BY created_at DESC,event_key ASC LIMIT ?',params).fetchall()
         page=rows[:limit]
-        return {'counts':counts,'records':[{key:row[key] for key in ('event_key','state','attempts','last_error','receipt')} for row in page],
+        return {'counts':counts,'records':[{**{key:row[key] for key in ('event_key','state','attempts','last_error','receipt')},**saved_timing(row)} for row in page],
                 'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key'],state) if len(rows)>limit else None,'order':'created-desc-event-asc','state':state},
                 'limits':{'records':self.max_rows,'payload_bytes':self.max_bytes},
                 'usage':dict(usage),

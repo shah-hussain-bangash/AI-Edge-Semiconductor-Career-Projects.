@@ -82,6 +82,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_workbench.cjs
       - name: Read-only saved planning revision comparison
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_comparison.cjs
+      - name: Read-only saved queue timing
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_delivery_timing.cjs
       - name: Read-only retained queue capacity
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_delivery_capacity.cjs
       - name: Queue-state filters and count-card shortcuts

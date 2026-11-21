@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import HTTPException,Request,Response,Query
 from acquisition_registry import DeliveryInput
-from edge_delivery import Spool,identity
+from edge_delivery import Spool,SpoolReadError,identity
 from maintenance_requests import fresh_actor,require_role,READ_ROLES
 
 BOUNDARY={'scope':'local-synthetic-delivery','hardware_connected':False,'equipment_authorized':False,
@@ -83,6 +83,7 @@ def install_routes(app,database,require_user,require_csrf,audit,default_spool_pa
         require_role(require_user(request),READ_ROLES)
         try:result=spool().status(before=before,limit=limit,state=state)
         except ValueError:raise HTTPException(422,'Invalid delivery history cursor or limit') from None
+        except SpoolReadError:raise HTTPException(503,'Saved delivery timing is unavailable or inconsistent') from None
         with database() as db:central=db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]
         return {**BOUNDARY,**result,'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}
 
