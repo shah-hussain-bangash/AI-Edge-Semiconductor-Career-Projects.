@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import secrets
 
-from fastapi import HTTPException,Request,Response
+from fastapi import HTTPException,Request,Response,Query
 from acquisition_registry import DeliveryInput
 from edge_delivery import Spool,identity
 from maintenance_requests import fresh_actor,require_role,READ_ROLES
@@ -78,10 +78,12 @@ def install_routes(app,database,require_user,require_csrf,audit,default_spool_pa
         return {**BOUNDARY,**receipt,'central_committed':False}
 
     @app.get('/api/acquisition/delivery')
-    def delivery_status(request:Request):
+    def delivery_status(request:Request,before:str=Query(default='',max_length=256),limit:int=Query(default=20,ge=1,le=100)):
         require_role(require_user(request),READ_ROLES)
+        try:state=spool().status(before=before,limit=limit)
+        except ValueError:raise HTTPException(422,'Invalid delivery history cursor or limit') from None
         with database() as db:central=db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]
-        return {**BOUNDARY,**spool().status(),'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}
+        return {**BOUNDARY,**state,'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}
 
     @app.post('/api/acquisition/deliver-once')
     def deliver_once(request:Request):
