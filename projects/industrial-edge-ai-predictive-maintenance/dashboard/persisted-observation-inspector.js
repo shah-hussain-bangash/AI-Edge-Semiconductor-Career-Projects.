@@ -24,6 +24,7 @@ function openPersistedInspector(index,opener){
 }
 function bindPersistedInspector(){
  const dialog=document.createElement('dialog');dialog.id='persisted-observation-dialog';dialog.className='product-dialog';dialog.setAttribute('aria-labelledby','persisted-observation-title');dialog.innerHTML='<div class="product-dialog-head"><h2 id="persisted-observation-title">Saved observation</h2><button id="persisted-observation-close" class="action-outline" type="button">Close</button></div><div id="persisted-observation-body"></div>';$('main').append(dialog);
- $('persisted-observation-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>{if(!dialog.open)clearPersistedInspector(true);});
+ $('persisted-observation-close').addEventListener('click',()=>clearPersistedInspector(true));dialog.addEventListener('cancel',event=>{event.preventDefault();clearPersistedInspector(true);});dialog.addEventListener('close',()=>{if(!dialog.open)clearPersistedInspector(true);});
+ document.addEventListener('keydown',event=>{if(event.key!=='Escape'||!dialog.open)return;const target=event.target.closest?.('dialog'),top=[...document.querySelectorAll('dialog[open]')].at(-1);if(target===dialog||(!target&&top===dialog)){event.preventDefault();event.stopImmediatePropagation();clearPersistedInspector(true);}},{capture:true});
  $('persisted-rows').addEventListener('click',event=>{const button=event.target.closest('[data-persisted-inspect]');if(button&&persistedSnapshot)openPersistedInspector(Number(button.dataset.persistedInspect),button);});
 }
