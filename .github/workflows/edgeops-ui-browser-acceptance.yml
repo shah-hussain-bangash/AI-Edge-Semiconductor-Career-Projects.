@@ -82,6 +82,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_workbench.cjs
       - name: Read-only saved planning revision comparison
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_comparison.cjs
+      - name: Read-only saved delivery outcome inspection
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_delivery_inspector.cjs
       - name: Explicit binding target and observation editor protection
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_registry_examples.cjs
       - name: Read-only persisted observation inspection
