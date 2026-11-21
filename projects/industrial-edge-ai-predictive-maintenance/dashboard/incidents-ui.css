@@ -36,3 +36,7 @@
 #incident-queue-summary{scroll-margin-top:84px}
 
 .incident-handover-actions{display:flex;gap:12px;flex-wrap:wrap}#incident-handover-feedback{overflow-wrap:anywhere;color:#29445f}
+
+.incident-saved-check{padding:16px;margin:20px 0;border:1px solid #adc5e1;border-radius:9px;background:#fff}.incident-saved-check-actions{display:flex;gap:10px;flex-wrap:wrap}.incident-saved-check .compact-head{align-items:flex-start;flex-wrap:wrap}.incident-saved-check p{overflow-wrap:anywhere;color:#29445f}.incident-saved-check [data-state=changed]{padding:12px;background:#fff4d8;border-left:4px solid #986300;color:#684200}.incident-saved-check [data-state=matched]{padding:12px;background:#e6f6f0;border-left:4px solid #227763;color:#1b594c}.incident-saved-check [data-state=error]{padding:12px;background:#ffedf0;border-left:4px solid #9a3448;color:#80283a}#incident-check-saved:disabled{color:#52677e;background:#e5ecf4;opacity:1}@media(max-width:540px){.incident-saved-check-actions{width:100%}.incident-saved-check-actions button{flex:1 1 100%}}
+
+.incident-saved-check{scroll-margin-top:84px}

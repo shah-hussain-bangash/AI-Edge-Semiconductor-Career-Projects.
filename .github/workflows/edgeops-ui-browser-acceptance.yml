@@ -72,6 +72,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_queue_summary.cjs
       - name: Saved case handover download and print acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_handover.cjs
+      - name: Non-destructive saved case change checks
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_incident_saved_check.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_exercises.cjs
       - name: Local administrator team management acceptance
