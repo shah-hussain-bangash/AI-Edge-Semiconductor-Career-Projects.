@@ -62,7 +62,19 @@ python -m pip install -r tests/requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-The 34 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, capture-to-adapter compatibility, compile-record inventory boundaries, and strict offline evidence verification. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+The 37 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, capture-to-adapter compatibility, compile-record inventory boundaries, strict offline evidence verification, and optional report export/refusal behavior. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+
+### Optional unsigned verification report
+
+Keep the report outside the evidence folder, using a new filename. From `phase-01-hardware`:
+
+```powershell
+python scripts/prepare_capture.py verify evidence/synthetic-handoff-001 --report evidence/synthetic-handoff-001-verification.json
+```
+
+Existing output files, report paths inside the evidence folder and late competing targets are refused. Verification failures create no report. Interrupted write failures may leave an incomplete new report; preserve it for inspection and use a fresh filename. The report contains the captured manifest byte count, SHA-256 and exact metadata, declared host verification time, true package-consistency/transformation-check fields and false source/authentication/physical/readiness authority. It contains no raw readings, attachment identifiers or evidence-folder path. A report is unsigned and editable, not a certificate or trusted timestamp; local snapshot checking grants no physical or production acceptance. The original evidence folder is unchanged, so its inventory remains verifiable. Existing short stdout and verify exit 0/1 meanings stay unchanged, including exit 0 with a declared review-required flag.
+
+The dashboard can display a separately selected report only after matching its manifest reference. That browser review does not execute this verifier, authenticate its report or import observations. Retain the original folder and review all quarantine and provenance declarations before any later integration.
 
 ### Strict evidence verification
 

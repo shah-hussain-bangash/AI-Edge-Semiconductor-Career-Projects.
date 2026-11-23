@@ -187,10 +187,11 @@ def prepare(input_path,attachment_path,output):
             shutil.rmtree(stage)
 
 
-def verify(directory):
+def verify(directory,*,include_report=False):
     root=Path(directory)
     if root.is_symlink() or getattr(root,'is_junction',lambda:False)():raise ValueError('Linked evidence folders are not supported')
-    manifest=evidence_json(read_file(root/'manifest.json',65536))
+    manifest_bytes=read_file(root/'manifest.json',65536)
+    manifest=evidence_json(manifest_bytes)
     if not isinstance(manifest,dict) or set(manifest)!=MANIFEST_FIELDS:raise ValueError('Unsupported evidence manifest')
     if manifest.get('boot_identity')!='unavailable' or manifest.get('source_classification')!='operator-declared; not physical authentication':raise ValueError('Unsupported provenance claim')
     created=manifest['created_at']
@@ -224,15 +225,36 @@ def verify(directory):
     normalized,expected_rejected,gaps,count=normalize(snapshots['source.capture.csv'],mapping)
     if not same_json(records,normalized) or not same_json(rejected,expected_rejected) or manifest['accepted_sequence_gaps']!=gaps or manifest['input_rows']!=count or manifest['requires_review']!=(bool(rejected) or not records):
         raise ValueError('Prepared observations do not match source transformation')
+    if include_report:
+        return {'format':'edgeops-offline-capture-verification-report-v1','verified_at':datetime.now(timezone.utc).isoformat(),
+                'manifest_bytes':len(manifest_bytes),'manifest_sha256':sha(manifest_bytes),'manifest':manifest,
+                'package_consistency_checked':True,'source_transformation_recomputed':True,
+                'report_authenticated':False,'source_authenticated':False,'atomic_folder_snapshot':False,
+                'ongoing_freshness_verified':False,'physical_source_verified':False,'calibration_verified':False,
+                'hardware_connected':False,'ready_for_ingestion':False,'equipment_authorized':False,'production_ready':False}
     return manifest
+
+
+def write_verification_report(directory,output):
+    """Write a new unsigned report outside the evidence folder; never overwrite."""
+    root=Path(directory).resolve();target=Path(output).absolute()
+    if target.resolve().is_relative_to(root):raise ValueError('Report must be outside the evidence folder')
+    if target.exists() or target.is_symlink():raise ValueError('Report must use a new filename')
+    report=verify(directory,include_report=True)
+    # Exclusive creation also refuses a target that appears while verification runs.
+    with target.open('xb') as stream:stream.write(json_bytes(report))
+    return report['manifest']
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);commands=parser.add_subparsers(dest='command',required=True)
     create=commands.add_parser('prepare');create.add_argument('--input',required=True);create.add_argument('--attachment',required=True);create.add_argument('--output',required=True)
-    check=commands.add_parser('verify');check.add_argument('directory')
+    check=commands.add_parser('verify');check.add_argument('directory');check.add_argument('--report',help='New JSON report filename outside the evidence folder; never overwritten')
     args=parser.parse_args()
-    try:manifest=prepare(args.input,args.attachment,args.output) if args.command=='prepare' else verify(args.directory)
+    try:
+        if args.command=='prepare':manifest=prepare(args.input,args.attachment,args.output)
+        elif args.report:manifest=write_verification_report(args.directory,args.report)
+        else:manifest=verify(args.directory)
     except (ValueError,OSError,KeyError,TypeError,csv.Error):parser.exit(1,'Evidence preparation failed; check the capture, attachment and output paths. Existing files were not overwritten.\n')
     print(json.dumps({key:manifest[key] for key in ('accepted_rows','quarantined_rows','requires_review','physical_source_verified','ready_for_ingestion')},sort_keys=True))
     return 2 if args.command=='prepare' and manifest['requires_review'] else 0

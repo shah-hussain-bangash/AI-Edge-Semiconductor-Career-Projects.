@@ -264,6 +264,54 @@ class PrepareCaptureTests(unittest.TestCase):
             self.assertEqual(verified.returncode, 0, verified.stderr)
             self.assertTrue(json.loads(verified.stdout)['requires_review'])
 
+    def test_verification_report_matches_snapshots_without_physical_authority(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            _,_,destination,manifest=self.package(root,[dict(ROW,valid='False')])
+            before={p.name:p.read_bytes() for p in destination.iterdir()}
+            output=root/'verification.json'
+            self.assertEqual(adapter.write_verification_report(destination,output),manifest)
+            report=adapter.evidence_json(output.read_bytes())
+            self.assertEqual(report['manifest'],manifest)
+            self.assertEqual(report['manifest_sha256'],adapter.sha(before['manifest.json']))
+            self.assertEqual(report['manifest_bytes'],len(before['manifest.json']))
+            self.assertTrue(report['package_consistency_checked'])
+            self.assertTrue(report['source_transformation_recomputed'])
+            self.assertTrue(report['manifest']['requires_review'])
+            for key in ('report_authenticated','source_authenticated','atomic_folder_snapshot','ongoing_freshness_verified',
+                        'physical_source_verified','calibration_verified','hardware_connected','ready_for_ingestion','equipment_authorized','production_ready'):
+                self.assertIs(report[key],False,key)
+            self.assertEqual({p.name:p.read_bytes() for p in destination.iterdir()},before)
+            saved=output.read_bytes()
+            with self.assertRaises(ValueError):adapter.write_verification_report(destination,output)
+            self.assertEqual(output.read_bytes(),saved)
+            with self.assertRaises(ValueError):adapter.write_verification_report(destination,destination/'report.json')
+            self.assertFalse((destination/'report.json').exists())
+
+    def test_report_cli_success_and_failure_preserve_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);_,_,destination,_=self.package(root,[ROW]);output=root/'report.json'
+            command=[sys.executable,str(ROOT/'scripts/prepare_capture.py'),'verify',str(destination),'--report',str(output)]
+            result=subprocess.run(command,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertFalse(json.loads(result.stdout)['requires_review'])
+            saved=output.read_bytes();result=subprocess.run(command,capture_output=True,text=True)
+            self.assertEqual(result.returncode,1);self.assertEqual(output.read_bytes(),saved)
+            output.unlink();(destination/'observations.jsonl').write_bytes(b'altered')
+            result=subprocess.run(command,capture_output=True,text=True)
+            self.assertEqual(result.returncode,1);self.assertFalse(output.exists())
+            self.assertNotIn('Traceback',result.stderr)
+
+    def test_report_exclusive_creation_rechecks_late_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);_,_,destination,_=self.package(root,[ROW]);output=root/'report.json'
+            verify=adapter.verify
+            def competing_write(*args,**kwargs):
+                report=verify(*args,**kwargs);output.write_bytes(b'other local file');return report
+            with mock.patch.object(adapter,'verify',side_effect=competing_write):
+                with self.assertRaises(FileExistsError):adapter.write_verification_report(destination,output)
+            self.assertEqual(output.read_bytes(),b'other local file')
+
 
 if __name__ == '__main__':
     unittest.main()

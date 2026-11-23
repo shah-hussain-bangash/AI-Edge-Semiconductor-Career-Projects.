@@ -1,6 +1,7 @@
 "use strict";
 let offlineCaptureSequence=0,offlineCaptureReview=null,offlineCaptureReading=false;
 let offlinePackageSequence=0,offlinePackageReview=null,offlinePackageManifest=null,offlinePackageReading=false;
+let offlineVerifierSequence=0,offlineVerifierReview=null,offlineVerifierManifest=null,offlineVerifierReading=false;
 let offlineQuarantineSequence=0,offlineQuarantineReview=null,offlineQuarantineManifest=null,offlineQuarantineReading=false,offlineQuarantinePage=0;
 const offlineQuarantineLimit=2*1024*1024;
 const offlineQuarantineReasons={
@@ -48,10 +49,12 @@ function syncOfflineCaptureControls(){
  $('offline-capture-export').disabled=!offlineCaptureReview;$('offline-capture-clear').disabled=!offlineCaptureReview&&!offlineCaptureReading&&!$('offline-capture-file').value;
  syncOfflineQuarantineControls();
  syncOfflinePackageControls();
+ syncOfflineVerifierControls();
 }
 function clearOfflineCapture(restore=false,resetFile=true){
  clearOfflineQuarantine();
  clearOfflinePackage();
+ clearOfflineVerifier();
  offlineCaptureSequence++;offlineCaptureReview=null;offlineCaptureReading=false;
  if(resetFile)$('offline-capture-file').value='';$('offline-capture-summary').replaceChildren();$('offline-capture-files').replaceChildren();$('offline-capture-context').replaceChildren();
  $('offline-capture-feedback').textContent='No manifest loaded. Choose manifest.json from a folder prepared by the existing offline capture adapter. Nothing is uploaded or stored.';syncOfflineCaptureControls();if(restore)$('offline-capture-file').focus();
@@ -70,6 +73,48 @@ async function readOfflineCaptureManifest(file){
   $('offline-capture-feedback').textContent='Manifest structure supported. '+(data.requires_review?'The adapter requests review. ':'The adapter did not request review; this does not establish readiness. ')+'Package contents and transformation have not been checked here. No observations were ingested.';
  }catch(error){if(sequence===offlineCaptureSequence)$('offline-capture-feedback').textContent='Manifest unavailable. '+(error instanceof TypeError?'Use a readable UTF-8 JSON file.':error instanceof SyntaxError?'The JSON is malformed.':error.message)+' No prior manifest or export is retained.';}
  finally{if(sequence===offlineCaptureSequence){offlineCaptureReading=false;syncOfflineCaptureControls();}}
+}
+function syncOfflineVerifierControls(){
+ if(!$('offline-verifier-panel'))return;
+ $('offline-verifier-file').disabled=!offlineCaptureReview;$('offline-verifier-export').disabled=!offlineVerifierReview||offlineVerifierManifest!==offlineCaptureReview;
+ $('offline-verifier-clear').disabled=!offlineVerifierReview&&!offlineVerifierReading&&!$('offline-verifier-file').value;
+}
+function clearOfflineVerifier(restore=false,resetFile=true){
+ offlineVerifierSequence++;offlineVerifierReview=null;offlineVerifierManifest=null;offlineVerifierReading=false;
+ if(!$('offline-verifier-panel'))return;
+ if(resetFile)$('offline-verifier-file').value='';$('offline-verifier-facts').replaceChildren();$('offline-verifier-context').replaceChildren();$('offline-verifier-feedback').textContent='Load a supported manifest, then select its optional offline verification report. Reports are unsigned declarations.';syncOfflineVerifierControls();if(restore&&!$('offline-verifier-file').disabled)$('offline-verifier-file').focus();
+}
+function validateOfflineVerifierReport(data,manifest){
+ const keys=['format','verified_at','manifest_bytes','manifest_sha256','manifest','package_consistency_checked','source_transformation_recomputed','report_authenticated','source_authenticated','atomic_folder_snapshot','ongoing_freshness_verified','physical_source_verified','calibration_verified','hardware_connected','ready_for_ingestion','equipment_authorized','production_ready'];
+ const fail=()=>{throw new Error('Unsupported report structure, claims or manifest reference.');};
+ if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).length!==keys.length||keys.some(key=>!Object.prototype.hasOwnProperty.call(data,key))||data.format!=='edgeops-offline-capture-verification-report-v1'||data.package_consistency_checked!==true||data.source_transformation_recomputed!==true)fail();
+ for(const key of keys.slice(7))if(data[key]!==false)fail();
+ validateOfflineCaptureManifest(data.manifest);
+ const parent=manifest.manifest;
+ if(data.manifest_bytes!==manifest.file_bytes||!Number.isInteger(data.manifest_bytes)||data.manifest_sha256!==manifest.file_sha256)fail();
+ for(const key of Object.keys(parent))if(key!=='files'&&data.manifest[key]!==parent[key])fail();
+ for(const name of offlineCaptureFiles)if(data.manifest.files[name].bytes!==parent.files[name].bytes||data.manifest.files[name].sha256!==parent.files[name].sha256)fail();
+ const time=data.verified_at;
+ if(typeof time!=='string'||!/^\d{4}-\d\d-\d\dT(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|\+00:00)$/.test(time)||time.startsWith('0000')||!Number.isFinite(Date.parse(time))||new Date(time.slice(0,10)+'T00:00:00Z').toISOString().slice(0,10)!==time.slice(0,10))fail();
+}
+async function readOfflineVerifier(file){
+ clearOfflineVerifier(false,false);const sequence=offlineVerifierSequence,manifest=offlineCaptureReview;if(!file)return;
+ if(!manifest){$('offline-verifier-feedback').textContent='Load a supported manifest before selecting its verification report.';return;}
+ offlineVerifierReading=true;syncOfflineVerifierControls();$('offline-verifier-feedback').textContent='Reading the report locally and matching its manifest reference…';
+ try{
+  if(file.size>16384)throw new Error('The report exceeds 16 KiB.');const bytes=await file.arrayBuffer();if(bytes.byteLength>16384)throw new Error('The report exceeds 16 KiB.');
+  const data=parseOfflineCaptureJson(new TextDecoder('utf-8',{fatal:true}).decode(bytes),'verification report');validateOfflineVerifierReport(data,manifest);
+  const digest=await crypto.subtle.digest('SHA-256',bytes),hash=[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');if(sequence!==offlineVerifierSequence||manifest!==offlineCaptureReview)return;
+  offlineVerifierManifest=manifest;offlineVerifierReview={schema_version:'1.0',scope:'local-browser-offline-verifier-report-review',reviewed_at:new Date().toISOString(),file_name:file.name,file_bytes:bytes.byteLength,file_sha256:hash,manifest_file_name:manifest.file_name,manifest_file_sha256:manifest.file_sha256,report:data,report_structure_checked:true,manifest_reference_matched:true,verification_executed_in_browser:false,report_authenticated:false,package_integrity_verified:false,source_transformation_recomputed:false,source_authenticated:false,read_only:true,uploaded:false,persisted:false,physical_source_verified:false,calibration_verified:false,hardware_connected:false,ready_for_ingestion:false,equipment_authorized:false,production_ready:false,note:'The selected unsigned report declares offline package checking and recomputed transformation for the loaded manifest. This browser checked only report structure and manifest reference, did not execute the verifier and cannot authenticate the report or its timestamp. This review grants no ingestion, hardware or production authority.'};
+  for(const [label,value] of [['Offline result · report declaration','Package consistency and transformation checked'],['Verification time · declared by report',data.verified_at],['Source type · operator-declared',data.manifest.source_type],['Accepted / quarantined rows · declared',data.manifest.accepted_rows+' / '+data.manifest.quarantined_rows],['Adapter review flag · declared',data.manifest.requires_review?'Review required':'Not requested · not acceptance'],['Report authenticity','Unsigned · not authenticated'],['Verification executed in this browser','No']]){const item=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value;item.append(term,description);$('offline-verifier-facts').append(item);}
+  $('offline-verifier-context').textContent=file.name+' · '+bytes.byteLength+' bytes · Report SHA-256 '+hash+' · Selected manifest SHA-256 '+manifest.file_sha256;
+  $('offline-verifier-feedback').textContent='Report structure supported and manifest reference matched. Its verification result and time remain unsigned declarations. The browser did not run the verifier, authenticate the report or ingest readings.';
+ }catch(error){if(sequence===offlineVerifierSequence&&manifest===offlineCaptureReview)$('offline-verifier-feedback').textContent='Report review unavailable. '+(error instanceof TypeError?'Use a readable UTF-8 JSON report.':error instanceof SyntaxError?'The report JSON is malformed.':error.message)+' No previous report or export is retained.';}
+ finally{if(sequence===offlineVerifierSequence){offlineVerifierReading=false;syncOfflineVerifierControls();}}
+}
+function bindOfflineVerifier(panel){
+ const section=document.createElement('details');section.id='offline-verifier-panel';section.innerHTML='<summary>Review an offline verifier report locally</summary><p>Run the existing offline adapter verify command with --report and a new report filename outside the evidence folder, then choose that JSON here after loading its original manifest. This reader matches the report’s manifest fingerprint and declarations. It does not run the verifier or authenticate an unsigned report.</p><p>A report can be edited or forged. Its verification time is declared by the offline host, not a trusted timestamp. Successful report review does not establish current file contents, hardware connection, calibration, ingestion readiness or production acceptance.</p><div class="physical-preparation-tools"><label for="offline-verifier-file">Offline verifier report · UTF-8 JSON · up to 16 KiB<input id="offline-verifier-file" type="file" accept=".json,application/json" disabled></label><button id="offline-verifier-clear" class="action-outline" type="button" disabled>Clear report review</button><button id="offline-verifier-export" class="action-outline" type="button" disabled>Export report review</button></div><p id="offline-verifier-feedback" role="status" aria-live="polite"></p><dl id="offline-verifier-facts" class="persisted-inspector-facts"></dl><details><summary>Selected report and manifest references</summary><p id="offline-verifier-context"></p></details>';
+ panel.append(section);$('offline-verifier-file').addEventListener('change',event=>readOfflineVerifier(event.target.files[0]));$('offline-verifier-clear').addEventListener('click',()=>clearOfflineVerifier(true));$('offline-verifier-export').addEventListener('click',()=>{if(!offlineVerifierReview||offlineVerifierManifest!==offlineCaptureReview)return;const url=URL.createObjectURL(new Blob([JSON.stringify(offlineVerifierReview,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-verifier-report-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});clearOfflineVerifier();
 }
 function syncOfflinePackageControls(){
  if(!$('offline-package-panel'))return;
@@ -174,5 +219,5 @@ function bindOfflineQuarantine(panel){
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='offline-capture-panel';panel.className='panel operations-panel';panel.innerHTML='<span class="section-kicker">OFFLINE CAPTURE / MANIFEST METADATA ONLY</span><h2>Review an offline capture manifest</h2><p>Choose manifest.json produced by the existing USB capture adapter. Review its declared counts and source classification before any later integration. This view does not display live or stored sensor readings.</p><p class="planning-boundary">The file stays in this browser page. Source type, counters, timestamps and hashes are declarations, not physical authentication. Package files and source transformation are not verified here. Measured and replayed observations remain offline; do not relabel them as synthetic.</p><div class="physical-preparation-tools"><label for="offline-capture-file">Manifest JSON · UTF-8 · up to 64 KiB<input id="offline-capture-file" type="file" accept=".json,application/json" aria-describedby="offline-capture-feedback"></label><button id="offline-capture-clear" class="action-outline" type="button" disabled>Clear manifest</button><button id="offline-capture-export" class="action-outline" type="button" disabled>Export metadata review</button></div><p id="offline-capture-feedback" role="status" aria-live="polite"></p><dl id="offline-capture-summary" class="persisted-inspector-facts"></dl><details><summary>Declared package file references · not checked</summary><div class="product-table-wrap"><table><thead><tr><th>Expected file</th><th>Declared bytes</th><th>Declared SHA-256</th></tr></thead><tbody id="offline-capture-files"></tbody></table></div></details><details><summary>Selected manifest file reference</summary><p id="offline-capture-context"></p></details><p>Use the existing offline adapter’s verify command on the complete evidence folder. A successful file-consistency check still does not verify electrical safety, calibration or production acceptance. This review cannot create bindings, charts, incidents or equipment commands; physical and ingestion readiness remain false.</p>';
  const references=panel.querySelector('.product-table-wrap');references.tabIndex=0;references.setAttribute('role','region');references.setAttribute('aria-label','Declared package file references, not checked');
- $('persisted-panel').after(panel);bindOfflineQuarantine(panel);bindOfflinePackage(panel);$('offline-capture-file').addEventListener('change',event=>readOfflineCaptureManifest(event.target.files[0]));$('offline-capture-clear').addEventListener('click',()=>clearOfflineCapture(true));$('offline-capture-export').addEventListener('click',()=>{if(!offlineCaptureReview)return;const url=URL.createObjectURL(new Blob([JSON.stringify(offlineCaptureReview,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-capture-metadata-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});clearOfflineCapture();
+ $('persisted-panel').after(panel);bindOfflineQuarantine(panel);bindOfflinePackage(panel);bindOfflineVerifier(panel);$('offline-capture-file').addEventListener('change',event=>readOfflineCaptureManifest(event.target.files[0]));$('offline-capture-clear').addEventListener('click',()=>clearOfflineCapture(true));$('offline-capture-export').addEventListener('click',()=>{if(!offlineCaptureReview)return;const url=URL.createObjectURL(new Blob([JSON.stringify(offlineCaptureReview,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-capture-metadata-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});clearOfflineCapture();
 });
