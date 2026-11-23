@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -149,6 +150,106 @@ class PrepareCaptureTests(unittest.TestCase):
             _, _, _, manifest = self.package(Path(temp), [])
             self.assertTrue(manifest['requires_review'])
             self.assertEqual(manifest['accepted_rows'], 0)
+
+    def rehash(self, destination, manifest, name, raw):
+        (destination / name).write_bytes(raw)
+        manifest['files'][name] = {'bytes': len(raw), 'sha256': adapter.sha(raw)}
+        (destination / 'manifest.json').write_bytes(adapter.json_bytes(manifest))
+
+    def test_manifest_rejects_boolean_float_and_unsupported_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, _, destination, original = self.package(Path(temp), [ROW])
+            for key, value in [('input_rows', True), ('input_rows', 1.0), ('accepted_rows', True),
+                               ('quarantined_rows', False), ('accepted_sequence_gaps', False),
+                               ('accepted_sequence_gaps', -1), ('accepted_sequence_gaps', 4294967296),
+                               ('requires_review', 0), ('files', []), ('files', None),
+                               ('created_at', '2026-02-31T00:00:00Z'),
+                               ('created_at', '2026-11-20T10:00:00+01:00'),
+                               ('extra', 'unsupported')]:
+                with self.subTest(key=key, value=value):
+                    changed = dict(original, **{key: value})
+                    (destination / 'manifest.json').write_bytes(adapter.json_bytes(changed))
+                    with self.assertRaises(ValueError): adapter.verify(destination)
+            for reference in ({'bytes': False, 'sha256': original['files']['quarantine.jsonl']['sha256']},
+                              {'bytes': 0.0, 'sha256': original['files']['quarantine.jsonl']['sha256']},
+                              {'bytes': 0, 'sha256': 'A' * 64}, {'bytes': 0, 'sha256': 'bad'},
+                              {'bytes': 0, 'sha256': original['files']['quarantine.jsonl']['sha256'], 'extra': False}):
+                changed = json.loads(json.dumps(original)); changed['files']['quarantine.jsonl'] = reference
+                (destination / 'manifest.json').write_bytes(adapter.json_bytes(changed))
+                with self.assertRaises(ValueError): adapter.verify(destination)
+
+    def test_rehashed_boolean_observations_cannot_equal_numbers(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, _, destination, manifest = self.package(Path(temp), [ROW])
+            original = (destination / 'observations.jsonl').read_bytes()
+            for field in ('sequence', 'acceleration_x_mps2'):
+                record = json.loads(original)
+                if field == 'sequence': record[field] = True
+                else: record['measurements'][field] = False
+                self.rehash(destination, manifest, 'observations.jsonl', adapter.json_bytes(record))
+                with self.assertRaises(ValueError): adapter.verify(destination)
+            # Equivalent JSON numbers remain numbers; spelling 0 versus 0.0 is not a boolean.
+            record = json.loads(original); record['measurements']['acceleration_x_mps2'] = 0
+            self.rehash(destination, manifest, 'observations.jsonl', adapter.json_bytes(record))
+            self.assertEqual(adapter.verify(destination), manifest)
+
+    def test_duplicate_fields_rejected_even_with_rehashed_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, mapping, destination, manifest = self.package(Path(temp), [dict(ROW, valid='False'), ROW])
+            raw_manifest = (destination / 'manifest.json').read_bytes()
+            for raw in (raw_manifest.replace(b'"format":', b'"format":"ignored","format":', 1),
+                        raw_manifest.replace(b'"format":', b'"\\u0066ormat":"ignored","format":', 1),
+                        raw_manifest.replace(b'"bytes":', b'"bytes":0,"bytes":', 1)):
+                (destination / 'manifest.json').write_bytes(raw)
+                with self.assertRaises(ValueError): adapter.verify(destination)
+            (destination / 'manifest.json').write_bytes(raw_manifest)
+            for name, key in [('attachment.json', 'site_id'), ('observations.jsonl', 'sequence'), ('quarantine.jsonl', 'reason')]:
+                original = (destination / name).read_bytes()
+                modified = original.replace(('"'+key+'":').encode(), ('"'+key+'":null,"'+key+'":').encode(), 1)
+                self.rehash(destination, manifest, name, modified)
+                with self.assertRaises(ValueError): adapter.verify(destination)
+                self.rehash(destination, manifest, name, original)
+            duplicate_mapping = mapping.read_bytes().replace(b'"site_id":', b'"site_id":"ignored","site_id":', 1)
+            mapping.write_bytes(duplicate_mapping)
+            with self.assertRaises(ValueError): adapter.prepare(Path(temp) / 'capture.csv', mapping, Path(temp) / 'new-evidence')
+            self.assertFalse((Path(temp) / 'new-evidence').exists())
+
+    def test_json_encoding_nonfinite_nesting_and_record_limits(self):
+        for raw in (b'{"x":NaN}', b'{"x":Infinity}', b'{"x":1e999}', b'\xff',
+                    b'[' * 2000 + b']' * 2000, b'[0,' + b'0,' * 512 + b'0]'):
+            with self.subTest(raw=raw[:30]), self.assertRaises(ValueError): adapter.evidence_json(raw)
+        with self.assertRaises(ValueError): adapter.evidence_lines(b'{}\n' * (adapter.MAX_ROWS + 1), 256)
+        with self.assertRaises(ValueError): adapter.evidence_lines(b' ' * 257, 256)
+        with self.assertRaises(ValueError): adapter.evidence_lines(b'{}\n\n', 256)
+        with self.assertRaises(ValueError): adapter.evidence_lines(b' ' * 16385, 16384)
+
+    def test_file_specific_limits_and_snapshot_reuse(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, _, destination, manifest = self.package(Path(temp), [ROW])
+            original_read = adapter.read_file; reads = []
+            def checked_read(path, limit):
+                reads.append((Path(path).name, limit))
+                return original_read(path, limit)
+            with mock.patch.object(adapter, 'read_file', side_effect=checked_read):
+                self.assertEqual(adapter.verify(destination), manifest)
+            self.assertEqual(reads, [('manifest.json', 65536), *adapter.EVIDENCE_LIMITS.items()])
+            for name, limit in [('source.capture.csv', adapter.MAX_INPUT), ('attachment.json', 8192)]:
+                original = (destination / name).read_bytes()
+                with (destination / name).open('wb') as stream: stream.truncate(limit + 1)
+                with self.assertRaises(ValueError): adapter.verify(destination)
+                (destination / name).write_bytes(original)
+
+    def test_cli_malformed_evidence_fails_without_traceback_or_writes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            _, _, destination, manifest = self.package(Path(temp), [ROW])
+            manifest['accepted_rows'] = True
+            (destination / 'manifest.json').write_bytes(adapter.json_bytes(manifest))
+            before = {p.name: p.read_bytes() for p in destination.iterdir()}
+            result = subprocess.run([sys.executable, str(ROOT / 'scripts/prepare_capture.py'), 'verify', str(destination)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertNotIn('Traceback', result.stderr)
+            self.assertEqual(result.stdout, '')
+            self.assertEqual({p.name: p.read_bytes() for p in destination.iterdir()}, before)
 
     def test_cli_exit_status_separates_preparation_from_integrity(self):
         with tempfile.TemporaryDirectory() as temp:

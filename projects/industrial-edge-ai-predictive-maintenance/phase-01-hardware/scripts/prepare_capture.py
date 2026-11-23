@@ -17,15 +17,58 @@ MAX_INPUT=16*1024*1024
 MAX_ROWS=10000
 ADAPTER='edgeops-v1-csv-to-v2-evidence-v1'
 ATTACHMENT_FIELDS={'profile','site_id','asset_id','device_id','v1_device_id','serial_port','board_reference','configuration_ref','source_type','physical_verification','calibration','transport'}
+EVIDENCE_LIMITS={'source.capture.csv':MAX_INPUT,'attachment.json':8192,'observations.jsonl':32*1024*1024,'quarantine.jsonl':32*1024*1024}
+MANIFEST_FIELDS={'format','created_at','source_type','source_classification','input_rows','accepted_rows','quarantined_rows','accepted_sequence_gaps','requires_review','boot_identity','physical_source_verified','calibration_verified','hardware_connected','ready_for_ingestion','production_ready','files'}
 
 
 def json_bytes(data):return (json.dumps(data,sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
 def sha(data):return hashlib.sha256(data).hexdigest()
 
 
+def evidence_json(raw):
+    """Strict bounded evidence JSON; duplicate keys and nonfinite numbers are invalid."""
+    def pairs(items):
+        result={}
+        for key,value in items:
+            if key in result:raise ValueError('Duplicate evidence JSON field')
+            result[key]=value
+        return result
+    def constant(_):raise ValueError('Nonfinite evidence JSON number')
+    def floating(text):
+        value=float(text)
+        if not math.isfinite(value):raise ValueError('Nonfinite evidence JSON number')
+        return value
+    try:data=json.loads(raw.decode('utf-8'),object_pairs_hook=pairs,parse_constant=constant,parse_float=floating)
+    except RecursionError as error:raise ValueError('Evidence JSON nesting exceeds limit') from error
+    pending=[(data,0)];count=0
+    while pending:
+        value,depth=pending.pop();count+=1
+        if depth>8 or count>512:raise ValueError('Evidence JSON structure exceeds limit')
+        if isinstance(value,dict):pending.extend((child,depth+1) for child in value.values())
+        elif isinstance(value,list):pending.extend((child,depth+1) for child in value)
+    return data
+
+
+def evidence_lines(raw,line_limit):
+    records=[];stream=io.BytesIO(raw)
+    while line:=stream.readline(line_limit+1):
+        if len(line)>line_limit or len(records)>=MAX_ROWS:raise ValueError('Evidence record limit exceeded')
+        records.append(evidence_json(line))
+    return records
+
+
+def same_json(actual,expected):
+    """JSON numeric equivalence never treats booleans as numeric values."""
+    if type(expected) in (int,float):return type(actual) in (int,float) and actual==expected
+    if type(actual) is not type(expected):return False
+    if isinstance(expected,dict):return actual.keys()==expected.keys() and all(same_json(actual[key],value) for key,value in expected.items())
+    if isinstance(expected,list):return len(actual)==len(expected) and all(same_json(a,b) for a,b in zip(actual,expected))
+    return actual==expected
+
+
 def read_file(path,limit):
     path=Path(path)
-    if path.is_symlink() or not path.is_file():raise ValueError('Input must be an ordinary file')
+    if path.is_symlink() or getattr(path,'is_junction',lambda:False)() or not path.is_file():raise ValueError('Input must be an ordinary file')
     if path.stat().st_size>limit:raise ValueError('Input exceeds local evidence size limit')
     with path.open('rb') as stream:data=stream.read(limit+1)
     if len(data)>limit:raise ValueError('Input exceeds local evidence size limit')
@@ -115,7 +158,7 @@ def normalize(raw,mapping):
 
 
 def prepare(input_path,attachment_path,output):
-    raw=read_file(input_path,MAX_INPUT);mapping=attachment(json.loads(read_file(attachment_path,8192)))
+    raw=read_file(input_path,MAX_INPUT);mapping=attachment(evidence_json(read_file(attachment_path,8192)))
     destination=Path(output).absolute()
     if destination.exists() or destination.is_symlink():raise ValueError('Output must be a new directory; existing evidence is never overwritten')
     destination.parent.mkdir(parents=True,exist_ok=True)
@@ -147,27 +190,40 @@ def prepare(input_path,attachment_path,output):
 def verify(directory):
     root=Path(directory)
     if root.is_symlink() or getattr(root,'is_junction',lambda:False)():raise ValueError('Linked evidence folders are not supported')
-    manifest=json.loads(read_file(root/'manifest.json',65536))
-    if not isinstance(manifest,dict):raise ValueError('Unsupported evidence manifest')
+    manifest=evidence_json(read_file(root/'manifest.json',65536))
+    if not isinstance(manifest,dict) or set(manifest)!=MANIFEST_FIELDS:raise ValueError('Unsupported evidence manifest')
     if manifest.get('boot_identity')!='unavailable' or manifest.get('source_classification')!='operator-declared; not physical authentication':raise ValueError('Unsupported provenance claim')
-    utc(manifest.get('created_at'))
-    expected={'source.capture.csv','attachment.json','observations.jsonl','quarantine.jsonl'}
-    if manifest.get('format')!=ADAPTER or set(manifest.get('files',{}))!=expected:raise ValueError('Unsupported evidence manifest')
+    created=manifest['created_at']
+    if not isinstance(created,str) or not re.fullmatch(r'\d{4}-\d\d-\d\dT(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|\+00:00)',created):raise ValueError('Unsupported evidence creation time')
+    utc(created)
+    expected=set(EVIDENCE_LIMITS)
+    if manifest['format']!=ADAPTER or not isinstance(manifest['files'],dict) or set(manifest['files'])!=expected:raise ValueError('Unsupported evidence manifest')
+    if manifest['source_type'] not in ('synthetic','measured','replayed'):raise ValueError('Unsupported source declaration')
+    for key in ('input_rows','accepted_rows','quarantined_rows'):
+        if type(manifest[key]) is not int or not 0<=manifest[key]<=MAX_ROWS:raise ValueError('Unsupported evidence count')
+    if type(manifest['accepted_sequence_gaps']) is not int or not 0<=manifest['accepted_sequence_gaps']<=4294967295:raise ValueError('Unsupported gap count')
+    if type(manifest['requires_review']) is not bool or manifest['accepted_rows']+manifest['quarantined_rows']!=manifest['input_rows']:raise ValueError('Unsupported evidence review/count declaration')
+    for key in ('physical_source_verified','calibration_verified','hardware_connected','ready_for_ingestion','production_ready'):
+        if manifest[key] is not False:raise ValueError('Unsupported verification claim')
     if set(path.name for path in root.iterdir())!=expected|{'manifest.json'}:raise ValueError('Unexpected or missing evidence files')
-    for name in expected:
-        data=read_file(root/name,32*1024*1024)
-        if manifest['files'][name]!={'bytes':len(data),'sha256':sha(data)}:raise ValueError('Evidence file integrity mismatch')
-    mapping=attachment(json.loads((root/'attachment.json').read_bytes()))
-    records=[json.loads(line) for line in (root/'observations.jsonl').read_bytes().splitlines()]
-    rejected=[json.loads(line) for line in (root/'quarantine.jsonl').read_bytes().splitlines()]
+    snapshots={}
+    for name,limit in EVIDENCE_LIMITS.items():
+        reference=manifest['files'][name]
+        if (not isinstance(reference,dict) or set(reference)!={'bytes','sha256'} or type(reference['bytes']) is not int
+                or not 0<=reference['bytes']<=limit or not isinstance(reference['sha256'],str)
+                or not re.fullmatch(r'[0-9a-f]{64}',reference['sha256'])):raise ValueError('Unsupported evidence file reference')
+        data=read_file(root/name,limit)
+        if reference!={'bytes':len(data),'sha256':sha(data)}:raise ValueError('Evidence file integrity mismatch')
+        snapshots[name]=data
+    mapping=attachment(evidence_json(snapshots['attachment.json']))
+    records=evidence_lines(snapshots['observations.jsonl'],16384)
+    rejected=evidence_lines(snapshots['quarantine.jsonl'],256)
     if (len(records)!=manifest['accepted_rows'] or len(rejected)!=manifest['quarantined_rows']
             or len(records)+len(rejected)!=manifest['input_rows'] or manifest['input_rows']>MAX_ROWS
             or manifest['source_type']!=mapping['source_type']):raise ValueError('Evidence reconciliation failed')
-    normalized,expected_rejected,gaps,count=normalize((root/'source.capture.csv').read_bytes(),mapping)
-    if records!=normalized or rejected!=expected_rejected or manifest['accepted_sequence_gaps']!=gaps or manifest['input_rows']!=count or manifest['requires_review']!=(bool(rejected) or not records):
+    normalized,expected_rejected,gaps,count=normalize(snapshots['source.capture.csv'],mapping)
+    if not same_json(records,normalized) or not same_json(rejected,expected_rejected) or manifest['accepted_sequence_gaps']!=gaps or manifest['input_rows']!=count or manifest['requires_review']!=(bool(rejected) or not records):
         raise ValueError('Prepared observations do not match source transformation')
-    for key in ('physical_source_verified','calibration_verified','hardware_connected','ready_for_ingestion','production_ready'):
-        if manifest.get(key) is not False:raise ValueError('Unsupported verification claim')
     return manifest
 
 

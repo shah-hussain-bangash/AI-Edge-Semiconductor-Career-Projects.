@@ -62,7 +62,15 @@ python -m pip install -r tests/requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-The 28 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, and capture-to-adapter compatibility, and compile-record inventory boundaries. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+The 34 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, capture-to-adapter compatibility, compile-record inventory boundaries, and strict offline evidence verification. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+
+### Strict evidence verification
+
+The offline verifier requires the exact manifest field set, integer counts and byte lengths (booleans and floating-point counts are refused), a boolean review flag, bounded lowercase SHA-256 references, and a calendar-valid UTC creation declaration. All existing physical/readiness flags must remain false. JSON is UTF-8, without duplicate fields (including escaped spellings), nonfinite values, excessive nesting or more than 512 parsed values per document/record. The same strict attachment parser is used before preparation, so ambiguous mappings cannot be silently rewritten into an evidence folder.
+
+Each input is read once into a bounded snapshot: manifest 64 KiB, original capture 16 MiB, attachment 8 KiB, accepted observations and quarantine 32 MiB each. Every transformation comparison uses those same bytes after their hashes were checked, with no unbounded second file reads. Observation JSONL records are limited to 16 KiB including the terminator, quarantine records to 256 bytes, and each file to 10,000 records. Blank records and unsupported JSON are refused. Numeric comparisons preserve equivalent JSON numbers such as 0 and 0.0, but never treat false as zero or true as one, including nested observation fields.
+
+These checks describe the captured local snapshots, not an atomic folder snapshot or ongoing freshness guarantee. Files may change after being read. Exact retries, reviewed source identity and retention remain operational concerns. Successful verification still establishes only package consistency and recomputed transformation; it does not authenticate the manifest, establish calibration, connect hardware, authorize equipment or accept production deployment. Verification does not modify the evidence folder, and malformed input exits with a short error instead of a traceback.
 
 ### Capture behavior and result interpretation
 
