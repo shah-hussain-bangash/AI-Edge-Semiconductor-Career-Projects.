@@ -2,6 +2,7 @@
 const receiptWorksheetHeaders=['Product ID','BOM ID','Selected family','Planned quantity','Bench role','Actual received model / board revision','Received date','Label / photo reference','Inspection notes / unresolved issue','Record status'];
 const receiptWorksheetLimit=128*1024;
 let receiptWorksheetSequence=0,receiptWorksheetData=null,receiptWorksheetPlan=null,receiptWorksheetReading=false;
+let receiptDeclarationContext=null,receiptDeclarationReturn=null;
 
 function parseReceiptWorksheet(text,plan){
  validatePhysicalBuildPlan(plan);
@@ -39,6 +40,7 @@ function syncReceiptWorksheetControls(){
  $('receipt-worksheet-export').disabled=!available||!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData;
 }
 function clearReceiptWorksheet(restore=false,resetFile=true){
+ closeReceiptDeclaration();
  receiptWorksheetSequence++;receiptWorksheetData=null;receiptWorksheetPlan=null;receiptWorksheetReading=false;
  if(!$('receipt-worksheet-panel'))return;
  if(resetFile)$('receipt-worksheet-file').value='';$('receipt-worksheet-rows').replaceChildren();$('receipt-worksheet-context').replaceChildren();$('receipt-worksheet-counts').replaceChildren();
@@ -59,7 +61,7 @@ async function readReceiptWorksheet(file){
   receiptWorksheetPlan=plan;
   receiptWorksheetData={schema_version:'1.0',scope:'local-browser-unverified-receipt-worksheet-review',reviewed_at:new Date().toISOString(),file_name:file.name,file_bytes:bytes.byteLength,file_sha256:hash,plan_version:plan.version,plan_sha256:plan.plan_sha256,source_csv_sha256:plan.source_csv_sha256,sensor_map_sha256:plan.sensor_map_sha256,rows,read_only:true,uploaded:false,persisted:false,order_verified:false,receipt_verified:false,physical_acceptance_verified:false,hardware_connected:false,equipment_authorized:false,production_ready:false,substitution_allowed:false,additional_hardware_allowed:false,note:'Local preview of owner-declared worksheet text only. Matching the original planning fields does not verify the declared model, date, label, notes, received quantity, electrical compatibility or physical installation. This is not a stored receipt or acceptance record.'};
   const shown=value=>value===''?'Not recorded':value;
-  $('receipt-worksheet-rows').replaceChildren(...rows.map(row=>{const tr=document.createElement('tr');tr.innerHTML='<td><span class="bom-reference">'+escapeText(row.bom_id)+'</span><br><button class="asset-link" type="button" data-physical-plan-id="'+escapeText(row.bom_id)+'">'+escapeText(row.selected_family)+'</button></td>'+'<td></td>'.repeat(5);[row.declared_model,row.declared_received_date,row.declared_label_reference,row.declared_notes,row.declared_status].forEach((value,index)=>tr.children[index+1].textContent=shown(value));return tr;}));
+  $('receipt-worksheet-rows').replaceChildren(...rows.map(row=>{const tr=document.createElement('tr');tr.innerHTML='<td><span class="bom-reference">'+escapeText(row.bom_id)+'</span><br><button class="asset-link" type="button" data-physical-plan-id="'+escapeText(row.bom_id)+'">'+escapeText(row.selected_family)+'</button><br><button class="action-outline" type="button" data-receipt-declaration="'+escapeText(row.bom_id)+'">View declaration</button></td>'+'<td></td>'.repeat(5);[row.declared_model,row.declared_received_date,row.declared_label_reference,row.declared_notes,row.declared_status].forEach((value,index)=>tr.children[index+1].textContent=shown(value));return tr;}));
   const labels=rows.filter(row=>row.declared_model.trim()).length,notes=rows.filter(row=>row.declared_notes.trim()).length;
   $('receipt-worksheet-counts').textContent='30 matched planning rows · '+labels+' model declarations · '+notes+' rows with notes. These counts do not verify receipt.';
   $('receipt-worksheet-context').textContent=file.name+' · '+bytes.byteLength+' bytes · File SHA-256: '+hash+' · Loaded plan SHA-256: '+plan.plan_sha256;
@@ -71,8 +73,44 @@ function exportReceiptWorksheet(){
  if(!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData||physicalBuildState!=='ok')return;
  const url=URL.createObjectURL(new Blob([JSON.stringify(receiptWorksheetData,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-unverified-worksheet-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
+function closeReceiptDeclaration(restore=false){
+ const dialog=$('receipt-declaration-dialog'),opener=receiptDeclarationReturn;
+ receiptDeclarationContext=null;receiptDeclarationReturn=null;
+ if(typeof physicalPartReturn!=='undefined'&&physicalPartReturn?.closest('#receipt-declaration-dialog'))closePhysicalPart();
+ if(dialog?.open)dialog.close();$('receipt-declaration-body')?.replaceChildren();
+ if(restore&&opener){if(opener.isConnected&&!opener.disabled)opener.focus();else if(!$('receipt-worksheet-file')?.disabled)$('receipt-worksheet-file')?.focus();else $('physical-build-refresh')?.focus();}
+}
+function openReceiptDeclaration(id,opener){
+ closeReceiptDeclaration();
+ const review=receiptWorksheetData,plan=receiptWorksheetPlan,row=review?.rows.find(item=>item.bom_id===id);
+ if(!row||!plan||plan!==physicalBuildData||physicalBuildState!=='ok'){
+  $('receipt-worksheet-feedback').textContent='Declaration unavailable. Load a supported worksheet against the current fixed plan before retrying.';return;
+ }
+ const dialog=$('receipt-declaration-dialog'),body=$('receipt-declaration-body'),context={review,plan,row};
+ body.innerHTML='<p class="planning-boundary">Owner-declared worksheet text only. CSV identity matching does not verify the actual model, receipt, quantity, compatibility or installation. Nothing here authorizes equipment.</p><span class="bom-reference"></span><h3></h3><h3>Original planning context</h3><dl class="persisted-inspector-facts" id="receipt-declaration-planning"></dl><h3>Unverified owner declarations</h3><dl class="persisted-inspector-facts" id="receipt-declaration-facts"></dl><h3>Owner notes / unresolved issues</h3><p class="receipt-declaration-value" id="receipt-declaration-notes"></p><details id="receipt-declaration-provenance"><summary>Local file and loaded plan references</summary><dl class="persisted-inspector-facts" id="receipt-declaration-references"></dl><p>Hashes identify the loaded file and plan context. They do not verify the source, inspect referenced photos or establish physical acceptance. This row is a local preview, not a stored receipt record.</p></details><div class="replay-controls"><button id="receipt-declaration-plan" class="action-outline" type="button">View existing preparation notes</button><button id="receipt-declaration-export" class="action-outline" type="button">Export this unverified declaration</button></div>';
+ body.querySelector('.bom-reference').textContent=row.bom_id;body.querySelector('h3').textContent=row.selected_family;
+ const facts=(target,values)=>{for(const [label,value] of values){const item=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value===''?'Not recorded':String(value);item.append(term,description);$(target).append(item);}};
+ facts('receipt-declaration-planning',[['Product ID',row.product_id],['Role in the fixed plan',row.role],['Quantity basis · planning only',row.quantity_basis]]);
+ facts('receipt-declaration-facts',[['Declared model / revision',row.declared_model],['Declared received date',row.declared_received_date],['Label / photo reference · not inspected',row.declared_label_reference],['Declared status · unverified',row.declared_status]]);
+ $('receipt-declaration-notes').textContent=row.declared_notes===''?'Not recorded':row.declared_notes;
+ facts('receipt-declaration-references',[['Local file name',review.file_name],['Local file bytes',review.file_bytes],['Local file SHA-256',review.file_sha256],['Loaded plan version',review.plan_version],['Loaded plan SHA-256',review.plan_sha256],['CSV reference hash',review.source_csv_sha256],['Map reference hash',review.sensor_map_sha256]]);
+ receiptDeclarationContext=context;receiptDeclarationReturn=opener;dialog.showModal();$('receipt-declaration-close').focus();
+ $('receipt-declaration-plan').addEventListener('click',event=>{if(receiptDeclarationContext===context&&receiptWorksheetData===review&&physicalBuildData===plan)openPhysicalPart(row.bom_id,event.currentTarget);});
+ const button=$('receipt-declaration-export');button.addEventListener('click',()=>{
+  if(!dialog.open||!button.isConnected||receiptDeclarationContext!==context||receiptWorksheetData!==review||physicalBuildData!==plan)return;
+  const {rows,...references}=review,payload={...references,scope:'local-browser-unverified-worksheet-declaration',exported_at:new Date().toISOString(),total_worksheet_rows:rows.length,declaration:row,note:'Exact owner-declared row from the loaded worksheet only. Planning identity and hashes do not verify a physical item, received quantity, compatibility, referenced photo or acceptance. No upload or persistence occurred.'};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-'+row.bom_id.toLowerCase()+'-unverified-declaration.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ });
+}
+function bindReceiptDeclaration(){
+ const dialog=document.createElement('dialog');dialog.id='receipt-declaration-dialog';dialog.className='product-dialog';dialog.setAttribute('aria-labelledby','receipt-declaration-title');dialog.innerHTML='<div class="product-dialog-head"><h2 id="receipt-declaration-title">Worksheet declaration</h2><button id="receipt-declaration-close" class="action-outline" type="button">Close</button></div><div id="receipt-declaration-body"></div>';$('main').append(dialog);
+ $('receipt-declaration-close').addEventListener('click',()=>closeReceiptDeclaration(true));dialog.addEventListener('cancel',event=>{event.preventDefault();closeReceiptDeclaration(true);});dialog.addEventListener('close',()=>{if(!dialog.open)closeReceiptDeclaration(true);});
+ document.addEventListener('click',event=>{const button=event.target.closest('[data-receipt-declaration]');if(button&&!button.disabled)openReceiptDeclaration(button.dataset.receiptDeclaration,button);});
+ document.addEventListener('keydown',event=>{if(event.key!=='Escape'||!dialog.open)return;const target=event.target.closest?.('dialog'),top=[...document.querySelectorAll('dialog[open]')].at(-1);if(target===dialog||(!target&&top===dialog)){event.preventDefault();event.stopImmediatePropagation();closeReceiptDeclaration(true);}},{capture:true});
+}
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='receipt-worksheet-panel';panel.className='panel operations-panel';panel.innerHTML='<span class="section-kicker">HARDWARE ARRIVAL / LOCAL WORKING COPY</span><h2>Review your receipt worksheet</h2><p>Choose the CSV working copy from your arrival pack. Planning fields must remain unchanged. Fill the model, date, label reference and notes after delivery; use YYYY-MM-DD dates. Keep Record status as awaiting-delivery-unverified or owner-notes-unverified.</p><p class="planning-boundary">This preview stays in this browser page. No file is uploaded or stored, and no receipt, connection or compatibility is verified. Keep your original CSV; reloading the page clears this review.</p><div class="physical-preparation-tools"><label for="receipt-worksheet-file">Worksheet CSV · UTF-8 · up to 128 KiB<input id="receipt-worksheet-file" type="file" accept=".csv,text/csv" aria-describedby="receipt-worksheet-feedback" disabled></label><button id="receipt-worksheet-clear" class="action-outline" type="button" disabled>Clear review</button><button id="receipt-worksheet-export" class="action-outline" type="button" disabled>Export unverified review</button></div><p id="receipt-worksheet-feedback" role="status" aria-live="polite"></p><p id="receipt-worksheet-counts"></p><details><summary>Local file and loaded plan references</summary><p id="receipt-worksheet-context"></p></details><div class="product-table-wrap"><table><thead><tr><th>Original planning item</th><th>Declared model / revision</th><th>Declared date</th><th>Label / photo reference</th><th>Owner notes / issues</th><th>Declared status · unverified</th></tr></thead><tbody id="receipt-worksheet-rows"></tbody></table></div>';
  const region=panel.querySelector('.product-table-wrap');region.tabIndex=0;region.setAttribute('role','region');region.setAttribute('aria-label','Unverified worksheet declarations');const hint=document.createElement('p');hint.className='product-muted';hint.textContent='On smaller screens, scroll this table sideways to review every declaration. Keyboard: focus the table and use the arrow keys.';region.before(hint);
- $('physical-build-panel').after(panel);$('receipt-worksheet-file').addEventListener('change',event=>readReceiptWorksheet(event.target.files[0]));$('receipt-worksheet-clear').addEventListener('click',()=>clearReceiptWorksheet(true));$('receipt-worksheet-export').addEventListener('click',exportReceiptWorksheet);clearReceiptWorksheet();
+ $('physical-build-panel').after(panel);bindReceiptDeclaration();$('receipt-worksheet-file').addEventListener('change',event=>readReceiptWorksheet(event.target.files[0]));$('receipt-worksheet-clear').addEventListener('click',()=>clearReceiptWorksheet(true));$('receipt-worksheet-export').addEventListener('click',exportReceiptWorksheet);clearReceiptWorksheet();
 });
