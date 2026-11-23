@@ -82,6 +82,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_workbench.cjs
       - name: Read-only saved planning revision comparison
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_comparison.cjs
+      - name: Delivery acknowledgement recovery and outcome shortcuts
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_delivery_action_feedback.cjs
       - name: Exact retained delivery event lookup
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_delivery_event_search.cjs
       - name: Read-only saved queue timing

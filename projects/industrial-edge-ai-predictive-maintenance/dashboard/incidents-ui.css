@@ -63,3 +63,5 @@
 
 .delivery-event-search{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px;margin:20px 0}.delivery-event-search label{display:grid;gap:8px;flex:1 1 320px;min-width:0;font-size:14px;color:#143451}.delivery-event-search input{width:100%;min-width:0;font:14px ui-monospace,monospace;padding:11px;border:1px solid #91acd0;border-radius:6px;background:#fff;color:#143451}.delivery-event-search input[aria-invalid="true"]{border-color:#9a3448;outline:2px solid #9a3448}.delivery-event-search p{flex-basis:100%;color:#34516c;line-height:1.7;overflow-wrap:anywhere}.delivery-event-search button{max-width:100%;white-space:normal}@media(max-width:540px){.delivery-event-search button{width:100%}}
 #delivery-list-context{scroll-margin-top:84px}
+
+.delivery-action-ack{margin:18px 0;padding:16px;border:1px solid #adc5e1;border-radius:9px;background:#f1f6fc;color:#143451}.delivery-action-ack p{line-height:1.7;overflow-wrap:anywhere}.delivery-action-ack button{max-width:100%;white-space:normal}#delivery-view-action[hidden]{display:none!important}
