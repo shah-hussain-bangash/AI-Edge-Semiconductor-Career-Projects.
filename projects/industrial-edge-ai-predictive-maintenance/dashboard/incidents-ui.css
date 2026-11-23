@@ -65,3 +65,5 @@
 #delivery-list-context{scroll-margin-top:84px}
 
 .delivery-action-ack{margin:18px 0;padding:16px;border:1px solid #adc5e1;border-radius:9px;background:#f1f6fc;color:#143451}.delivery-action-ack p{line-height:1.7;overflow-wrap:anywhere}.delivery-action-ack button{max-width:100%;white-space:normal}#delivery-view-action[hidden]{display:none!important}
+
+#physical-part-dialog{width:min(820px,calc(100vw - 28px))}#physical-part-dialog :is(h2,h3,p,dt,dd,button,summary){overflow-wrap:anywhere}#physical-part-dialog button{max-width:100%;white-space:normal}#physical-part-dialog #physical-part-close{flex:0 0 auto;min-width:72px;white-space:nowrap}#physical-part-title{min-width:0}.physical-part-source{padding:16px;border:1px solid #adc5e1;border-radius:9px;background:#f1f6fc;color:#143451;line-height:1.8;white-space:pre-wrap}#physical-part-provenance{margin:20px 0}
