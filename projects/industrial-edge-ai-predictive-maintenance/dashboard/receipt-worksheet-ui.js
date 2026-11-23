@@ -3,6 +3,8 @@ const receiptWorksheetHeaders=['Product ID','BOM ID','Selected family','Planned 
 const receiptWorksheetLimit=128*1024;
 let receiptWorksheetSequence=0,receiptWorksheetData=null,receiptWorksheetPlan=null,receiptWorksheetReading=false;
 let receiptDeclarationContext=null,receiptDeclarationReturn=null;
+let receiptComparisonSequence=0,receiptComparisonData=null,receiptComparisonReview=null,receiptComparisonReading=false;
+const receiptComparisonFields=[['declared_model','Declared model / revision'],['declared_received_date','Declared received date'],['declared_label_reference','Label / photo reference'],['declared_notes','Owner notes / issues'],['declared_status','Declared status · unverified']];
 
 function parseReceiptWorksheet(text,plan){
  validatePhysicalBuildPlan(plan);
@@ -39,6 +41,7 @@ function syncReceiptWorksheetControls(){
  $('receipt-worksheet-clear').disabled=!receiptWorksheetData&&!receiptWorksheetReading&&!$('receipt-worksheet-file').value;
  $('receipt-worksheet-export').disabled=!available||!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData;
  for(const id of ['receipt-worksheet-search','receipt-worksheet-show','receipt-worksheet-filter-reset'])if($(id))$(id).disabled=!available||!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData;
+ syncReceiptComparisonControls();
 }
 function receiptWorksheetHasEntries(row){return ['declared_model','declared_received_date','declared_label_reference','declared_notes'].some(key=>row[key].trim())||row.declared_status==='owner-notes-unverified';}
 function receiptWorksheetSelection(){
@@ -60,6 +63,7 @@ function resetReceiptWorksheetFilters(restore=false){
 }
 function clearReceiptWorksheet(restore=false,resetFile=true){
  closeReceiptDeclaration();
+ clearReceiptComparison();
  receiptWorksheetSequence++;receiptWorksheetData=null;receiptWorksheetPlan=null;receiptWorksheetReading=false;
  if(!$('receipt-worksheet-panel'))return;
  if(resetFile)$('receipt-worksheet-file').value='';$('receipt-worksheet-rows').replaceChildren();$('receipt-worksheet-context').replaceChildren();$('receipt-worksheet-counts').replaceChildren();
@@ -128,11 +132,60 @@ function bindReceiptDeclaration(){
  document.addEventListener('click',event=>{const button=event.target.closest('[data-receipt-declaration]');if(button&&!button.disabled)openReceiptDeclaration(button.dataset.receiptDeclaration,button);});
  document.addEventListener('keydown',event=>{if(event.key!=='Escape'||!dialog.open)return;const target=event.target.closest?.('dialog'),top=[...document.querySelectorAll('dialog[open]')].at(-1);if(target===dialog||(!target&&top===dialog)){event.preventDefault();event.stopImmediatePropagation();closeReceiptDeclaration(true);}},{capture:true});
 }
+function syncReceiptComparisonControls(){
+ if(!$('receipt-comparison-panel'))return;
+ const available=!!receiptWorksheetData&&receiptWorksheetPlan===physicalBuildData&&physicalBuildState==='ok';
+ $('receipt-comparison-file').disabled=!available;
+ $('receipt-comparison-clear').disabled=!receiptComparisonData&&!receiptComparisonReading&&!$('receipt-comparison-file').value;
+ $('receipt-comparison-export').disabled=!available||!receiptComparisonData||receiptComparisonReview!==receiptWorksheetData;
+ $('receipt-comparison-changed').disabled=!available||!receiptComparisonData||receiptComparisonReview!==receiptWorksheetData;
+}
+function clearReceiptComparison(restore=false,resetFile=true){
+ receiptComparisonSequence++;receiptComparisonData=null;receiptComparisonReview=null;receiptComparisonReading=false;
+ if(!$('receipt-comparison-panel'))return;
+ if(resetFile)$('receipt-comparison-file').value='';$('receipt-comparison-changed').checked=true;$('receipt-comparison-rows').replaceChildren();$('receipt-comparison-context').replaceChildren();$('receipt-comparison-files').replaceChildren();$('receipt-comparison-count').replaceChildren();
+ $('receipt-comparison-feedback').textContent='Load worksheet A above, then choose another CSV as B. A and B are comparison labels, not verified revision order. Nothing is uploaded or stored.';
+ syncReceiptComparisonControls();if(restore&&!$('receipt-comparison-file').disabled)$('receipt-comparison-file').focus();
+}
+function renderReceiptComparison(){
+ const data=receiptComparisonData;if(!data||receiptComparisonReview!==receiptWorksheetData)return;
+ const rows=data.comparisons.filter(row=>!$('receipt-comparison-changed').checked||row.changed_fields>0);
+ $('receipt-comparison-count').textContent=data.changed_rows+' of 30 rows changed · '+data.changed_fields+' of 150 owner fields changed · '+rows.length+' rows displayed. Text differences do not verify receipt or compatibility.';
+ $('receipt-comparison-rows').replaceChildren(...rows.map(row=>{
+  const card=document.createElement('details'),summary=document.createElement('summary');card.className='receipt-comparison-card';card.dataset.receiptComparisonId=row.bom_id;summary.textContent=row.bom_id+' · '+row.selected_family+' · '+row.changed_fields+' of 5 fields changed';card.append(summary);
+  for(const field of row.fields){const section=document.createElement('section'),heading=document.createElement('h4'),pair=document.createElement('dl');heading.textContent=field.label+' · '+field.change;pair.className='receipt-comparison-pair';for(const [label,value] of [['A · unverified',field.a],['B · unverified',field.b]]){const item=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value===''?'Not recorded':value;item.append(term,description);pair.append(item);}section.append(heading,pair);card.append(section);}return card;
+ }));
+ if(!rows.length){const empty=document.createElement('p');empty.textContent='No changed rows to display. Turn off Show only changed rows to inspect all 30. The export still contains both complete snapshots and every comparison.';$('receipt-comparison-rows').append(empty);}
+}
+async function readReceiptComparison(file){
+ clearReceiptComparison(false,false);if(!file)return;
+ const sequence=receiptComparisonSequence,review=receiptWorksheetData,plan=receiptWorksheetPlan;
+ if(!review||!plan||plan!==physicalBuildData||physicalBuildState!=='ok'){$('receipt-comparison-feedback').textContent='Load a supported worksheet A against the current plan before choosing B.';return;}
+ receiptComparisonReading=true;syncReceiptComparisonControls();$('receipt-comparison-feedback').textContent='Reading worksheet B and comparing locally…';
+ try{
+  if(file.size>receiptWorksheetLimit)throw new Error('Worksheet B exceeds 128 KiB.');const bytes=await file.arrayBuffer();if(bytes.byteLength>receiptWorksheetLimit)throw new Error('Worksheet B exceeds 128 KiB.');
+  const rows=parseReceiptWorksheet(new TextDecoder('utf-8',{fatal:true}).decode(bytes),plan),digest=await crypto.subtle.digest('SHA-256',bytes),hash=[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');
+  if(sequence!==receiptComparisonSequence||receiptWorksheetData!==review||physicalBuildData!==plan)return;
+  const comparisons=review.rows.map((a,index)=>{const b=rows[index],fields=receiptComparisonFields.map(([key,label])=>({key,label,a:a[key],b:b[key],change:a[key]===b[key]?'unchanged':a[key]===''?'added':b[key]===''?'removed':'changed'}));return {bom_id:a.bom_id,selected_family:a.selected_family,changed_fields:fields.filter(field=>field.change!=='unchanged').length,fields};});
+  receiptComparisonReview=review;receiptComparisonData={schema_version:'1.0',scope:'local-browser-unverified-worksheet-comparison',compared_at:new Date().toISOString(),plan_version:review.plan_version,plan_sha256:review.plan_sha256,source_csv_sha256:review.source_csv_sha256,sensor_map_sha256:review.sensor_map_sha256,a:{file_name:review.file_name,file_bytes:review.file_bytes,file_sha256:review.file_sha256,rows:review.rows},b:{file_name:file.name,file_bytes:bytes.byteLength,file_sha256:hash,rows},comparisons,changed_rows:comparisons.filter(row=>row.changed_fields>0).length,changed_fields:comparisons.reduce((total,row)=>total+row.changed_fields,0),read_only:true,uploaded:false,persisted:false,order_verified:false,receipt_verified:false,physical_acceptance_verified:false,hardware_connected:false,equipment_authorized:false,production_ready:false,substitution_allowed:false,additional_hardware_allowed:false,note:'Exact text comparison of five unverified owner fields for the same 30 planning identities. A/B do not establish revision order. Whitespace and line-ending differences count as text changes. Added/removed/changed labels concern text fields, not physical receipt, compatibility, installation or approval. No photo references are opened. Both complete snapshots and all comparisons are exported regardless of display filtering.'};
+  $('receipt-comparison-files').textContent='A: '+review.file_name+' | B: '+file.name;
+  $('receipt-comparison-context').textContent='A: '+review.file_name+' · SHA-256 '+review.file_sha256+' | B: '+file.name+' · SHA-256 '+hash+' | Loaded plan SHA-256 '+review.plan_sha256;
+  $('receipt-comparison-feedback').textContent='Both worksheets match the same loaded planning identities. Owner declarations remain unverified. The original worksheet A review is unchanged.';renderReceiptComparison();
+ }catch(error){if(sequence===receiptComparisonSequence&&receiptWorksheetData===review&&physicalBuildData===plan)$('receipt-comparison-feedback').textContent='Comparison unavailable. '+(error instanceof TypeError?'Use a readable UTF-8 CSV file.':error.message)+' No prior comparison or export is retained. Worksheet A remains unchanged.';}
+ finally{if(sequence===receiptComparisonSequence){receiptComparisonReading=false;syncReceiptComparisonControls();}}
+}
+function bindReceiptComparison(panel){
+ const section=document.createElement('details');section.id='receipt-comparison-panel';section.innerHTML='<summary>Compare another worksheet locally</summary><p>The worksheet loaded above is A. Choose a separate working copy as B to compare declared model, date, label reference, notes and status. Both must retain the same 30 planning identities. Differences are text changes, not receipt, compatibility or commissioning evidence.</p><div class="physical-preparation-tools"><label for="receipt-comparison-file">Worksheet B · UTF-8 CSV · up to 128 KiB<input id="receipt-comparison-file" type="file" accept=".csv,text/csv" disabled></label><button id="receipt-comparison-clear" class="action-outline" type="button" disabled>Clear comparison</button><button id="receipt-comparison-export" class="action-outline" type="button" disabled>Export complete comparison</button></div><p id="receipt-comparison-feedback" role="status" aria-live="polite"></p><p id="receipt-comparison-files"></p><details><summary>Comparison file and plan references</summary><p id="receipt-comparison-context"></p></details><label class="receipt-comparison-toggle"><input type="checkbox" id="receipt-comparison-changed" checked disabled> Show only changed rows</label><p id="receipt-comparison-count" role="status" aria-live="polite"></p><div id="receipt-comparison-rows"></div>';
+ panel.querySelector('#receipt-worksheet-search').closest('.physical-preparation-tools').before(section);
+ $('receipt-comparison-file').addEventListener('change',event=>readReceiptComparison(event.target.files[0]));$('receipt-comparison-clear').addEventListener('click',()=>clearReceiptComparison(true));$('receipt-comparison-changed').addEventListener('change',renderReceiptComparison);
+ $('receipt-comparison-export').addEventListener('click',()=>{if(!receiptComparisonData||receiptComparisonReview!==receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData||physicalBuildState!=='ok')return;const url=URL.createObjectURL(new Blob([JSON.stringify(receiptComparisonData,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-unverified-worksheet-comparison.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+ clearReceiptComparison();
+}
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='receipt-worksheet-panel';panel.className='panel operations-panel';panel.innerHTML='<span class="section-kicker">HARDWARE ARRIVAL / LOCAL WORKING COPY</span><h2>Review your receipt worksheet</h2><p>Choose the CSV working copy from your arrival pack. Planning fields must remain unchanged. Fill the model, date, label reference and notes after delivery; use YYYY-MM-DD dates. Keep Record status as awaiting-delivery-unverified or owner-notes-unverified.</p><p class="planning-boundary">This preview stays in this browser page. No file is uploaded or stored, and no receipt, connection or compatibility is verified. Keep your original CSV; reloading the page clears this review.</p><div class="physical-preparation-tools"><label for="receipt-worksheet-file">Worksheet CSV · UTF-8 · up to 128 KiB<input id="receipt-worksheet-file" type="file" accept=".csv,text/csv" aria-describedby="receipt-worksheet-feedback" disabled></label><button id="receipt-worksheet-clear" class="action-outline" type="button" disabled>Clear review</button><button id="receipt-worksheet-export" class="action-outline" type="button" disabled>Export unverified review</button></div><p id="receipt-worksheet-feedback" role="status" aria-live="polite"></p><p id="receipt-worksheet-counts"></p><details><summary>Local file and loaded plan references</summary><p id="receipt-worksheet-context"></p></details><div class="product-table-wrap"><table><thead><tr><th>Original planning item</th><th>Declared model / revision</th><th>Declared date</th><th>Label / photo reference</th><th>Owner notes / issues</th><th>Declared status · unverified</th></tr></thead><tbody id="receipt-worksheet-rows"></tbody></table></div>';
  const region=panel.querySelector('.product-table-wrap');region.tabIndex=0;region.setAttribute('role','region');region.setAttribute('aria-label','Unverified worksheet declarations');const hint=document.createElement('p');hint.className='product-muted';hint.textContent='On smaller screens, scroll this table sideways to review every declaration. Keyboard: focus the table and use the arrow keys.';region.before(hint);
  const filters=document.createElement('div');filters.className='physical-preparation-tools';filters.innerHTML='<label for="receipt-worksheet-search">Find a worksheet row<input id="receipt-worksheet-search" type="search" maxlength="160" placeholder="BOM, model, date, label or notes…" aria-describedby="receipt-worksheet-filter-count" disabled></label><label for="receipt-worksheet-show">Show rows<select id="receipt-worksheet-show" disabled><option value="all">All 30 rows</option><option value="with-entries">With owner entries</option><option value="without-entries">Without owner entries</option></select></label><button id="receipt-worksheet-filter-reset" class="action-outline" type="button" disabled>Clear review filters</button>';
  const count=document.createElement('p');count.id='receipt-worksheet-filter-count';count.setAttribute('role','status');count.setAttribute('aria-live','polite');hint.before(filters,count);
- $('physical-build-panel').after(panel);bindReceiptDeclaration();$('receipt-worksheet-file').addEventListener('change',event=>readReceiptWorksheet(event.target.files[0]));$('receipt-worksheet-clear').addEventListener('click',()=>clearReceiptWorksheet(true));$('receipt-worksheet-export').addEventListener('click',exportReceiptWorksheet);clearReceiptWorksheet();
+ $('physical-build-panel').after(panel);bindReceiptDeclaration();bindReceiptComparison(panel);$('receipt-worksheet-file').addEventListener('change',event=>readReceiptWorksheet(event.target.files[0]));$('receipt-worksheet-clear').addEventListener('click',()=>clearReceiptWorksheet(true));$('receipt-worksheet-export').addEventListener('click',exportReceiptWorksheet);clearReceiptWorksheet();
  $('receipt-worksheet-export').textContent='Export complete review';$('receipt-worksheet-search').addEventListener('input',renderReceiptWorksheetRows);$('receipt-worksheet-show').addEventListener('change',renderReceiptWorksheetRows);$('receipt-worksheet-filter-reset').addEventListener('click',()=>resetReceiptWorksheetFilters(true));
 });
