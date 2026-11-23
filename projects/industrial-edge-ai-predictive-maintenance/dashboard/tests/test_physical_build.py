@@ -13,6 +13,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 import physical_build
 import hardware_handover
+from verify_arrival_pack import verify_bytes
 import test_acquisition_registry as fixtures
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -153,6 +154,7 @@ class PhysicalPlanApiTests(unittest.TestCase):
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.headers['cache-control'],'no-store')
             self.assertIn('edgeops-hardware-arrival-pack.zip',response.headers['content-disposition'])
+            self.assertEqual(verify_bytes(response.content)['file_consistency'],'passed')
             with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
                 expected=set(hardware_handover.SOURCE_FILES)|{'receipt-worksheet.csv','physical-plan.json','START-HERE.md','manifest.json'}
                 self.assertEqual(set(archive.namelist()),expected)

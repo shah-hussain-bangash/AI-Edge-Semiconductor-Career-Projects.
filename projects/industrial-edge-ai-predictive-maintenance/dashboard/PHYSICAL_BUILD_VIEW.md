@@ -47,3 +47,17 @@ The fixed-plan table has its own literal, case-insensitive search over BOM ID, s
 Export matching preparation downloads the exact visible source rows in source order, the trimmed query, matching/total counts, loaded version/hash references and user order declaration. It preserves false physical/order/equipment/production/substitution/additional-hardware flags and explicitly identifies a filtered planning copy. The complete fixed-30 plan export and authenticated arrival pack retain their original scope. Search/export issue no service requests or domain writes and store no browser preferences.
 
 Refresh clears results and disables search/reset/matching export while retaining the typed query for recovery. Only a supported current response restores results; outage and unsupported metadata leave old rows/export unavailable. The existing request sequence prevents a late response from replacing a newer plan. No endpoint, schema, source plan, matrix, map or electrical instruction changes. Disposable browser verification covers literal matching across all fields, exact subset exports, scope separation, empty/reset, independent catalog filters, outage/retry, stale responses, auditor access, keyboard, contrast and five widths.
+
+## Offline arrival ZIP consistency check
+
+The arrival pack now includes `dashboard/verify_arrival_pack.py`, a standard-library-only checker. Prefer an independently reviewed repository copy, run from the dashboard directory before extracting the ZIP:
+
+```powershell
+python verify_arrival_pack.py "path/to/edgeops-hardware-arrival-pack.zip"
+```
+
+It prints JSON and exits 0 for internal file consistency or 2 for an unavailable, damaged or unsupported archive. It does not extract, import or execute archive members, contact services, open hardware, write output files or change the ZIP. The input cap is 8 MiB, each member is capped at 512 KiB, the manifest at 64 KiB, and expanded non-manifest content at 2 MiB. Only the exact current file set is accepted; duplicate/extra/missing/path-traversal entries, links, encryption and unsupported compression are refused. Each manifest size/hash must agree with the captured member bytes. The supported 30-row plan/matrix/map and untouched blank receipt worksheet must agree. Edited receipt worksheets belong in separate working copies; they are not the unopened export template.
+
+An untrusted ZIP's own checker is not a trust anchor. Hashes can be rewritten together: this is not a signature, trusted release, supplier/model verification, electrical review or commissioning evidence. The report explicitly keeps source-authenticity, signature, physical-acceptance, connected, equipment and production flags false. The script's file list is also the arrival builder's source allowlist, preventing separate export/checker file lists from drifting. Older exports without the checker are outside this version's supported exact structure; obtain a fresh download.
+
+Twelve disposable tests cover a real generated pack and bundled script, size/hash corruption, forged/rehashed inconsistent records, duplicates/missing/extra/unsafe paths, link types, bounded content, malformed/duplicate/deep JSON, unsupported authority, changed matrix/map/worksheet, truncated ZIPs, standalone isolated execution, exit codes, unchanged input bytes and no extracted files. Existing authenticated pack/source and dashboard browser tests remain in place. No selected hardware, source wiring note, physical record, endpoint or schema changes.

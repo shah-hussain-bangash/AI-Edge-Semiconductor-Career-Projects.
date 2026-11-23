@@ -10,21 +10,7 @@ import zipfile
 from fastapi import HTTPException
 from physical_build import read_plan
 
-HARDWARE_FILES = (
-    'README.md', 'firmware/platformio.ini', 'firmware/src/main.cpp', 'requirements-build.txt',
-    'scripts/record_firmware_build.py', 'tests/test_firmware_build.py', 'docs/FIRMWARE_BUILD.md',
-    'scripts/capture_serial.py', 'scripts/prepare_capture.py', 'scripts/requirements.txt',
-    'tests/test_capture.py', 'tests/test_prepare_capture.py', 'tests/requirements.txt',
-    'examples/offline-capture/synthetic.capture.csv', 'examples/offline-capture/synthetic.attachment.json',
-    'docs/WIRING_AND_SAFETY.md', 'docs/OFFLINE_CAPTURE_HANDOFF.md',
-    'docs/physical-connection-pack/README.md', 'docs/physical-connection-pack/connection-guide.html',
-    'docs/physical-connection-pack/all-30-connection-matrix.csv',
-    'docs/physical-connection-pack/sensor-only-reference.svg',
-)
-CONTRACT_FILES = ('telemetry-v2.schema.json', 'tests/test_telemetry_v2_contract.py',
-                  'examples/telemetry-v2.synthetic-valid.json', 'examples/telemetry-v2.synthetic-partial.json')
-SOURCE_FILES = tuple('phase-01-hardware/' + name for name in HARDWARE_FILES) + tuple(
-    'enterprise-architecture/contracts/' + name for name in CONTRACT_FILES)
+from verify_arrival_pack import HARDWARE_FILES, CONTRACT_FILES, SOURCE_FILES
 MAX_FILE = 512 * 1024
 MAX_TOTAL = 2 * 1024 * 1024
 START = """# EDGEOPS hardware arrival pack
@@ -53,6 +39,20 @@ No substitutions or additional hardware are authorized by this pack.
 The receipt worksheet is an offline working copy. Editing it does not update the
 dashboard, verify purchases, enroll devices or authorize equipment. Capture files
 and credentials from your computer are never included in this export.
+
+Before extraction, use a reviewed repository copy of the standard-library-only
+checker from the dashboard directory:
+
+    python verify_arrival_pack.py edgeops-hardware-arrival-pack.zip
+
+It reads the ZIP without extracting or running anything, checks every manifest
+file hash/size and the fixed-30 plan/matrix/map/blank-worksheet relationships, and
+prints JSON. Exit 0 means internal file consistency passed; exit 2 means the
+archive was unavailable, damaged or unsupported. It does not modify any file,
+contact a service or access hardware. The archive includes a copy at
+dashboard/verify_arrival_pack.py for convenience, but an untrusted archive's own
+checker is not a trust anchor. Use an independently reviewed copy. Keep the
+original ZIP unchanged and edit a separate worksheet copy after receipt.
 
 manifest.json lists file sizes and SHA-256 hashes for corruption checks. It is
 not a signature, trusted release, proof of origin or physical acceptance. Verify
