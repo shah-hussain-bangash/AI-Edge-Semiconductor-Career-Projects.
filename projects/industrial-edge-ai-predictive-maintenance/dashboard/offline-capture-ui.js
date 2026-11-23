@@ -19,6 +19,41 @@ const offlineQuarantineReasons={
  'unresolved-session-or-clock-discontinuity':'Sequence, uptime or receipt order has an unresolved boundary. Later records remain quarantined; this is not proof of a reboot or packet loss.'
 };
 const offlineCaptureFiles=['source.capture.csv','attachment.json','observations.jsonl','quarantine.jsonl'];
+const offlineReviewSteps=[
+ ['manifest','Manifest metadata','offline-capture-file',null,'Declared counts, source classification and file references.'],
+ ['attachment','Attachment identity','offline-attachment-file','offline-attachment-panel','Declared mapping and one selected attachment reference.'],
+ ['files','Four file references','offline-package-files','offline-package-panel','Selected byte counts and hashes; contents are not validated.'],
+ ['quarantine','Quarantine reasons','offline-quarantine-file','offline-quarantine-panel','Selected reason records; no independent fault diagnosis.'],
+ ['report','Offline verifier report','offline-verifier-file','offline-verifier-panel','Unsigned report declarations; verifier is not run here.']
+];
+
+function currentOfflineReviewSections(){
+ return {manifest:offlineCaptureReview,
+  attachment:offlineAttachmentManifest===offlineCaptureReview?offlineAttachmentReview:null,
+  files:offlinePackageManifest===offlineCaptureReview?offlinePackageReview:null,
+  quarantine:offlineQuarantineManifest===offlineCaptureReview?offlineQuarantineReview:null,
+  report:offlineVerifierManifest===offlineCaptureReview?offlineVerifierReview:null};
+}
+function syncOfflineReviewProgress(){
+ if(!$('offline-review-progress'))return;
+ const sections=currentOfflineReviewSections(),count=Object.values(sections).filter(Boolean).length;
+ const reading={manifest:offlineCaptureReading,attachment:offlineAttachmentReading,files:offlinePackageReading,quarantine:offlineQuarantineReading,report:offlineVerifierReading};
+ for(const [key] of offlineReviewSteps){$('offline-review-status-'+key).textContent=reading[key]?'Reading locally…':sections[key]?(key==='report'?'Unsigned report loaded':key==='files'?'Four references matched':'Review loaded'):'Not loaded';$('offline-review-jump-'+key).disabled=key!=='manifest'&&!offlineCaptureReview;}
+ $('offline-review-coverage').textContent=count+' of 5 local reviews loaded. These optional views cover different checks; this is not package, ingestion or production acceptance.';
+ $('offline-review-source').textContent=offlineCaptureReview?'Declared source: '+offlineCaptureReview.manifest.source_type+' · operator-declared, not physical authentication.':'Choose a manifest to start. No local review is retained after reload.';
+ $('offline-review-export').disabled=!offlineCaptureReview;
+}
+function exportOfflineReviewSnapshot(){
+ if(!offlineCaptureReview)return;
+ const sections=currentOfflineReviewSections(),reading={manifest:offlineCaptureReading,attachment:offlineAttachmentReading,files:offlinePackageReading,quarantine:offlineQuarantineReading,report:offlineVerifierReading};
+ const snapshot={schema_version:'1.0',scope:'local-browser-offline-capture-review-snapshot',exported_at:new Date().toISOString(),manifest_file_sha256:offlineCaptureReview.file_sha256,loaded_review_count:Object.values(sections).filter(Boolean).length,available_review_count:5,section_state:Object.fromEntries(offlineReviewSteps.map(([key])=>[key,reading[key]?'reading':sections[key]?'loaded':'not_loaded'])),sections,read_only:true,verification_executed_in_browser:false,report_authenticated:false,package_integrity_verified:false,source_transformation_recomputed:false,source_authenticated:false,device_enrolled:false,port_opened:false,uploaded:false,persisted:false,physical_source_verified:false,calibration_verified:false,hardware_connected:false,ready_for_ingestion:false,equipment_authorized:false,production_ready:false,note:'A document-memory snapshot of the currently loaded local reviews for one selected manifest. Missing or in-progress sections are null, not passed checks. Quarantine entries are complete regardless of display filtering or paging. Nested verifier results remain unsigned declarations. This export does not run verification, recheck current files, establish physical identity, admit observations or grant production acceptance.'};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-capture-review-snapshot.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function bindOfflineReviewProgress(panel){
+ const section=document.createElement('section');section.id='offline-review-progress';section.innerHTML='<h3>Current capture review</h3><p id="offline-review-coverage" role="status" aria-live="polite"></p><p id="offline-review-source"></p><button id="offline-review-export" class="action-outline" type="button" disabled>Export current local review</button><ol id="offline-review-steps"></ol><p>Open any review to inspect its details. Each view has its own limits and error messages. Loading all five does not verify hardware or authorize equipment.</p>';
+ for(const [key,title,input,details,description] of offlineReviewSteps){const item=document.createElement('li'),heading=document.createElement('h4'),status=document.createElement('strong'),help=document.createElement('p'),button=document.createElement('button');heading.textContent=title;status.id='offline-review-status-'+key;help.textContent=description;button.id='offline-review-jump-'+key;button.className='action-outline';button.type='button';button.textContent='Open '+title.toLowerCase();button.addEventListener('click',()=>{if(button.disabled)return;if(details)$(details).open=true;$(input).focus({preventScroll:true});$(input).scrollIntoView({block:'center'});});item.append(heading,status,help,button);section.querySelector('ol').append(item);}
+ panel.querySelector('.physical-preparation-tools').before(section);$('offline-review-export').addEventListener('click',exportOfflineReviewSnapshot);syncOfflineReviewProgress();
+}
 
 // Preserve JSON types while refusing duplicate keys, excessive nesting and tokens.
 function parseOfflineCaptureJson(text,label='manifest'){
@@ -52,6 +87,7 @@ function syncOfflineCaptureControls(){
  syncOfflinePackageControls();
  syncOfflineVerifierControls();
  syncOfflineAttachmentControls();
+ syncOfflineReviewProgress();
 }
 function clearOfflineCapture(restore=false,resetFile=true){
  clearOfflineQuarantine();
@@ -81,6 +117,7 @@ function syncOfflineAttachmentControls(){
  if(!$('offline-attachment-panel'))return;
  $('offline-attachment-file').disabled=!offlineCaptureReview;$('offline-attachment-export').disabled=!offlineAttachmentReview||offlineAttachmentManifest!==offlineCaptureReview;
  $('offline-attachment-clear').disabled=!offlineAttachmentReview&&!offlineAttachmentReading&&!$('offline-attachment-file').value;
+ syncOfflineReviewProgress();
 }
 function clearOfflineAttachment(restore=false,resetFile=true){
  offlineAttachmentSequence++;offlineAttachmentReview=null;offlineAttachmentManifest=null;offlineAttachmentReading=false;
@@ -122,6 +159,7 @@ function syncOfflineVerifierControls(){
  if(!$('offline-verifier-panel'))return;
  $('offline-verifier-file').disabled=!offlineCaptureReview;$('offline-verifier-export').disabled=!offlineVerifierReview||offlineVerifierManifest!==offlineCaptureReview;
  $('offline-verifier-clear').disabled=!offlineVerifierReview&&!offlineVerifierReading&&!$('offline-verifier-file').value;
+ syncOfflineReviewProgress();
 }
 function clearOfflineVerifier(restore=false,resetFile=true){
  offlineVerifierSequence++;offlineVerifierReview=null;offlineVerifierManifest=null;offlineVerifierReading=false;
@@ -165,6 +203,7 @@ function syncOfflinePackageControls(){
  $('offline-package-files').disabled=!offlineCaptureReview;
  $('offline-package-clear').disabled=!offlinePackageReview&&!offlinePackageReading&&!$('offline-package-files').value;
  $('offline-package-export').disabled=!offlinePackageReview||offlinePackageManifest!==offlineCaptureReview;
+ syncOfflineReviewProgress();
 }
 function clearOfflinePackage(restore=false,resetFile=true){
  offlinePackageSequence++;offlinePackageReview=null;offlinePackageManifest=null;offlinePackageReading=false;
@@ -212,6 +251,7 @@ function syncOfflineQuarantineControls(){
  $('offline-quarantine-search').disabled=!searchable;$('offline-quarantine-reason').disabled=!searchable;
  $('offline-quarantine-reset-filters').disabled=!current||(!$('offline-quarantine-search').value&& !$('offline-quarantine-reason').value);
  $('offline-quarantine-prev').disabled=!current||offlineQuarantinePage===0;$('offline-quarantine-next').disabled=!current||(offlineQuarantinePage+1)*50>=filteredOfflineQuarantine().length;
+ syncOfflineReviewProgress();
 }
 function clearOfflineQuarantine(restore=false,resetFile=true){
  offlineQuarantineSequence++;offlineQuarantineReview=null;offlineQuarantineManifest=null;offlineQuarantineReading=false;offlineQuarantinePage=0;
@@ -263,5 +303,5 @@ function bindOfflineQuarantine(panel){
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='offline-capture-panel';panel.className='panel operations-panel';panel.innerHTML='<span class="section-kicker">OFFLINE CAPTURE / MANIFEST METADATA ONLY</span><h2>Review an offline capture manifest</h2><p>Choose manifest.json produced by the existing USB capture adapter. Review its declared counts and source classification before any later integration. This view does not display live or stored sensor readings.</p><p class="planning-boundary">The file stays in this browser page. Source type, counters, timestamps and hashes are declarations, not physical authentication. Package files and source transformation are not verified here. Measured and replayed observations remain offline; do not relabel them as synthetic.</p><div class="physical-preparation-tools"><label for="offline-capture-file">Manifest JSON · UTF-8 · up to 64 KiB<input id="offline-capture-file" type="file" accept=".json,application/json" aria-describedby="offline-capture-feedback"></label><button id="offline-capture-clear" class="action-outline" type="button" disabled>Clear manifest</button><button id="offline-capture-export" class="action-outline" type="button" disabled>Export metadata review</button></div><p id="offline-capture-feedback" role="status" aria-live="polite"></p><dl id="offline-capture-summary" class="persisted-inspector-facts"></dl><details><summary>Declared package file references · not checked</summary><div class="product-table-wrap"><table><thead><tr><th>Expected file</th><th>Declared bytes</th><th>Declared SHA-256</th></tr></thead><tbody id="offline-capture-files"></tbody></table></div></details><details><summary>Selected manifest file reference</summary><p id="offline-capture-context"></p></details><p>Use the existing offline adapter’s verify command on the complete evidence folder. A successful file-consistency check still does not verify electrical safety, calibration or production acceptance. This review cannot create bindings, charts, incidents or equipment commands; physical and ingestion readiness remain false.</p>';
  const references=panel.querySelector('.product-table-wrap');references.tabIndex=0;references.setAttribute('role','region');references.setAttribute('aria-label','Declared package file references, not checked');
- $('persisted-panel').after(panel);bindOfflineAttachment(panel);bindOfflineQuarantine(panel);bindOfflinePackage(panel);bindOfflineVerifier(panel);$('offline-capture-file').addEventListener('change',event=>readOfflineCaptureManifest(event.target.files[0]));$('offline-capture-clear').addEventListener('click',()=>clearOfflineCapture(true));$('offline-capture-export').addEventListener('click',()=>{if(!offlineCaptureReview)return;const url=URL.createObjectURL(new Blob([JSON.stringify(offlineCaptureReview,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-capture-metadata-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});clearOfflineCapture();
+ $('persisted-panel').after(panel);bindOfflineAttachment(panel);bindOfflineQuarantine(panel);bindOfflinePackage(panel);bindOfflineVerifier(panel);bindOfflineReviewProgress(panel);$('offline-capture-file').addEventListener('change',event=>readOfflineCaptureManifest(event.target.files[0]));$('offline-capture-clear').addEventListener('click',()=>clearOfflineCapture(true));$('offline-capture-export').addEventListener('click',()=>{if(!offlineCaptureReview)return;const url=URL.createObjectURL(new Blob([JSON.stringify(offlineCaptureReview,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='edgeops-offline-capture-metadata-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});clearOfflineCapture();
 });

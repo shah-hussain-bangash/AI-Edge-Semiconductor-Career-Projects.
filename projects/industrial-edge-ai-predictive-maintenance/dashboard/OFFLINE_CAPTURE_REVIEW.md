@@ -1,5 +1,13 @@
 # Local offline capture manifest review
 
+## Current local review summary and combined snapshot
+
+Current capture review shows five optional review views: manifest metadata, attachment mapping, four-file references, quarantine reasons and unsigned verifier report. Each says Not loaded, Reading locally, Review loaded, Four references matched or Unsigned report loaded as applicable. The loaded count is coverage of these distinct local views, not package validation, ingestion permission, a mandatory checklist or production readiness. Individual failures and boundaries remain visible in their original views. Source classification remains operator-declared.
+
+Open shortcuts expand the corresponding existing section, scroll its input into view and transfer keyboard focus, without opening a file picker or reading files automatically. Child shortcuts stay disabled until a supported manifest is loaded; the manifest shortcut is always available. The summary updates when a review is cleared, replaced, becomes invalid or is still reading, and a new/cleared manifest removes all older context.
+
+Export current local review is available after a supported manifest, even if optional reviews are absent or reading. It exports one document-memory JSON snapshot, all complete current review payloads and their original fingerprints, and explicit per-section loaded/not_loaded/reading states. Missing or in-progress sections are null, never passed checks. Quarantine entries remain complete regardless of filtering or paging, and filter text is excluded. Nested report results remain unsigned declarations; wrapper verification/authentication/physical/enrollment/port/ingestion/equipment/production flags are false. The export does not execute verification or recheck files. All five loaded still establishes no production authority. Clear/new manifest/reload disables old export, and existing late-read guards cannot restore old coverage. No service calls, database records, browser storage, device enrollment or hardware changes are added; auditors retain the same local read/export access.
+
 ## Offline attachment identity review
 
 After loading a supported manifest, expand Inspect offline capture identity and attachment locally and select `attachment.json`. The browser checks its exact referenced byte count and SHA-256, strict UTF-8 JSON, exact 12-field mapping, bounded nonblank strings (200 Unicode code points), ASCII identifier format (1–64 letters/digits/hyphen/underscore), fixed profile/USB transport and unverified physical/calibration labels. Its source declaration must agree with the manifest; synthetic/measured/replayed labels are never rewritten. Input is limited to 8 KiB, with duplicate fields and unsupported structures refused.
