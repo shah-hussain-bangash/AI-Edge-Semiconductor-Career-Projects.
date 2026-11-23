@@ -1,5 +1,7 @@
 # Local offline capture manifest review
 
+The separate USB capture tool now defaults to at most 10,000 saved records and 16 MiB of CSV, matching the offline adapter's size limits. It reports explicit duration/record-limit/byte-limit/interruption/failure reasons and preserves complete rows on capacity stops. The dashboard does not start this tool or open ports. Capacity limits are not acquisition accuracy, calibration or production acceptance; see [bounded serial capture](../phase-01-hardware/docs/OFFLINE_CAPTURE_HANDOFF.md) before using the ordered hardware.
+
 ## Printable local capture review
 
 Download printable review creates a standalone HTML working copy from the same current document-memory snapshot as the combined JSON export. It includes all five section states, manifest declarations and expected file references, loaded attachment fields, selected file/review fingerprints and browser times, every loaded quarantine entry (regardless of filtering or paging), and separately labelled unsigned verifier declarations. Missing or reading sections stay explicit rather than appearing accepted. This human-readable copy normalizes HTML line rendering; retain JSON for exact machine-readable values and the original evidence folder separately.

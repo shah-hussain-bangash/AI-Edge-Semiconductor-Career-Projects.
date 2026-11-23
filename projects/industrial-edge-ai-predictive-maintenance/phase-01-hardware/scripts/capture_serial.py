@@ -2,6 +2,7 @@
 """Capture ESP32 JSON Lines telemetry to CSV with basic schema checks."""
 import argparse
 import csv
+import io
 import json
 import math
 import re
@@ -18,6 +19,23 @@ FIELDS = [
 NUMERIC = ("ax_mps2", "ay_mps2", "az_mps2", "temp_c", "bus_v", "current_ma")
 
 MAX_LINE_BYTES = 4096
+MAX_RECORDS = 10000
+MAX_OUTPUT_BYTES = 16 * 1024 * 1024
+
+
+def csv_text(record=None):
+    stream = io.StringIO(newline='')
+    writer = csv.DictWriter(stream, fieldnames=FIELDS)
+    if record is None: writer.writeheader()
+    else: writer.writerow(record)
+    return stream.getvalue()
+
+
+def validate_limits(max_records, max_output_bytes):
+    if type(max_records) is not int or not 1 <= max_records <= MAX_RECORDS:
+        raise ValueError('max records must be between 1 and 10000')
+    if type(max_output_bytes) is not int or not len(csv_text().encode('utf-8')) <= max_output_bytes <= MAX_OUTPUT_BYTES:
+        raise ValueError('max output bytes must fit the CSV header and stay within 16 MiB')
 
 
 def unique_object(pairs):
@@ -53,21 +71,30 @@ def parse_record(line):
     return {k: obj[k] for k in FIELDS if k != "gateway_utc"}
 
 def capture_stream(port, file, seconds, monotonic=time.monotonic,
-                   receipt=lambda: datetime.now(timezone.utc).isoformat()):
+                   receipt=lambda: datetime.now(timezone.utc).isoformat(), *,
+                   max_records=MAX_RECORDS, max_output_bytes=MAX_OUTPUT_BYTES):
     """Read bounded chunks; preserve only complete, validated V1 records.
 
     Injected ports/clocks allow offline tests. Counts describe captured records,
     not physical measurement validity, authenticated sessions or packet loss.
+    The output must use UTF-8 with newline='' as in the CLI. Byte counts cover
+    successful writes and flushes; they are not power-loss durability evidence.
     """
-    counts = dict(records=0, invalid=0, sensor_invalid=0, sequence_gaps=0, discontinuities=0)
-    writer = csv.DictWriter(file, fieldnames=FIELDS)
-    writer.writeheader()
-    file.flush()
+    validate_limits(max_records, max_output_bytes)
+    counts = dict(records=0, invalid=0, sensor_invalid=0, sequence_gaps=0, discontinuities=0,
+                  output_bytes=0, withheld_records=0, stop_reason='duration_elapsed')
     previous = {}
     pending = bytearray()
     discarding = False
     start = monotonic()
     try:
+        header = csv_text()
+        if file.write(header) != len(header): raise OSError('incomplete CSV header write')
+        file.flush()
+        counts['output_bytes'] = len(header.encode('utf-8'))
+        if counts['output_bytes'] == max_output_bytes:
+            counts['stop_reason'] = 'byte_limit'
+            return counts
         while monotonic() - start < seconds:
             raw = port.readline(MAX_LINE_BYTES + 1)
             if not raw:
@@ -94,6 +121,16 @@ def capture_stream(port, file, seconds, monotonic=time.monotonic,
                 pending.clear()
                 counts["invalid"] += 1
                 continue
+            record["gateway_utc"] = receipt()
+            row = csv_text(record)
+            row_bytes = len(row.encode('utf-8'))
+            if counts['output_bytes'] + row_bytes > max_output_bytes:
+                counts['withheld_records'] += 1
+                counts['stop_reason'] = 'byte_limit'
+                break
+            if file.write(row) != len(row): raise OSError('incomplete CSV row write')
+            file.flush()
+            counts['output_bytes'] += row_bytes
             prior = previous.get(record["device_id"])
             if prior is not None:
                 if record["seq"] <= prior[0] or record["uptime_ms"] < prior[1]:
@@ -101,12 +138,21 @@ def capture_stream(port, file, seconds, monotonic=time.monotonic,
                 else:
                     counts["sequence_gaps"] += max(0, record["seq"] - prior[0] - 1)
             previous[record["device_id"]] = (record["seq"], record["uptime_ms"])
-            record["gateway_utc"] = receipt()
-            writer.writerow(record)
-            file.flush()
             counts["records"] += 1
             if not record["valid"]:
                 counts["sensor_invalid"] += 1
+            if counts['records'] >= max_records:
+                counts['stop_reason'] = 'record_limit'
+                break
+            if counts['output_bytes'] == max_output_bytes:
+                counts['stop_reason'] = 'byte_limit'
+                break
+    except KeyboardInterrupt:
+        counts['stop_reason'] = 'interrupted'
+        raise
+    except Exception:
+        counts['stop_reason'] = 'capture_failed'
+        raise
     finally:
         if pending:
             counts["invalid"] += 1
@@ -120,11 +166,15 @@ def main():
     parser.add_argument("--baud", type=int, default=115200)
     parser.add_argument("--seconds", type=int, default=600)
     parser.add_argument("--output", default="data/baseline.csv")
+    parser.add_argument('--max-records', type=int, default=MAX_RECORDS, help='1–10000 saved records; default 10000')
+    parser.add_argument('--max-output-bytes', type=int, default=MAX_OUTPUT_BYTES, help='CSV byte cap including header; maximum/default 16 MiB')
     args = parser.parse_args()
     if not 0 < args.seconds <= 86400:
         parser.error("--seconds must be between 1 and 86400")
     if args.baud <= 0:
         parser.error("--baud must be positive")
+    try: validate_limits(args.max_records, args.max_output_bytes)
+    except ValueError as error: parser.error(str(error))
     out = Path(args.output)
     if out.exists() or out.is_symlink():
         parser.exit(1, "Capture refused: choose a new output filename; existing evidence is never overwritten.\n")
@@ -137,7 +187,10 @@ def main():
         # Exclusive creation occurs before opening the port, including race cases.
         with out.open("x", newline="", encoding="utf-8") as file:
             with serial.Serial(args.port, args.baud, timeout=1) as port:
-                counts = capture_stream(port, file, args.seconds)
+                counts = capture_stream(port, file, args.seconds, max_records=args.max_records, max_output_bytes=args.max_output_bytes)
+        if counts['stop_reason'] in ('record_limit', 'byte_limit'):
+            print('Capture stopped at a configured capacity limit; retain the complete-row prefix for review and choose a new filename for another capture.', file=sys.stderr)
+            return 2
         if counts["records"] == 0:
             print("No complete valid-format records were captured; retain the file for review.", file=sys.stderr)
             return 2

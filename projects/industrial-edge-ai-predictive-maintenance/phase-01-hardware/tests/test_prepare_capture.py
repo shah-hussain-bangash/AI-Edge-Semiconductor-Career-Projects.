@@ -60,6 +60,27 @@ class PrepareCaptureTests(unittest.TestCase):
         self.assertEqual(contract.failures(records[0]), [])
         self.assertEqual(records[0]['measurements']['current_a'], 0.125)
 
+    def test_capacity_limited_serial_prefix_remains_adapter_compatible(self):
+        import contextlib
+        self.assertEqual((serial_capture.MAX_RECORDS,serial_capture.MAX_OUTPUT_BYTES),(adapter.MAX_ROWS,adapter.MAX_INPUT))
+        values={key:value for key,value in ROW.items() if key!='gateway_utc'}
+        for key in ('seq','uptime_ms'):values[key]=int(values[key])
+        for key in serial_capture.NUMERIC:values[key]=float(values[key])
+        for key in ('adxl345_valid','ds18b20_valid','ina219_valid','valid'):values[key]=values[key]=='True'
+        values['schema_version']=1
+        frames=[(json.dumps(dict(values,seq=i,uptime_ms=1000*i))+'\n').encode() for i in (1,2,3)]
+        class Port:
+            def readline(self,size):return frames.pop(0)
+        output=io.StringIO(newline='')
+        with contextlib.redirect_stdout(io.StringIO()):
+            counts=serial_capture.capture_stream(Port(),output,600,monotonic=lambda:0,receipt=lambda:ROW['gateway_utc'],max_records=2)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);source=root/'bounded.csv';source.write_bytes(output.getvalue().encode('utf-8'))
+            mapping=root/'attachment.json';mapping.write_bytes(adapter.json_bytes(MAPPING))
+            manifest=adapter.prepare(source,mapping,root/'evidence')
+            self.assertEqual((counts['stop_reason'],manifest['accepted_rows'],manifest['quarantined_rows']),('record_limit',2,0))
+            self.assertEqual(adapter.verify(root/'evidence'),manifest)
+
     def test_units_zero_and_provenance_match_contract(self):
         result, _ = adapter.convert(ROW, MAPPING)
         self.assertEqual(result['measurements']['current_a'], 0.125)
