@@ -38,12 +38,32 @@ function syncReceiptWorksheetControls(){
  $('receipt-worksheet-file').disabled=!available;
  $('receipt-worksheet-clear').disabled=!receiptWorksheetData&&!receiptWorksheetReading&&!$('receipt-worksheet-file').value;
  $('receipt-worksheet-export').disabled=!available||!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData;
+ for(const id of ['receipt-worksheet-search','receipt-worksheet-show','receipt-worksheet-filter-reset'])if($(id))$(id).disabled=!available||!receiptWorksheetData||receiptWorksheetPlan!==physicalBuildData;
+}
+function receiptWorksheetHasEntries(row){return ['declared_model','declared_received_date','declared_label_reference','declared_notes'].some(key=>row[key].trim())||row.declared_status==='owner-notes-unverified';}
+function receiptWorksheetSelection(){
+ const query=$('receipt-worksheet-search').value.trim().toLowerCase(),mode=$('receipt-worksheet-show').value;
+ return (receiptWorksheetData?.rows||[]).filter(row=>(mode==='all'||mode==='with-entries'&&receiptWorksheetHasEntries(row)||mode==='without-entries'&&!receiptWorksheetHasEntries(row))&&Object.values(row).some(value=>value.toLowerCase().includes(query)));
+}
+function renderReceiptWorksheetRows(){
+ if(!$('receipt-worksheet-panel'))return;
+ closeReceiptDeclaration();const available=!!receiptWorksheetData&&receiptWorksheetPlan===physicalBuildData&&physicalBuildState==='ok',rows=available?receiptWorksheetSelection():[];
+ const shown=value=>value===''?'Not recorded':value;
+ $('receipt-worksheet-rows').replaceChildren(...rows.map(row=>{const tr=document.createElement('tr');tr.innerHTML='<td><span class="bom-reference">'+escapeText(row.bom_id)+'</span><br><button class="asset-link" type="button" data-physical-plan-id="'+escapeText(row.bom_id)+'">'+escapeText(row.selected_family)+'</button><br><button class="action-outline" type="button" data-receipt-declaration="'+escapeText(row.bom_id)+'">View declaration</button></td>'+'<td></td>'.repeat(5);[row.declared_model,row.declared_received_date,row.declared_label_reference,row.declared_notes,row.declared_status].forEach((value,index)=>tr.children[index+1].textContent=shown(value));return tr;}));
+ if(available&&!rows.length){const tr=document.createElement('tr'),cell=document.createElement('td'),message=document.createElement('span');cell.colSpan=6;cell.className='empty-state';message.className='receipt-filter-empty';message.textContent='No worksheet rows match. Try a different search or clear the review filters.';cell.append(message);tr.append(cell);$('receipt-worksheet-rows').append(tr);}
+ $('receipt-worksheet-filter-count').textContent=available?rows.length+' of 30 worksheet rows displayed. All 30 remain in the complete review export.':'Load a worksheet to search its local declarations.';
+ syncReceiptWorksheetControls();
+}
+function resetReceiptWorksheetFilters(restore=false){
+ if(!$('receipt-worksheet-search'))return;
+ $('receipt-worksheet-search').value='';$('receipt-worksheet-show').value='all';renderReceiptWorksheetRows();if(restore&&!$('receipt-worksheet-search').disabled)$('receipt-worksheet-search').focus();
 }
 function clearReceiptWorksheet(restore=false,resetFile=true){
  closeReceiptDeclaration();
  receiptWorksheetSequence++;receiptWorksheetData=null;receiptWorksheetPlan=null;receiptWorksheetReading=false;
  if(!$('receipt-worksheet-panel'))return;
  if(resetFile)$('receipt-worksheet-file').value='';$('receipt-worksheet-rows').replaceChildren();$('receipt-worksheet-context').replaceChildren();$('receipt-worksheet-counts').replaceChildren();
+ resetReceiptWorksheetFilters();
  $('receipt-worksheet-feedback').textContent='No worksheet loaded. Choose a separate UTF-8 CSV working copy after recording your notes. Nothing is uploaded or saved.';
  syncReceiptWorksheetControls();if(restore&&!$('receipt-worksheet-file').disabled)$('receipt-worksheet-file').focus();
 }
@@ -60,8 +80,7 @@ async function readReceiptWorksheet(file){
   if(sequence!==receiptWorksheetSequence||physicalBuildData!==plan)return;
   receiptWorksheetPlan=plan;
   receiptWorksheetData={schema_version:'1.0',scope:'local-browser-unverified-receipt-worksheet-review',reviewed_at:new Date().toISOString(),file_name:file.name,file_bytes:bytes.byteLength,file_sha256:hash,plan_version:plan.version,plan_sha256:plan.plan_sha256,source_csv_sha256:plan.source_csv_sha256,sensor_map_sha256:plan.sensor_map_sha256,rows,read_only:true,uploaded:false,persisted:false,order_verified:false,receipt_verified:false,physical_acceptance_verified:false,hardware_connected:false,equipment_authorized:false,production_ready:false,substitution_allowed:false,additional_hardware_allowed:false,note:'Local preview of owner-declared worksheet text only. Matching the original planning fields does not verify the declared model, date, label, notes, received quantity, electrical compatibility or physical installation. This is not a stored receipt or acceptance record.'};
-  const shown=value=>value===''?'Not recorded':value;
-  $('receipt-worksheet-rows').replaceChildren(...rows.map(row=>{const tr=document.createElement('tr');tr.innerHTML='<td><span class="bom-reference">'+escapeText(row.bom_id)+'</span><br><button class="asset-link" type="button" data-physical-plan-id="'+escapeText(row.bom_id)+'">'+escapeText(row.selected_family)+'</button><br><button class="action-outline" type="button" data-receipt-declaration="'+escapeText(row.bom_id)+'">View declaration</button></td>'+'<td></td>'.repeat(5);[row.declared_model,row.declared_received_date,row.declared_label_reference,row.declared_notes,row.declared_status].forEach((value,index)=>tr.children[index+1].textContent=shown(value));return tr;}));
+  renderReceiptWorksheetRows();
   const labels=rows.filter(row=>row.declared_model.trim()).length,notes=rows.filter(row=>row.declared_notes.trim()).length;
   $('receipt-worksheet-counts').textContent='30 matched planning rows · '+labels+' model declarations · '+notes+' rows with notes. These counts do not verify receipt.';
   $('receipt-worksheet-context').textContent=file.name+' · '+bytes.byteLength+' bytes · File SHA-256: '+hash+' · Loaded plan SHA-256: '+plan.plan_sha256;
@@ -112,5 +131,8 @@ function bindReceiptDeclaration(){
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='receipt-worksheet-panel';panel.className='panel operations-panel';panel.innerHTML='<span class="section-kicker">HARDWARE ARRIVAL / LOCAL WORKING COPY</span><h2>Review your receipt worksheet</h2><p>Choose the CSV working copy from your arrival pack. Planning fields must remain unchanged. Fill the model, date, label reference and notes after delivery; use YYYY-MM-DD dates. Keep Record status as awaiting-delivery-unverified or owner-notes-unverified.</p><p class="planning-boundary">This preview stays in this browser page. No file is uploaded or stored, and no receipt, connection or compatibility is verified. Keep your original CSV; reloading the page clears this review.</p><div class="physical-preparation-tools"><label for="receipt-worksheet-file">Worksheet CSV · UTF-8 · up to 128 KiB<input id="receipt-worksheet-file" type="file" accept=".csv,text/csv" aria-describedby="receipt-worksheet-feedback" disabled></label><button id="receipt-worksheet-clear" class="action-outline" type="button" disabled>Clear review</button><button id="receipt-worksheet-export" class="action-outline" type="button" disabled>Export unverified review</button></div><p id="receipt-worksheet-feedback" role="status" aria-live="polite"></p><p id="receipt-worksheet-counts"></p><details><summary>Local file and loaded plan references</summary><p id="receipt-worksheet-context"></p></details><div class="product-table-wrap"><table><thead><tr><th>Original planning item</th><th>Declared model / revision</th><th>Declared date</th><th>Label / photo reference</th><th>Owner notes / issues</th><th>Declared status · unverified</th></tr></thead><tbody id="receipt-worksheet-rows"></tbody></table></div>';
  const region=panel.querySelector('.product-table-wrap');region.tabIndex=0;region.setAttribute('role','region');region.setAttribute('aria-label','Unverified worksheet declarations');const hint=document.createElement('p');hint.className='product-muted';hint.textContent='On smaller screens, scroll this table sideways to review every declaration. Keyboard: focus the table and use the arrow keys.';region.before(hint);
+ const filters=document.createElement('div');filters.className='physical-preparation-tools';filters.innerHTML='<label for="receipt-worksheet-search">Find a worksheet row<input id="receipt-worksheet-search" type="search" maxlength="160" placeholder="BOM, model, date, label or notes…" aria-describedby="receipt-worksheet-filter-count" disabled></label><label for="receipt-worksheet-show">Show rows<select id="receipt-worksheet-show" disabled><option value="all">All 30 rows</option><option value="with-entries">With owner entries</option><option value="without-entries">Without owner entries</option></select></label><button id="receipt-worksheet-filter-reset" class="action-outline" type="button" disabled>Clear review filters</button>';
+ const count=document.createElement('p');count.id='receipt-worksheet-filter-count';count.setAttribute('role','status');count.setAttribute('aria-live','polite');hint.before(filters,count);
  $('physical-build-panel').after(panel);bindReceiptDeclaration();$('receipt-worksheet-file').addEventListener('change',event=>readReceiptWorksheet(event.target.files[0]));$('receipt-worksheet-clear').addEventListener('click',()=>clearReceiptWorksheet(true));$('receipt-worksheet-export').addEventListener('click',exportReceiptWorksheet);clearReceiptWorksheet();
+ $('receipt-worksheet-export').textContent='Export complete review';$('receipt-worksheet-search').addEventListener('input',renderReceiptWorksheetRows);$('receipt-worksheet-show').addEventListener('change',renderReceiptWorksheetRows);$('receipt-worksheet-filter-reset').addEventListener('click',()=>resetReceiptWorksheetFilters(true));
 });

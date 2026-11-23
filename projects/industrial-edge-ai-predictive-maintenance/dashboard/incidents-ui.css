@@ -75,3 +75,7 @@
 #receipt-worksheet-panel .product-table-wrap:focus-visible{outline:2px solid #2456d6;outline-offset:3px}
 
 #receipt-declaration-dialog{width:min(820px,calc(100vw - 28px))}#receipt-declaration-dialog :is(h2,h3,p,dt,dd,button,summary){overflow-wrap:anywhere}#receipt-declaration-dialog button{max-width:100%;white-space:normal}#receipt-declaration-close{flex:0 0 auto;min-width:72px;white-space:nowrap!important}#receipt-declaration-title{min-width:0}.receipt-declaration-value{padding:16px;border:1px solid #adc5e1;border-radius:9px;background:#f1f6fc;color:#143451;line-height:1.8;white-space:pre-wrap}#receipt-declaration-provenance{margin:20px 0}#receipt-worksheet-rows [data-receipt-declaration]{margin-top:10px}
+
+#receipt-worksheet-show{width:100%;min-height:42px;padding:10px 12px;border:1px solid #9ab8dc;border-radius:7px;background:#fff;color:#143451;font:inherit}#receipt-worksheet-filter-count{overflow-wrap:anywhere}
+
+#receipt-worksheet-rows .empty-state{text-align:left}.receipt-filter-empty{display:block;max-width:min(480px,calc(100vw - 140px));white-space:normal}
