@@ -84,6 +84,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_comparison.cjs
       - name: Fixed-BOM preparation search and matching export
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_physical_preparation_search.cjs
+      - name: Local unverified receipt worksheet review
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_receipt_worksheet_review.cjs
       - name: Fixed-BOM component preparation inspection
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_physical_part_inspector.cjs
       - name: Delivery acknowledgement recovery and outcome shortcuts

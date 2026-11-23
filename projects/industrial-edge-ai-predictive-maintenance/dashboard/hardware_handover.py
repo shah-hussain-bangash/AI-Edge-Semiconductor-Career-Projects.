@@ -54,6 +54,13 @@ dashboard/verify_arrival_pack.py for convenience, but an untrusted archive's own
 checker is not a trust anchor. Use an independently reviewed copy. Keep the
 original ZIP unchanged and edit a separate worksheet copy after receipt.
 
+The dashboard Hardware workspace can preview that separate CSV working copy
+locally without uploading or storing it. Keep the original planning fields and
+all 30 rows unchanged. Use YYYY-MM-DD for declared dates, and Record status
+awaiting-delivery-unverified or owner-notes-unverified. The preview and its JSON
+export retain owner declarations as unverified; they do not register physical
+receipt, approve compatibility or authorize equipment.
+
 manifest.json lists file sizes and SHA-256 hashes for corruption checks. It is
 not a signature, trusted release, proof of origin or physical acceptance. Verify
 sources against the reviewed repository before use. All physical readiness flags
