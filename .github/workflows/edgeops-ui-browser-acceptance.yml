@@ -106,6 +106,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_registry_examples.cjs
       - name: Read-only persisted observation inspection
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_inspector.cjs
+      - name: Local offline capture manifest metadata review
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_offline_capture_manifest.cjs
       - name: Read-only same-page observation comparison
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_observation_comparison.cjs
       - name: Approved-plan maintenance documentation exercise acceptance
