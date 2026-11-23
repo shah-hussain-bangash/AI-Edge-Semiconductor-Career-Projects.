@@ -1,5 +1,11 @@
 # Local offline capture manifest review
 
+## Printable local capture review
+
+Download printable review creates a standalone HTML working copy from the same current document-memory snapshot as the combined JSON export. It includes all five section states, manifest declarations and expected file references, loaded attachment fields, selected file/review fingerprints and browser times, every loaded quarantine entry (regardless of filtering or paging), and separately labelled unsigned verifier declarations. Missing or reading sections stay explicit rather than appearing accepted. This human-readable copy normalizes HTML line rendering; retain JSON for exact machine-readable values and the original evidence folder separately.
+
+The file has responsive screen and A4 print styles, escaped literal user text, restrictive content policy, and no scripts, forms, active links, images, external fonts or network resources. The owner opens the downloaded file and chooses the browser's Print/PDF command; no window, print dialog or tool is opened automatically. Browser generation time remains distinct from declared adapter/report times. The report is editable and unsigned, does not execute a verifier or recheck files, and grants no physical/ingestion/equipment/production authority. All 30 original products remain unchanged. It contains declared operational identifiers when attachment review is loaded; downloaded copies remain under the owner's control after dashboard clearing. Clear/new/invalid manifest/reload removes button authority and previous download feedback; auditors retain local read/export access.
+
 ## Current local review summary and combined snapshot
 
 Current capture review shows five optional review views: manifest metadata, attachment mapping, four-file references, quarantine reasons and unsigned verifier report. Each says Not loaded, Reading locally, Review loaded, Four references matched or Unsigned report loaded as applicable. The loaded count is coverage of these distinct local views, not package validation, ingestion permission, a mandatory checklist or production readiness. Individual failures and boundaries remain visible in their original views. Source classification remains operator-declared.
