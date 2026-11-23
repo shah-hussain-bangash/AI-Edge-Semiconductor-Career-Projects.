@@ -168,7 +168,10 @@ def main():
     parser.add_argument("--output", default="data/baseline.csv")
     parser.add_argument('--max-records', type=int, default=MAX_RECORDS, help='1–10000 saved records; default 10000')
     parser.add_argument('--max-output-bytes', type=int, default=MAX_OUTPUT_BYTES, help='CSV byte cap including header; maximum/default 16 MiB')
+    parser.add_argument('--dry-run', action='store_true', help='Preview validated settings without importing serial, creating output or opening a port')
     args = parser.parse_args()
+    if not args.port.strip() or len(args.port)>200 or any(ord(char)<32 or ord(char)==127 for char in args.port):
+        parser.error('--port must be bounded nonblank text without control characters')
     if not 0 < args.seconds <= 86400:
         parser.error("--seconds must be between 1 and 86400")
     if args.baud <= 0:
@@ -176,8 +179,32 @@ def main():
     try: validate_limits(args.max_records, args.max_output_bytes)
     except ValueError as error: parser.error(str(error))
     out = Path(args.output)
-    if out.exists() or out.is_symlink():
+    try: occupied=out.exists() or out.is_symlink()
+    except OSError:
+        parser.exit(1, 'Capture refused: output path inspection failed. No capture started.\n')
+    if occupied:
         parser.exit(1, "Capture refused: choose a new output filename; existing evidence is never overwritten.\n")
+    if args.dry_run:
+        try:
+            # Read-only path inspection. Missing directories are not created or reserved.
+            for parent in out.absolute().parents:
+                if parent.exists() or parent.is_symlink():
+                    if not parent.is_dir():
+                        parser.exit(1, 'Settings preview refused: an output ancestor is not a directory. No capture started.\n')
+                    break
+            preview={'format':'edgeops-serial-capture-settings-preview-v1','dry_run':True,
+                     'requested_port':args.port,'baud':args.baud,'seconds':args.seconds,
+                     'output_file':str(out.absolute()),'output_parent_exists':out.parent.is_dir(),
+                     'max_records':args.max_records,'max_output_bytes':args.max_output_bytes,
+                     'capture_started':False,'serial_module_imported':False,'port_opened':False,
+                     'port_availability_verified':False,'output_created':False,'output_reserved':False,
+                     'output_writability_verified':False,'hardware_connected':False,
+                     'equipment_authorized':False,'production_ready':False,
+                     'note':'Settings and current output-path shape only. The port, driver, baud compatibility, sensors, writable space and hardware are not tested. No file or directory is created and no filename is reserved. A real invocation must recheck the target and create it exclusively.'}
+        except OSError:
+            parser.exit(1, 'Settings preview unavailable: output path inspection failed. No capture started.\n')
+        print(json.dumps(preview, sort_keys=True))
+        return 0
     try:
         import serial
     except ImportError:

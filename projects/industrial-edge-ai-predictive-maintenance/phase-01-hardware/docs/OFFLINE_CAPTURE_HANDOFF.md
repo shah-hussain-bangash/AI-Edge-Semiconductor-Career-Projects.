@@ -62,7 +62,7 @@ python -m pip install -r tests/requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-The 46 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, capture-to-adapter compatibility, compile-record inventory boundaries, strict offline evidence verification, optional report export/refusal behavior, and bounded serial capture with explicit stop reasons. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
+The 50 software checks use synthetic fixtures and simulated serial streams only. They cover the V1 parser, interrupted and oversized messages, output preservation, disconnection, capture-to-adapter compatibility, compile-record inventory boundaries, strict offline evidence verification, optional report export/refusal behavior, bounded serial capture with explicit stop reasons, and no-connection settings previews. Adapter output is checked against the existing candidate V2 JSON Schema and semantic rules. Physical wiring, acquisition accuracy, calibration, electrical safety, long-duration reliability, deployment and industrial acceptance remain pending.
 
 ### Optional unsigned verification report
 
@@ -93,6 +93,18 @@ The JSON summary reports `records` (rows successfully written and flushed), `inv
 Capture exit 0 means the duration elapsed with at least one complete valid-format row saved; review sensor flags and counts even on success. Exit 2 means no such rows were captured or a configured record/byte limit stopped capture early. Exit 1 covers file or serial connection failure; exit 130 means the operator interrupted capture. Failures and interruptions may leave a partial or empty new CSV, including an incomplete row after a failed write; preserve it for review and use another new filename. No raw serial payload or device error text is printed by the failure handler. This utility opens only the requested USB serial port and does not send application-level equipment commands; opening a serial port may itself reset some ESP32 boards through their USB bridge.
 
 ### Bounded serial capture files
+
+#### Preview settings before any hardware connection
+
+From `phase-01-hardware`, use a fresh planned output filename:
+
+```powershell
+python scripts/capture_serial.py --dry-run --port NOT-CONNECTED --seconds 600 --output data/planned-capture.csv
+```
+
+`--dry-run` validates duration, positive baud, bounded nonblank port text and adapter-compatible limits, refuses existing output files/directories/links and file-shaped output ancestors, and prints effective settings as `edgeops-serial-capture-settings-preview-v1` JSON. It does not import the serial driver, open/query a port, create files/directories or reserve the filename. Missing output parents are reported as missing rather than created. Exit 0 means this limited settings/path-shape preview succeeded, not that capture can run. Invalid arguments exit 2; an occupied/unsupported output path exits 1 without a capture. Port names are declarations, not availability or hardware evidence.
+
+The preview includes explicit false capture/port/output-reservation/writability/hardware/equipment/production flags. It does not test permissions, free space, drivers, actual baud compatibility, calibration or received parts. A target can appear or change after preview; a later real invocation rechecks the path and still creates exclusively. Keep `--dry-run` while preparing without hardware. Only after the original physical connection checks are completed should an operator choose the actual reviewed port and deliberately invoke capture without `--dry-run`. The dashboard does not start either command.
 
 The recorder defaults to at most 10,000 saved rows and 16 MiB of UTF-8 CSV including the header and CRLF terminators, matching the offline adapter's file/row limits. `--max-records` accepts 1–10,000; `--max-output-bytes` accepts an integer from the CSV header size through 16 MiB. Invalid settings are refused before creating output or opening a serial port. The CLI writes UTF-8 with newline translation disabled; callers of `capture_stream` must provide the same output configuration for exact byte accounting.
 

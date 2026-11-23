@@ -227,5 +227,62 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual((counts['records'],counts['stop_reason']),(0,'capture_failed'))
             self.assertEqual(counts['output_bytes'],len(module.csv_text().encode('utf-8')))
 
+    def test_dry_run_previews_effective_settings_without_import_or_writes(self):
+        import builtins
+        original_import=builtins.__import__
+        def imports(name,*args,**kwargs):
+            if name=='serial':raise AssertionError('serial imported during preview')
+            return original_import(name,*args,**kwargs)
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);out=root/'missing'/'nested'/'new.csv';stdout=io.StringIO()
+            args=['capture_serial.py','--dry-run','--port','NOT-CONNECTED','--seconds','120','--baud','57600','--max-records','12','--max-output-bytes','4096','--output',str(out)]
+            with patch.object(builtins,'__import__',side_effect=imports),patch.object(sys,'argv',args),contextlib.redirect_stdout(stdout):
+                self.assertEqual(module.main(),0)
+            preview=json.loads(stdout.getvalue())
+            self.assertEqual((preview['requested_port'],preview['baud'],preview['seconds'],preview['max_records'],preview['max_output_bytes']),('NOT-CONNECTED',57600,120,12,4096))
+            self.assertEqual(preview['output_file'],str(out.absolute()))
+            for key in ('output_parent_exists','capture_started','serial_module_imported','port_opened','port_availability_verified','output_created','output_reserved','output_writability_verified','hardware_connected','equipment_authorized','production_ready'):
+                self.assertIs(preview[key],False,key)
+            self.assertEqual(list(root.iterdir()),[])
+
+    def test_dry_run_defaults_existing_parent_and_no_future_reservation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'future.csv';args=['capture_serial.py','--port','NOT-CONNECTED','--output',str(path)]
+            stdout=io.StringIO()
+            with patch.object(sys,'argv',args+['--dry-run']),contextlib.redirect_stdout(stdout):self.assertEqual(module.main(),0)
+            preview=json.loads(stdout.getvalue())
+            self.assertTrue(preview['output_parent_exists'])
+            self.assertEqual((preview['baud'],preview['seconds'],preview['max_records'],preview['max_output_bytes']),(115200,600,10000,16777216))
+            path.write_bytes(b'created after preview')
+            with patch.object(sys,'argv',args),contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as result:module.main()
+            self.assertEqual(result.exception.code,1)
+            self.assertEqual(path.read_bytes(),b'created after preview')
+
+    def test_dry_run_refuses_existing_targets_and_file_ancestors(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);existing=root/'original';existing.write_bytes(b'preserve')
+            for output in (existing,root,existing/'new.csv',existing/'missing'/'new.csv'):
+                stdout=io.StringIO();stderr=io.StringIO()
+                with patch.object(sys,'argv',['capture_serial.py','--dry-run','--port','NOT-CONNECTED','--output',str(output)]),contextlib.redirect_stdout(stdout),contextlib.redirect_stderr(stderr):
+                    with self.assertRaises(SystemExit) as result:module.main()
+                self.assertEqual(result.exception.code,1)
+                self.assertEqual(stdout.getvalue(),'')
+                self.assertNotIn('Traceback',stderr.getvalue())
+            self.assertEqual(existing.read_bytes(),b'preserve')
+            stderr=io.StringIO()
+            with patch.object(module.Path,'exists',side_effect=PermissionError('private path detail')),patch.object(sys,'argv',['capture_serial.py','--dry-run','--port','NOT-CONNECTED','--output',str(root/'unknown.csv')]),contextlib.redirect_stderr(stderr):
+                with self.assertRaises(SystemExit) as result:module.main()
+            self.assertEqual(result.exception.code,1)
+            self.assertNotIn('private path detail',stderr.getvalue())
+
+    def test_dry_run_invalid_settings_fail_without_creating_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output=Path(temp)/'new.csv'
+            for options in (['--seconds','0'],['--baud','0'],['--max-records','10001'],['--max-output-bytes','1'],['--port','   '],['--port','bad\nport'],['--port','x'*201]):
+                with patch.object(sys,'argv',['capture_serial.py','--dry-run','--port','NOT-CONNECTED','--output',str(output),*options]),contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as result:module.main()
+                self.assertEqual(result.exception.code,2);self.assertFalse(output.exists())
+
 if __name__ == "__main__":
     unittest.main()

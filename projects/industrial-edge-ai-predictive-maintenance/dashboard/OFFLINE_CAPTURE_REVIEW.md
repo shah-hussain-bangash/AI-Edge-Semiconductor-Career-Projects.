@@ -1,5 +1,7 @@
 # Local offline capture manifest review
 
+Before any hardware connection, the separate recorder's `--dry-run` option previews effective capture settings and current output-path shape without importing the serial driver, opening a port or creating files/directories. It does not verify port availability, writable space, hardware or readiness and does not reserve the output filename. See the [settings-preview instructions](../phase-01-hardware/docs/OFFLINE_CAPTURE_HANDOFF.md); the dashboard does not execute capture commands.
+
 The separate USB capture tool now defaults to at most 10,000 saved records and 16 MiB of CSV, matching the offline adapter's size limits. It reports explicit duration/record-limit/byte-limit/interruption/failure reasons and preserves complete rows on capacity stops. The dashboard does not start this tool or open ports. Capacity limits are not acquisition accuracy, calibration or production acceptance; see [bounded serial capture](../phase-01-hardware/docs/OFFLINE_CAPTURE_HANDOFF.md) before using the ordered hardware.
 
 ## Printable local capture review
