@@ -95,6 +95,25 @@ class SpoolHistoryTests(unittest.TestCase):
         for state in ['all','Pending','unknown',True,None]:
             with self.subTest(state=state),self.assertRaises(ValueError):self.spool.status(state=state)
 
+    def test_exact_event_lookup_reaches_old_entries_and_preserves_global_accounting(self):
+        target=sorted(self.keys)[-1]
+        self.assertNotIn(target,[row['event_key'] for row in self.spool.status()['records']])
+        before=self.spool.status()
+        found=self.spool.status(event_key=target)
+        self.assertEqual([row['event_key'] for row in found['records']],[target]);self.assertEqual(found['page']['event_key'],target)
+        self.assertIsNone(found['page']['next_before']);self.assertEqual(found['counts'],before['counts']);self.assertEqual(found['usage'],before['usage'])
+        self.assertEqual(len(self.spool.status(event_key=target,state='pending')['records']),1)
+        self.assertEqual(self.spool.status(event_key=target,state='blocked')['records'],[])
+        self.assertEqual(self.spool.status(event_key='f'*64)['records'],[])
+
+    def test_event_lookup_rejects_partial_or_noncanonical_ids_and_history_cursors_without_mutation(self):
+        with self.spool.db() as db:before=[tuple(row) for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key')]
+        for event_key in ['a','f'*63,'f'*65,'F'*64,'z'*64,True,None]:
+            with self.subTest(event_key=event_key),self.assertRaises(ValueError):self.spool.status(event_key=event_key)
+        cursor=self.spool.status(limit=1)['page']['next_before']
+        with self.assertRaises(ValueError):self.spool.status(event_key=self.keys[0],before=cursor)
+        with self.spool.db() as db:self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key')],before)
+
 
 class DeliveryHistoryApiTests(unittest.TestCase):
     login=fixtures.AcquisitionRegistryApiTests.login
@@ -143,3 +162,17 @@ class DeliveryHistoryApiTests(unittest.TestCase):
                 self.assertEqual(self.http.get('/api/acquisition/delivery',params={'state':state,'before':data['page']['next_before']}).status_code,422)
         for state in ('all','Pending','unknown'):
             self.assertEqual(self.http.get('/api/acquisition/delivery',params={'state':state}).status_code,422)
+
+    def test_event_lookup_reader_roles_bounds_and_cursor_rejection(self):
+        all_rows=self.spool.status(limit=100)['records'];target=all_rows[-1]['event_key']
+        cursor=self.spool.status(limit=1)['page']['next_before']
+        for role in ('admin','operator','auditor'):
+            self.login(role)
+            response=self.http.get('/api/acquisition/delivery',params={'event_key':target});self.assertEqual(response.status_code,200)
+            data=response.json();self.assertEqual([row['event_key'] for row in data['records']],[target])
+            self.assertEqual(data['page']['event_key'],target);self.assertEqual(data['usage']['records'],24)
+            self.assertIsNone(data['page']['next_before'])
+            self.assertEqual(self.http.get('/api/acquisition/delivery',params={'event_key':target,'state':'blocked'}).json()['records'],[])
+        for params in [{'event_key':'partial'},{'event_key':'A'*64},{'event_key':'a'*65},{'event_key':target,'before':cursor}]:
+            self.assertEqual(self.http.get('/api/acquisition/delivery',params=params).status_code,422)
+        self.http.cookies.clear();self.assertEqual(self.http.get('/api/acquisition/delivery',params={'event_key':target}).status_code,401)

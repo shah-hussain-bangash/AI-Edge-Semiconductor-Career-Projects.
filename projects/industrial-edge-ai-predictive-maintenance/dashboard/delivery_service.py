@@ -79,10 +79,10 @@ def install_routes(app,database,require_user,require_csrf,audit,default_spool_pa
         return {**BOUNDARY,**receipt,'central_committed':False}
 
     @app.get('/api/acquisition/delivery')
-    def delivery_status(request:Request,before:str=Query(default='',max_length=256),limit:int=Query(default=20,ge=1,le=100),state:Literal['','pending','inflight','delivered','blocked']=''):
+    def delivery_status(request:Request,before:str=Query(default='',max_length=256),limit:int=Query(default=20,ge=1,le=100),state:Literal['','pending','inflight','delivered','blocked']='',event_key:str=Query(default='',max_length=64,pattern=r'^(?:[0-9a-f]{64})?$')):
         require_role(require_user(request),READ_ROLES)
-        try:result=spool().status(before=before,limit=limit,state=state)
-        except ValueError:raise HTTPException(422,'Invalid delivery history cursor or limit') from None
+        try:result=spool().status(before=before,limit=limit,state=state,event_key=event_key)
+        except ValueError:raise HTTPException(422,'Invalid delivery history query') from None
         except SpoolReadError:raise HTTPException(503,'Saved delivery timing is unavailable or inconsistent') from None
         with database() as db:central=db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]
         return {**BOUNDARY,**result,'central_records':central,'relay_mode':'local in-process test relay; HTTP worker available separately'}

@@ -152,9 +152,11 @@ class Spool:
             self.finish(claim,error='transport-unavailable')
         return {'attempted':True,'event_key':claim['event_key']}
 
-    def status(self,before='',limit=20,state=''):
+    def status(self,before='',limit=20,state='',event_key=''):
         if type(limit) is not int or not 1<=limit<=100:raise ValueError('Delivery history limit must be 1-100')
         if not isinstance(state,str) or state not in HISTORY_STATES:raise ValueError('Invalid delivery history state')
+        if not isinstance(event_key,str) or (event_key and (len(event_key)!=64 or any(c not in '0123456789abcdef' for c in event_key))):raise ValueError('Invalid delivery event identity')
+        if event_key and before:raise ValueError('Exact delivery lookup cannot use a history cursor')
         position=history_position(before,state)
         with self.db() as db:
             db.execute('BEGIN')
@@ -163,13 +165,14 @@ class Spool:
             usage=db.execute('SELECT COUNT(*) AS records,COALESCE(SUM(length(CAST(payload AS BLOB))),0) AS payload_bytes FROM delivery_spool').fetchone()
             clauses=[];params=[]
             if state:clauses.append('state=?');params.append(state)
+            if event_key:clauses.append('event_key=?');params.append(event_key)
             if position:clauses.append('(created_at<? OR (created_at=? AND event_key>?))');params.extend((position[0],position[0],position[1]))
             where=' WHERE '+' AND '.join(clauses) if clauses else ''
             params.append(limit+1)
             rows=db.execute('SELECT created_at,updated_at,next_at,lease_until,event_key,state,attempts,last_error,receipt FROM delivery_spool'+where+' ORDER BY created_at DESC,event_key ASC LIMIT ?',params).fetchall()
         page=rows[:limit]
         return {'counts':counts,'records':[{**{key:row[key] for key in ('event_key','state','attempts','last_error','receipt')},**saved_timing(row)} for row in page],
-                'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key'],state) if len(rows)>limit else None,'order':'created-desc-event-asc','state':state},
+                'page':{'limit':limit,'before':before or None,'next_before':history_cursor(page[-1]['created_at'],page[-1]['event_key'],state) if len(rows)>limit else None,'order':'created-desc-event-asc','state':state,'event_key':event_key},
                 'limits':{'records':self.max_rows,'payload_bytes':self.max_bytes},
                 'usage':dict(usage),
                 'retention':'No automatic deletion; delivered identities count toward capacity.'}
