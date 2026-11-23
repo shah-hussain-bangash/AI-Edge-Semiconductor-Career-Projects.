@@ -85,6 +85,8 @@ def build_pack(root):
         if [row['ID'] for row in rows] != [f'P{i:02}' for i in range(1, 31)]: raise ValueError('Changed scope')
         if [row['GitHub part/family'] for row in rows] != [row['selected_family'] for row in plan['rows']]:
             raise ValueError('Changed families')
+        if hashlib.sha256(files['phase-01-hardware/docs/physical-connection-pack/sensor-only-reference.svg']).hexdigest()!=plan['sensor_map_sha256']:
+            raise ValueError('Changed packaged sensor map')
         worksheet = io.StringIO(newline='')
         writer = csv.writer(worksheet)
         writer.writerow(['Product ID', 'BOM ID', 'Selected family', 'Planned quantity', 'Bench role',

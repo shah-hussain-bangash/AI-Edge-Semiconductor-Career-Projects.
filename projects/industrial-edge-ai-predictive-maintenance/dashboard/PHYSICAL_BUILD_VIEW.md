@@ -14,6 +14,10 @@ The firmware reference remains GPIO21 SDA, GPIO22 SCL and GPIO4 temperature data
 
 `GET /api/hardware/physical-plan` and `GET /api/hardware/physical-plan/sensor-map` require a supported authenticated local role. They are read-only. The plan rejects unsupported/expanded IDs, physical-connected or production-ready claims, replacement permissions and unexpected reference pins. It includes source and diagram hashes. The diagram is served only if its content matches the plan's recorded hash. The catalog's `/api/hardware` lifecycle now distinguishes the user order declaration from verified purchase/installation.
 
+Every plan/map read now also checks bounded source snapshots: plan JSON (64 KiB), LF-normalized CSV matrix (256 KiB), and each map copy (512 KiB). The exact 30 identities and all five family/quantity/role/connection/pending fields must agree with the matrix. The CSV hash, map hash and dashboard/source map copies must agree. Invalid scope/declarations, malformed structures or duplicate JSON keys, blank fields, linked/outside/missing/oversized sources and source disagreement return a generic 503 without partial instructions. These are consistency checks against local versioned files, not signatures, supplier validation or physical approval; coordinated changes to those files still require independent review.
+
+The map response contains the bytes already checked in memory instead of reopening the file later. Successful plan and map responses declare no-store and nosniff. Arrival-pack assembly independently rechecks the packaged map hash after its initial plan check, so a changed map cannot enter that download unnoticed. The original plan, CSV, maps and electrical notes remain unchanged. No new physical record, endpoint or schema is added.
+
 The packaged `physical-build-plan.json` is a snapshot of the phase-01 connection matrix. Its CSV hash uses UTF-8 bytes with LF-normalized line endings; row names and order are tested against that source. The map copy is checked byte-for-byte. These are versioned source checks, not independent physical verification or signed purchase evidence. If the selected guide is revised, regenerate/review this snapshot and map together. No private order numbers, supplier accounts or payment evidence are included.
 
 On a failed refresh, the view clears prior instructions, hides the diagram and disables export. It cannot present stale instructions as newly verified. Existing component filters, details, CSV and the other 17 workspaces remain accessible.
@@ -21,6 +25,8 @@ On a failed refresh, the view clears prior instructions, hides the diagram and d
 ## Verification
 
 Three new API/source cases verify all 30 identities, no additions/substitutions, agreement with the matrix/map, supported roles, read-only routes and the separation of ordered versus connected/verified states. The workspace browser suite exercises the map, 30-row table, export, unavailable/retry handling, all 18 views at five widths and text contrast. Existing review, delivery, readiness and telemetry checks remain in place. No bench action, hardware commissioning, database schema migration or physical acceptance occurs during this update.
+
+The physical-plan suite now has 15 tests, including inconsistent but structurally valid notes, all five row-field mismatches, malformed/duplicate/deep JSON, shape/declaration/hash errors, source changes, row order, missing/bounded/linked sources, CRLF normalization, both map copies, generic refusal across all three authenticated read routes, exact in-memory map responses and a map changing during pack assembly. Tests use disposable source copies and accounts, not installed user data or hardware.
 
 
 ## Exact-BOM preparation details
