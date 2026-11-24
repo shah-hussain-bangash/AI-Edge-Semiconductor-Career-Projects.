@@ -43,13 +43,29 @@ def validate_result(result):
             value = metrics[key]
             if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
                 raise ValueError("Invalid comparison metric")
-        if model["threshold"] != metrics["threshold"]:
+        if (type(model["threshold"]) not in (int, float)
+                or model["threshold"] != metrics["threshold"]):
             raise ValueError("Threshold mismatch")
         counts = [metrics[k] for k in ("tp", "tn", "fp", "fn")]
         if (any(type(x) is not int or x < 0 for x in counts)
                 or sum(counts) != split["test_count"]
+                or type(metrics["sample_count"]) is not int
                 or metrics["sample_count"] != split["test_count"]):
             raise ValueError("Invalid confusion matrix or holdout size")
+        # A content hash identifies bytes; it does not make contradictory
+        # statistics valid. Check the same binary definitions as evaluate_scores.
+        tp, tn, fp, fn = counts
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        expected = {
+            "precision": precision,
+            "recall": recall,
+            "f1": 2 * precision * recall / (precision + recall) if precision + recall else 0.0,
+            "accuracy": (tp + tn) / split["test_count"],
+        }
+        if any(not math.isclose(metrics[name], value, rel_tol=1e-12, abs_tol=1e-12)
+               for name, value in expected.items()):
+            raise ValueError("Comparison metrics disagree with confusion matrix")
 
 
 def save_comparison(rows, artifact_root, *, train_fraction=0.6, validation_fraction=0.2):

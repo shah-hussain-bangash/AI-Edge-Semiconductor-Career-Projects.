@@ -1,5 +1,6 @@
 """Saved comparison integrity, review authorization, concurrency and history."""
 import importlib
+from copy import deepcopy
 import os
 from pathlib import Path
 import secrets
@@ -11,7 +12,9 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comparison_registry import save_comparison, verify_comparison
+from comparison_registry import save_comparison, verify_comparison, validate_result
+from experiment_registry import _digest, _json_bytes
+from ml_evaluation import evaluate_scores
 from run_offline_experiment import synthetic_fixture
 
 
@@ -118,6 +121,57 @@ class ComparisonReviewTests(unittest.TestCase):
         with self.assertRaises((ValueError, KeyError)):
             save_comparison(rows, destination)
         self.assertFalse(destination.exists())
+
+
+    def test_07_rehashed_contradictory_metrics_are_hidden_and_cannot_be_approved(self):
+        headers = self.login()
+        for index in range(2):
+            for metric in ('precision', 'recall', 'f1', 'accuracy'):
+                with self.subTest(model=index, metric=metric):
+                    report = deepcopy(self.saved['report'])
+                    report['result']['models'][index]['test_metrics'][metric] = 0.123
+                    content = _json_bytes(report)
+                    identifier = _digest(content)
+                    (self.root/'experiments/comparisons'/(identifier+'.json')).write_bytes(content)
+                    with self.assertRaisesRegex(ValueError, 'confusion matrix'):
+                        verify_comparison(self.root/'experiments', identifier)
+                    rows = self.http.get('/api/model-comparisons').json()['comparisons']
+                    self.assertEqual([row['comparison_id'] for row in rows], [self.id])
+                    denied = self.http.post('/api/model-comparisons/'+identifier+'/review',
+                                            headers=headers, json=self.body())
+                    self.assertEqual(denied.status_code, 409)
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM comparison_reviews').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT count(*) FROM comparison_review_events').fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='offline_comparison_review'").fetchone()[0], 0)
+
+    def test_08_consistent_zero_denominators_and_tiny_float_roundoff_are_accepted(self):
+        for label, score in ((0,0), (1,0), (0,1), (1,1)):
+            result = deepcopy(self.saved['report']['result'])
+            for model in result['models']:
+                count = result['split']['test_count']
+                model['test_metrics'] = evaluate_scores([label]*count, [score]*count,
+                                                        threshold=model['threshold']).as_dict()
+            validate_result(result)
+        result = deepcopy(self.saved['report']['result'])
+        result['models'][0]['test_metrics']['precision'] += 5e-13
+        validate_result(result)
+
+    def test_09_boolean_sample_count_and_model_threshold_are_rejected(self):
+        for field in ('sample_count', 'model_threshold'):
+            with self.subTest(field=field):
+                result = deepcopy(self.saved['report']['result'])
+                result['split']['test_count'] = 1
+                result['split']['holdout_event_ids'] = result['split']['holdout_event_ids'][:1]
+                for model in result['models']:
+                    model['threshold'] = 1.0
+                    model['test_metrics'] = evaluate_scores([0], [0], threshold=1.0).as_dict()
+                if field == 'sample_count':
+                    result['models'][0]['test_metrics']['sample_count'] = True
+                else:
+                    result['models'][0]['threshold'] = True
+                with self.assertRaises(ValueError):
+                    validate_result(result)
 
 
 if __name__ == "__main__":
