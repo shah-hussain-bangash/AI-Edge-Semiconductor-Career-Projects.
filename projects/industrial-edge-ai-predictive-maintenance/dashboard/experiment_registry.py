@@ -12,7 +12,7 @@ import json
 import math
 from pathlib import Path
 
-from offline_baseline import evaluate_offline_baseline
+from offline_baseline import _chronological_key, evaluate_offline_baseline
 
 SCHEMA_VERSION = "edgeops-offline-experiment-v1"
 
@@ -60,7 +60,7 @@ def register_experiment(rows, artifact_root, *, train_fraction=0.6,
     # Evaluation validates all rows, labels and provenance before filesystem I/O.
     outcome = evaluate_offline_baseline(
         rows, train_fraction=train_fraction, validation_fraction=validation_fraction)
-    ordered = sorted(rows, key=lambda r: (r["captured_at"], r["event_id"]))
+    ordered = sorted(rows, key=_chronological_key)
     dataset = {
         "schema": SCHEMA_VERSION, "provenance": "synthetic-demo",
         "rows": ordered, "label_kind": "synthetic-demonstration-only",

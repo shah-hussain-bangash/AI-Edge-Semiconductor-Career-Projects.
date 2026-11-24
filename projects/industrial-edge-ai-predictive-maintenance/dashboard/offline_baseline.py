@@ -12,6 +12,7 @@ from math import isfinite, sqrt
 from statistics import mean, pstdev
 
 from ml_evaluation import evaluate_scores
+from time_series_features import _time
 
 FEATURES = (
     "vibration_mm_s_mean", "vibration_mm_s_std", "vibration_mm_s_delta",
@@ -40,6 +41,11 @@ def _label(row):
     return value
 
 
+def _chronological_key(row):
+    """Order by actual UTC instant; retain the original timestamp in saved rows."""
+    return _time(row['captured_at']), row['event_id']
+
+
 def _split(rows, train_fraction=0.6, validation_fraction=0.2):
     rows = list(rows)
     if len(rows) < 10:
@@ -64,7 +70,7 @@ def _split(rows, train_fraction=0.6, validation_fraction=0.2):
         _label(row)
         clean.append(row)
     # Explicit global chronology, including when assets are interleaved.
-    clean.sort(key=lambda x: (x["captured_at"], x["event_id"]))
+    clean.sort(key=_chronological_key)
     train_end = int(len(clean) * train_fraction)
     val_end = int(len(clean) * (train_fraction + validation_fraction))
     if not (2 <= train_end < val_end < len(clean)):

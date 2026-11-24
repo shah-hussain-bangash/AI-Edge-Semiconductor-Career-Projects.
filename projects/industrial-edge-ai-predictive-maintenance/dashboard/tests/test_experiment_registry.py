@@ -95,5 +95,25 @@ class ExperimentRegistryTests(unittest.TestCase):
 
 
 
+    def test_06_saved_experiment_uses_actual_utc_order_for_mixed_offsets(self):
+        rows=demo_rows();expected=[row['event_id'] for row in rows]
+        for i,row in enumerate(rows):
+            parsed=datetime.fromisoformat(row['captured_at'])
+            row['captured_at']=parsed.astimezone(timezone(timedelta(hours=9 if i%2 else -8))).isoformat()
+        with tempfile.TemporaryDirectory(prefix='edgeops-experiment-time-') as directory:
+            saved=register_experiment(list(reversed(rows)),directory)
+            result=verify_experiment(directory,saved['run_id'])
+            self.assertEqual([row['event_id'] for row in result['dataset']['rows']],expected)
+            self.assertEqual(result['report']['holdout_event_ids'],expected[-result['report']['counts']['test']:])
+
+    def test_07_invalid_or_naive_times_are_rejected_before_artifact_writes(self):
+        for timestamp in ('not-a-time','2026-01-01T00:00:00','2026-99-01T00:00:00Z'):
+            with self.subTest(timestamp=timestamp),tempfile.TemporaryDirectory() as directory:
+                rows=demo_rows();rows[0]['captured_at']=timestamp
+                with self.assertRaisesRegex(ValueError,'captured_at'):
+                    register_experiment(rows,directory)
+                self.assertEqual(list(Path(directory).iterdir()),[])
+
+
 if __name__ == "__main__":
     unittest.main()

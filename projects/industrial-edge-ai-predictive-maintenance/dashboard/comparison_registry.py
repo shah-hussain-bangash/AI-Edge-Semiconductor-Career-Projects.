@@ -4,6 +4,7 @@ import math
 import re
 
 from experiment_registry import _digest, _json_bytes, _read_verified, _save_once
+from offline_baseline import _chronological_key
 
 SCHEMA = "edgeops-model-comparison-v1"
 
@@ -60,7 +61,7 @@ def save_comparison(rows, artifact_root, *, train_fraction=0.6, validation_fract
                                   validation_fraction=validation_fraction)
     validate_result(result)
     dataset = {"schema": SCHEMA, "provenance": "synthetic-demo",
-               "rows": sorted(rows, key=lambda r: (r["captured_at"], r["event_id"]))}
+               "rows": sorted(rows, key=_chronological_key)}
     data = _json_bytes(dataset)
     dataset_sha = _digest(data)
     report = {"schema": SCHEMA, "dataset_sha256": dataset_sha,
@@ -71,7 +72,8 @@ def save_comparison(rows, artifact_root, *, train_fraction=0.6, validation_fract
               "software_versions": {"sklearn": sklearn.__version__, "numpy": numpy.__version__},
               "source_sha256": {name: _digest((Path(__file__).parent / name).read_bytes())
                                 for name in ("sklearn_comparison.py", "offline_baseline.py",
-                                             "ml_evaluation.py", "comparison_registry.py")},
+                                             "ml_evaluation.py", "comparison_registry.py",
+                                             "time_series_features.py")},
               "result": result}
     report_bytes = _json_bytes(report)
     comparison_id = _digest(report_bytes)

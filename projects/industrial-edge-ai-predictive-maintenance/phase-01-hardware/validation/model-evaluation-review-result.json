@@ -1,0 +1,104 @@
+{
+  "schema": "edgeops.synthetic-model-review.v1",
+  "reviewed_date": "2026-11-24",
+  "reviewed_base_commit": "eec5fa1647163531030e76ed2864d941c55d6d52",
+  "source_sha256_utf8_lf": {
+    "offline_baseline.py": "c05febea6c4c11b87d99d20ff0fe3660fda1131c2f6692cc90ac04631565f403",
+    "experiment_registry.py": "6d54cb395034b1f714d34c559a975788b1589ac8dc312ea4fe9d6279abf341c6",
+    "comparison_registry.py": "f25047f35d76f818a0c7b39b68bac2200249e23f0d308ca1cdd5b79c805924af",
+    "sklearn_comparison.py": "938e8e4f5fcd08aa802e3d23e6adb0ff444f30731a8b9c595d81dedfb09061ef",
+    "time_series_features.py": "cf485766f9a051eda9992530805bd58eb6d68e83c4897a4d5af7d4b0e822a9f4",
+    "ml_evaluation.py": "1d81d7734b48a5078ae4ec19ac2f62752ceac76007aea039b4008799b13244ea"
+  },
+  "software_versions": {
+    "numpy": "2.5.5",
+    "scikit-learn": "1.9.1"
+  },
+  "checks": {
+    "equivalent_offsets_preserve_holdout_and_metrics": true,
+    "holdout_perturbation_preserves_threshold_selection_inputs": true,
+    "invalid_or_naive_times_rejected": "PASS: regression cases",
+    "saved_dataset_rows_follow_utc_order": "PASS: experiment and comparison regressions",
+    "targeted_python_tests_passed": 46
+  },
+  "label_distribution": {
+    "training": {
+      "label_0": 23,
+      "label_1": 4
+    },
+    "validation": {
+      "label_0": 8,
+      "label_1": 1
+    },
+    "holdout": {
+      "label_0": 1,
+      "label_1": 9
+    }
+  },
+  "comparison_result": {
+    "provenance": "synthetic-demo",
+    "label_kind": "synthetic-demonstration-only",
+    "evaluation_scope": "offline-research-only",
+    "hardware_connected": false,
+    "model_deployed": false,
+    "real_world_accuracy": "not-established",
+    "split": {
+      "method": "global-chronological",
+      "train_count": 27,
+      "validation_count": 9,
+      "test_count": 10,
+      "holdout_event_ids": [
+        "demo-exp-038",
+        "demo-exp-039",
+        "demo-exp-040",
+        "demo-exp-041",
+        "demo-exp-042",
+        "demo-exp-043",
+        "demo-exp-044",
+        "demo-exp-045",
+        "demo-exp-046",
+        "demo-exp-047"
+      ]
+    },
+    "models": [
+      {
+        "name": "standardized-deviation",
+        "type": "unsupervised-deviation-baseline",
+        "threshold": 0.45,
+        "test_metrics": {
+          "sample_count": 10,
+          "threshold": 0.45,
+          "tp": 9,
+          "tn": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9,
+          "recall": 1.0,
+          "f1": 0.9473684210526316,
+          "accuracy": 0.9
+        }
+      },
+      {
+        "name": "sklearn-logistic-regression",
+        "type": "supervised-synthetic-classifier",
+        "threshold": 0.9,
+        "test_metrics": {
+          "sample_count": 10,
+          "threshold": 0.9,
+          "tp": 3,
+          "tn": 1,
+          "fp": 0,
+          "fn": 6,
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "f1": 0.5,
+          "accuracy": 0.4
+        }
+      }
+    ],
+    "warning": "Synthetic labels and tiny holdouts do not establish failure prediction performance."
+  },
+  "physical_acceptance_verified": false,
+  "production_ready": false,
+  "limitations": "Invented labels, one synthetic asset and tiny imbalanced holdout; no real fault prediction, hardware inference, latency benchmark or deployment is established."
+}

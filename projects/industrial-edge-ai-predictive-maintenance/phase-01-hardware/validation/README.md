@@ -30,6 +30,12 @@ python phase-01-hardware/validation/run_recovery_drill.py --output synthetic-rec
 
 The script trusts only its own checkout path for the Git source-tree read, without changing global Git configuration. Execution timestamps and source-tree revisions can differ between runs, so compare assertions and provenance rather than expecting the saved JSON hash to repeat. This is a one-store software drill: coordinated multi-store recovery, real cutover, offsite/encrypted backup, operational recovery-time/data-loss targets and physical maintenance remain unverified. No live data or connected equipment was involved.
 
+## Synthetic model-evaluation review — 24 November 2026
+
+[Review, demonstrated defect and verification](../../dashboard/reviews/2026-11-24-model-evaluation-review.md) · [Synthetic comparison result and source fingerprints](model-evaluation-review-result.json)
+
+Equivalent UTC instants expressed with different offsets now retain the same chronological holdout and metrics. Experiment/comparison dataset ordering uses the same parsed-time key, and invalid or timezone-free timestamps are rejected. All 46 targeted regression tests passed, including a check that holdout changes leave threshold-selection inputs unchanged. The saved result contains invented labels with only ten holdout rows, nine labelled positive; its scores do not establish physical failure prediction or select a production model. Existing historical evidence below remains tied to its original source revisions.
+
 ## Saved synthetic operations example
 
 [Sanitized result](synthetic-operations-result.json) · [replay script](run_synthetic_operations.py) · [first hardware acceptance checklist](FIRST-HARDWARE-ACCEPTANCE.md)
