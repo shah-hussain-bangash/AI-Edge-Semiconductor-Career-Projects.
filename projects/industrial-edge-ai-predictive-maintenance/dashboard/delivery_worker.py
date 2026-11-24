@@ -10,10 +10,16 @@ from edge_delivery import Spool
 
 
 def run_once(spool_path,server,email,password):
-    target=urlsplit(server)
-    if (target.scheme!='http' or target.hostname not in ('127.0.0.1','localhost','::1')
-            or target.username or target.password or target.query or target.fragment or target.path not in ('','/')):
-        raise ValueError('This development worker accepts only an explicit loopback HTTP origin')
+    try:
+        if not isinstance(server,str) or any(ord(char)<=32 or ord(char)==127 for char in server):raise ValueError()
+        target=urlsplit(server);port=target.port
+        if (target.scheme!='http' or target.hostname not in ('127.0.0.1','localhost','::1')
+                or target.username is not None or target.password is not None
+                or target.query or target.fragment or target.path not in ('','/')
+                or (port is not None and not 1<=port<=65535)):
+            raise ValueError()
+    except ValueError:
+        raise ValueError('This development worker accepts only an explicit loopback HTTP origin with a valid port') from None
     if not email or not password:raise ValueError('Supply dedicated local test account credentials through the environment')
     with httpx.Client(base_url=server.rstrip('/'),timeout=10,follow_redirects=False,trust_env=False) as client:
         login=client.post('/api/auth/login',json={'email':email,'password':password})
