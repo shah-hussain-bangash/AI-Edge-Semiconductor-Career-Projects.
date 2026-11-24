@@ -1,11 +1,13 @@
 """Retained-row and serialized-payload accounting; reads never reclaim capacity."""
 import os
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from edge_delivery import Spool
+from edge_delivery import Spool,identity
 from test_delivery import envelope
 import test_acquisition_registry as fixtures
 
@@ -18,6 +20,49 @@ class DeliveryCapacityTests(unittest.TestCase):
     def enqueue(self,sequence):
         data=envelope();data['observation']['sequence']=sequence
         return self.spool.enqueue(data)
+
+    def test_default_record_limit_preserves_ten_thousand_existing_events(self):
+        self.assertEqual(self.spool.max_rows,10000)
+        self.enqueue(0)
+        with self.spool.db() as db:
+            expected_bytes=len(db.execute('SELECT payload FROM delivery_spool').fetchone()[0].encode('utf-8'))
+        rows=[]
+        for sequence in range(1,10000):
+            sample=envelope();sample['observation']['sequence']=sequence
+            key,digest=identity(sample)
+            payload=json.dumps(sample,sort_keys=True,separators=(',',':'),allow_nan=False)
+            expected_bytes+=len(payload.encode('utf-8'))
+            saved_at=1700000000+sequence/1000
+            rows.append((key,digest,payload,'pending',0,0,None,None,None,None,saved_at,saved_at))
+        # Bulk population isolates the real default admission boundary; this is not an ingest-rate test.
+        with self.spool.db() as db:
+            db.executemany('INSERT INTO delivery_spool VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',rows)
+        def snapshot_hash():
+            digest=hashlib.sha256()
+            with self.spool.db() as db:
+                for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key'):
+                    digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
+            return digest.hexdigest()
+        before=snapshot_hash();status=self.spool.status()
+        self.assertEqual(status['usage'],{'records':10000,'payload_bytes':expected_bytes})
+        self.assertLess(expected_bytes,status['limits']['payload_bytes'])
+        self.assertEqual(status['counts']['pending'],10000)
+        self.assertFalse(self.spool.enqueue(envelope())['created'])
+        sample=envelope();sample['observation']['sequence']=10000
+        with self.assertRaises(OverflowError):self.spool.enqueue(sample)
+        restarted=Spool(self.path)
+        after=restarted.status()
+        self.assertEqual(after['usage'],status['usage']);self.assertEqual(after['counts'],status['counts'])
+        self.assertEqual(snapshot_hash(),before)
+        with self.spool.db() as db:self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+        self.default_capacity_evidence={
+            'configured_record_limit':status['limits']['records'],
+            'configured_payload_byte_limit':status['limits']['payload_bytes'],
+            'retained_records':after['usage']['records'],'retained_payload_bytes':after['usage']['payload_bytes'],
+            'duplicate_retry_created_record':False,'additional_event_rejected':True,
+            'all_saved_rows_unchanged':True,'restart_preserved_counts_and_usage':True,
+            'sqlite_quick_check':'ok',
+            'fixture_population':'One normal enqueue plus 9,999 bulk-inserted valid synthetic rows; not 10,000 API ingests or a throughput/soak test.'}
 
     def test_empty_capacity_and_stored_utf8_byte_accounting(self):
         self.assertEqual(self.spool.status()['usage'],{'records':0,'payload_bytes':0})

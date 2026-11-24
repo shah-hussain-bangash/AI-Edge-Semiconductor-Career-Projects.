@@ -186,3 +186,19 @@ python -m unittest discover -s tests -p test_capture_summary.py -k 600_record -v
 ```
 
 The isolated fixture and all 61 hardware-side software tests passed, including 11 summary tests. No application fix was needed. The temporary package was discarded; the JSON is a descriptive snapshot with a manifest reference, not a complete archived source package. Its generator remains versioned for replay. All physical/authorization/readiness flags remain false, the original 30 products are unchanged, and no equipment, dashboard scope, merge or deployment is included.
+
+## Default queue record-limit boundary — 24 November 2026
+
+[Sanitized capacity result](synthetic-default-queue-capacity-result.json) checks the actual default 10,000-record queue limit against application baseline `71c9eff743026fc287ebedf440add3d3755839dc`. The fixture and assertions are in [test_delivery_capacity.py](../../dashboard/tests/test_delivery_capacity.py).
+
+One ordinary enqueue and 9,999 directly bulk-inserted, contract-shaped synthetic rows populate a disposable queue. This isolates admission at the real default limit without claiming to exercise 10,000 API ingests. The stored payload total is 6,758,890 bytes, below the configured 33,554,432-byte payload limit, so the record limit is the binding constraint. An identical retry creates no row, and an additional distinct event raises `OverflowError`. Reopening the queue preserves all counts and payload-byte usage. A hash over every ordered saved row matches before/after, and SQLite quick check passes.
+
+Replay from the dashboard directory with existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery_capacity.py -k default_record_limit -v
+```
+
+The isolated case and all 51 delivery/worker/history/capacity/timing tests passed. This is a finite local admission-boundary check, not an ingestion-rate, latency, sustained-load, disk-exhaustion or hardware-performance test. Payload-byte accounting excludes SQLite indexes, database pages, WAL and other disk overhead. No application fix was needed; existing test-client deprecation warnings remain.
+
+Result SHA-256: `a39a7fa13fb38c9a21b095a8df9ec57d6bb791c92823fe838057e3cc1e7a0c15`. Only regression coverage and aggregate software evidence are added. Counts overlap earlier executions. The original 30 products are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
