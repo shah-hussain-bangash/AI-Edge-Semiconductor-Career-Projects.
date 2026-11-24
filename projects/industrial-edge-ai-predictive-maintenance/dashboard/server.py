@@ -511,8 +511,12 @@ def review_model_comparison(comparison_id: str, body: ComparisonReviewInput, req
     except (ValueError, OSError, TypeError, KeyError, AttributeError):
         raise HTTPException(409, "Comparison unavailable or failed integrity verification; refresh reports")
     with database() as db:
-        # Serialize revision check and update, including the matching audit event.
+        # File verification can overlap an access change. Recheck the exact
+        # session/role while serializing the decision, revision and audit write.
         db.execute("BEGIN IMMEDIATE")
+        current = maintenance_requests.fresh_actor(db, current)
+        if current["role"] != "admin":
+            raise HTTPException(403, "Admin role required for offline report review")
         previous = comparison_review(db, comparison_id)
         if previous["revision"] != body.expected_revision:
             raise HTTPException(409, "Review changed; refresh before submitting again")
