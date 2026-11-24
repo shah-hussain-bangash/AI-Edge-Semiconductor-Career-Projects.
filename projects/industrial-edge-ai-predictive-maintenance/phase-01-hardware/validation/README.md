@@ -102,3 +102,21 @@ The output path must be new. Temporary credentials, database, trigger and record
 Local verification: the drill passed, and the existing `test_observation_incidents.py`, `test_incident_planning.py` and `test_maintenance_requests.py` suites passed all 27 tests. These include scope, access, concurrent retry, stale revision, independent review, rollback and source-preservation regressions. Existing test-client deprecation warnings did not block execution. These local results do not assert the outcome of a later GitHub workflow run.
 
 This establishes deterministic local transaction rollback and sequential retry behavior, not power-loss recovery, distributed exactly-once delivery, real acquisition or physical acceptance. Maintenance stays `draft`, execution is disabled, and hardware/authorization/physical-acceptance/production flags remain false. The original 30 categories are unchanged; connection awaits the complete hardware set and a ready, reviewed bench. The other six concepts remain future scope. No merge or deployment is included.
+
+## Source corruption and retained evidence review — 24 November 2026
+
+[Sanitized regression result](synthetic-source-preservation-result.json) records 24 passing existing tests on application commit `16e6cf95272f52a2c30694355523c85757b03baf`, tree `a3b4f16cf5cac7350d843ba8735e29c48d97a90e`. No application change or additional dashboard scope was needed.
+
+The disposable fixtures deliberately alter a committed observation's payload. History inspection and new incident capture reject the inconsistent payload with HTTP 503. A previously captured incident still returns its original source snapshot, an exact retry reuses that saved capture, and a linked maintenance draft preserves it. Other regressions check source identity through local backup/restore, authorization, stale revisions, independent review and transactional rollback. These tests overlap earlier suites; their counts are not additional independent acceptance criteria.
+
+Replay from the dashboard directory with its existing test dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_observation_incidents.py -v
+python -m unittest discover -s tests -p test_observation_queries.py -v
+python -m unittest discover -s tests -p test_incident_planning.py -v
+```
+
+All 24 test cases passed with no failures, errors or skips. The first combined evidence harness then failed while collecting Git metadata because its environment was missing a Git configuration value. A separate command confirmed the local tree against the GitHub commit tree before the sanitized result was written. This collection limitation is recorded in the result; it is not counted as an application failure or silently omitted. Existing test-client deprecation warnings also remain.
+
+Result SHA-256: `e52c435506afe55d4447ce00e1507c66bb2ea175817c4a40709e09e087b4ef8c`. This is software regression evidence, not proof against a privileged administrator changing the database and its snapshots together. It establishes neither real sensor authenticity nor physical acceptance. Hardware connection and acceptance remain pending, with the same original 30 categories; no merge, deployment or work on the other six concepts is included.
