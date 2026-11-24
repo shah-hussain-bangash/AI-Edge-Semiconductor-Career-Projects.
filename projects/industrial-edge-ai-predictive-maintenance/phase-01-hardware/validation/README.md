@@ -1,5 +1,15 @@
 # Bounded hardware-validation preparation — 24 November 2026
 
+## Additional clean-installation verification — 24 November 2026
+
+The dashboard and optional ML requirements were installed into a new, separate Windows Python 3.14.8 environment using published wheels. System and user site packages were excluded. The existing running dashboard and its data were untouched. This closes the reused-dependency limitation for the software checks listed here, not for every repository test or target platform.
+
+[Installation evidence and exact package/archive versions](fresh-installation-result.json) · [Sanitized operations replay](fresh-installation-replay.json)
+
+The verified source was GitHub commit `60e2ff5198838008d43a6c7694ad9de8b3844c01`, tree `85b6576562ea322018461951f1aa161b1d414018`. Installation used `python -m pip install --only-binary=:all: -r requirements.txt -r requirements-ml.txt` from the dashboard directory with the new interpreter. `python -m pip check` reported no broken requirements. API tests passed 26/26, scikit-learn comparison tests 3/3 and experiment-registry tests 5/5: **34 targeted tests passed**, plus the synthetic observation-to-incident-to-maintenance-draft replay. Every test used disposable data.
+
+The result records the installed versions and downloaded archive SHA-256 values. They describe this installation snapshot, not a cross-platform lockfile or a security assessment of those packages. The replay's source-tree identity, draft state, content hash and sanitization were checked. Browser acceptance, real acquisition and deployment were not exercised in this new environment. All physical acceptance remains pending. The earlier evidence below retains its original source revision and scope.
+
 ## Saved synthetic operations example
 
 [Sanitized result](synthetic-operations-result.json) · [replay script](run_synthetic_operations.py) · [first hardware acceptance checklist](FIRST-HARDWARE-ACCEPTANCE.md)
