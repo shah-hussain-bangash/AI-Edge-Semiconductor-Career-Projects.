@@ -64,6 +64,37 @@ class CaptureSummaryTests(unittest.TestCase):
         self.assertTrue(report['requires_review'])
         self.assertEqual(report['timing']['interval_max_seconds'], 2)
 
+    def test_600_record_fixture_preserves_partial_quality_and_gap_without_acceptance(self):
+        rows=self.rows([index+(3 if index>=300 else 0) for index in range(600)])
+        for index,row in enumerate(rows):
+            row['seq']=str(index+(2 if index>=300 else 0))
+            sensor='adxl345' if index<6 else 'ds18b20' if index<10 else 'ina219' if index<12 else None
+            if sensor:row.update({sensor+'_valid':'False','valid':'False'})
+        rows[12]['current_ma']='0'
+        self.prepare(rows)
+        report=summary.summarize(self.package)
+        self.assertEqual((report['input_rows'],report['accepted_rows'],report['quarantined_rows']),(600,600,0))
+        self.assertEqual(report['accepted_sequence_gaps'],2)
+        self.assertEqual(report['sensor_groups'],{
+            'adxl345':{'valid_rows':594,'invalid_rows':6},
+            'ds18b20':{'valid_rows':596,'invalid_rows':4},
+            'ina219':{'valid_rows':598,'invalid_rows':2}})
+        timing=report['timing']
+        self.assertEqual((timing['interval_count'],timing['receipt_span_seconds']), (599,602))
+        self.assertEqual((timing['interval_median_seconds'],timing['interval_p95_seconds'],
+                          timing['interval_max_seconds'],timing['zero_interval_count']),(1,1,4,0))
+        self.assertAlmostEqual(timing['observed_receipt_rate_hz'],599/602)
+        records=adapter.evidence_lines((self.package/'observations.jsonl').read_bytes(),16384)
+        self.assertIsNone(records[0]['measurements']['acceleration_x_mps2'])
+        self.assertIsNone(records[10]['measurements']['current_a'])
+        self.assertEqual(records[12]['measurements']['current_a'],0)
+        self.assertEqual((report['source_type'],report['physical_acceptance']),('synthetic','pending'))
+        self.assertFalse(timing['capture_elapsed_verified']);self.assertFalse(timing['sensor_sampling_rate_verified'])
+        for flag in ('physical_source_verified','calibration_verified','hardware_connected',
+                     'equipment_authorized','ready_for_ingestion','production_ready'):
+            self.assertIs(report[flag],False)
+        self.summary_fixture_evidence=report
+
     def test_p95_uses_nearest_rank_rather_than_maximum(self):
         self.prepare(self.rows(list(range(20)) + [40]))
         timing = summary.summarize(self.package)['timing']

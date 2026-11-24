@@ -170,3 +170,19 @@ python -m unittest discover -s tests -p test_delivery.py -k local_receipt_write_
 The isolated case and all 50 delivery/worker/history/capacity/timing tests passed. This is an actual SQLite read-only write failure, not a test that fills the user's disk or proves recovery from hardware storage failure, power loss or all disk-error classes. API requests in this case are in-process, not remote-network tests. Lease eligibility is controlled; recovery duration is not measured. Existing test-client deprecation warnings remain. No application fix was needed.
 
 Result SHA-256: `01e67e1992665f4fc95c97d8f361dfe06c38616c27775b0fea117ccb68ea9c7d`. Only regression coverage and allowlisted software evidence are added. Counts overlap earlier executions. The original 30 hardware categories are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, running user service, merge, deployment or other-project scope is included.
+
+## Synthetic 600-record summary fixture — 24 November 2026
+
+[Saved summary result](synthetic-600-record-summary-result.json) checks numerical summary behavior against application baseline `c99fab2965f90772ed5d90e8528706879de14438`. The deterministic generator and assertions are in [test_capture_summary.py](../tests/test_capture_summary.py).
+
+The fixture has 600 accepted CSV records, zero quarantined rows, two skipped sequence identities and a three-second receipt-time shift at row 300. Expected ADXL345/DS18B20/INA219 valid counts are 594/596/598, with 6/4/2 invalid group rows. Invalid readings map to null and a valid current zero survives conversion. The 599 receipt intervals have median/p95 of 1 second, maximum 4 seconds and total span 602 seconds; observed receipt rate is `599/602` Hz. These are invented receipt times, not a timed bench run or sensor sampling measurements.
+
+This is **not an H1 pass**. Whole-package valid counts over a 602-second span are not the required first-600-second window counts, and the four-second gap exceeds H1's proposed three-second maximum. Thresholds still require prior agreement and physical reference evidence. The summary applies no acceptance decision and retains `physical_acceptance=pending`. Its `requires_review` field reflects transformation/quarantine state only: false does not certify sensor quality, timing or physical acceptance.
+
+Replay from `phase-01-hardware` with its existing test dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_capture_summary.py -k 600_record -v
+```
+
+The isolated fixture and all 61 hardware-side software tests passed, including 11 summary tests. No application fix was needed. The temporary package was discarded; the JSON is a descriptive snapshot with a manifest reference, not a complete archived source package. Its generator remains versioned for replay. All physical/authorization/readiness flags remain false, the original 30 products are unchanged, and no equipment, dashboard scope, merge or deployment is included.
