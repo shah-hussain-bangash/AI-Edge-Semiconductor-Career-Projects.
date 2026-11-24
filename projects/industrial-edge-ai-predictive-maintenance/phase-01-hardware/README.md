@@ -1,8 +1,8 @@
 # Phase 01 — Runnable Sensor Acquisition Starter
 
-This is **starter source code**, not a claim of tested hardware. The firmware supports ESP32 + ADXL345 (I2C), INA219 (I2C), and DS18B20 (GPIO4). It prints one JSON Lines record per second. A laptop capture utility saves and validates the records.
+This is **starter source code**, not a claim of tested hardware. The firmware supports ESP32 + ADXL345 (I2C), INA219 (I2C), and DS18B20 (GPIO4). It prints a nominal 1 Hz JSON Lines summary stream; actual rate, intervals and gaps must be measured during acceptance. A laptop capture utility saves and validates the records.
 
-Hardware arrival is pending. The [offline capture handoff](docs/OFFLINE_CAPTURE_HANDOFF.md) prepares existing V1 capture CSV files as candidate V2 evidence without connecting devices or importing measured readings into the dashboard. The same 30-product selection remains unchanged.
+The owner reports partial hardware receipt; the complete order is still pending. Exact received products, quantities and variants have not been independently verified or entered as accepted inventory. Connection remains deferred until the complete set is available and the bench is ready and reviewed. The [offline capture handoff](docs/OFFLINE_CAPTURE_HANDOFF.md) prepares existing V1 capture CSV files as candidate V2 evidence without connecting devices or importing measured readings into the dashboard. The same 30-product selection remains unchanged.
 
 Use the [compile-only build guide](docs/FIRMWARE_BUILD.md) to check the existing ESP32 firmware before hardware arrives. Build tools/platform/direct libraries are fixed to explicit versions; GitHub compiles the target without uploading it. Compilation does not establish physical compatibility or acceptance.
 

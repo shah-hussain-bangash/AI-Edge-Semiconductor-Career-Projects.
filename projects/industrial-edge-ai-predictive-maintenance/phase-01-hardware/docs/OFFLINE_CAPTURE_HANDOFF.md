@@ -1,6 +1,6 @@
-# Offline capture handoff — awaiting hardware arrival
+# Offline capture handoff — awaiting complete hardware receipt
 
-Status: hardware ordered, not yet received, as reported by the owner. The existing 30-product selection and physical connection pack are unchanged. No device has been connected, enrolled, calibrated or accepted by this work.
+Status reviewed 24 November 2026: the owner reports partial receipt of the order; the complete set is still pending. Received product identities, quantities and exact variants have not been verified in this session. Connection remains deferred until the complete set is available and the bench is ready and reviewed. The existing 30-product selection and physical connection pack are unchanged. No device has been connected, enrolled, calibrated or accepted by this work. Do not mark individual receipt-worksheet rows received or verified from this aggregate report alone.
 
 ## What is prepared
 
