@@ -23,7 +23,9 @@ It is intentionally structured as both:
 1. **A project portfolio** — seven problem-driven, measurable engineering builds with architectures, input/output definitions, implementation milestones and evaluation requirements.
 2. **A practical learning roadmap** — eight skill tracks that progressively connect fundamental electronics and firmware to AI inference, RTL verification and deployed services.
 
-> **Evidence-first status:** A project description is not proof of an implemented system. This repository currently includes extensive engineering documentation, system diagrams and initial ESP32/serial-capture starter code for EDGEOPS. Earlier visual dashboard prototypes use **simulated data**. Real hardware operation, complete backend connectivity and production-level measurements remain to be validated. The six other projects below are **planned portfolio builds**, not completed applications.
+> **Evidence-first status — 24 November 2026:** EDGEOPS includes an authenticated local FastAPI/dashboard implementation, persistent synthetic observations, incident and maintenance-draft workflows, offline experiment tooling and ESP32/serial-capture preparation. The current implementation is in [draft PR #2](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./pull/2), branch `ui/production-workspace-20261119`, targeting `dashboard-live-edit`; it is not a merged release. Some hardware has arrived according to the owner; connection is deferred until the original ordered set is complete. Real acquisition and production acceptance remain pending. The six other projects below are **planned portfolio builds**, not completed applications.
+
+**Review the evidence:** [Saved synthetic operations example](projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/validation/README.md) · [Software review and regression results](projects/industrial-edge-ai-predictive-maintenance/dashboard/reviews/2026-11-24-request-boundary-review.md) · [First hardware acceptance milestone](projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/validation/FIRST-HARDWARE-ACCEPTANCE.md) · [Profile evidence and downloadable brief](https://github.com/shah-hussain-bangash/shah-hussain-bangash/blob/main/docs/edgeops/EVIDENCE.md)
 
 ## At a glance
 
@@ -40,7 +42,7 @@ It is intentionally structured as both:
 
 ## Complete engineering ecosystem
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
     A["Physical equipment / images / RTL"] --> B["Data acquisition or test stimulus"]
     B --> C["Embedded, edge and simulation compute"]
@@ -49,7 +51,7 @@ flowchart LR
     E --> F["Operations UI and reproducible reports"]
     F --> G["Human review, approval and evaluation"]
     G --> H["Measured improvement and controlled release"]
-\`\`\`
+```
 
 This portfolio intentionally links **software, hardware and AI** while keeping their evaluation paths distinct: physical sensor data requires calibration; chip benchmarks require device measurements; RTL correctness requires deterministic tests; and industrial actions require safety controls.
 
@@ -57,7 +59,7 @@ This portfolio intentionally links **software, hardware and AI** while keeping t
 
 ## 01 · EDGEOPS — Industrial Edge AI Predictive Maintenance & Autonomous Operations
 
-**Priority:** Flagship build · **Current state:** Documentation + starter embedded code + simulated visual prototype; full integration pending.
+**Priority:** Flagship build · **Current state:** Tested local software with synthetic inputs, offline capture preparation and documented target architecture; physical integration pending.
 
 **Problem:** Equipment vibration, temperature and electrical-load changes can go unnoticed when telemetry, anomaly detection, maintenance reviews and operational evidence are fragmented.
 
@@ -73,9 +75,9 @@ This portfolio intentionally links **software, hardware and AI** while keeping t
 | UX & intelligence | **EDGEOPS** dashboard, incidents, work orders, RAG maintenance assistance |
 | Operations | Security, audit trails, digital-twin scenarios, evaluation and rollback |
 
-**End-to-end practical flow**
+**Target end-to-end flow — physical integration not yet validated**
 
-\`\`\`text
+```text
 Guarded motor
   -> vibration / temperature / current sensors
   -> ESP32 acquisition
@@ -84,7 +86,7 @@ Guarded motor
   -> FastAPI + PostgreSQL / TimescaleDB
   -> EDGEOPS monitoring UI
   -> investigation -> work order -> human approval -> auditable outcome
-\`\`\`
+```
 
 ![EDGEOPS complete process architecture](projects/industrial-edge-ai-predictive-maintenance/assets/complete-process-flow.svg)
 
@@ -243,7 +245,7 @@ These are **cross-portfolio learning phases**, not the same as the eight impleme
 
 ## Suggested learning and build order
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
     A["Electronics and Sensors"] --> B["ESP32 and MQTT"]
     B --> C["Motor Monitoring Prototype"]
@@ -253,7 +255,7 @@ flowchart LR
     D --> G["Vision and Wafer AI"]
     D --> H["FPGA Accelerator"]
     H --> I["AI-Assisted RTL Verification"]
-\`\`\`
+```
 
 **Recommended first priority:** complete the EDGEOPS low-voltage sensor → MQTT → edge inference milestone before expanding into several hardware-heavy projects. Reuse its telemetry conventions, evaluation habits and release workflow in the other portfolio builds.
 
@@ -263,11 +265,13 @@ flowchart LR
 |---|---|---|
 | Root portfolio roadmap | Project descriptions and phase links | **Documented** |
 | Eight cross-portfolio phase guides | Eight Markdown guides | **Documented; activities planned** |
-| EDGEOPS end-to-end README | Architecture, API proposal, security, test plan | **Documented** |
+| EDGEOPS end-to-end README | Current software evidence plus target architecture, API proposals and acceptance plan | **Software and planned scope distinguished** |
 | EDGEOPS implementation guides | Eight additional detailed engineering phase files | **Documented** |
 | Hardware requirements and diagrams | Requirements, buying/integration notes, SVG diagrams | **Documented** |
-| Initial embedded lab source | PlatformIO project, C++ firmware, serial capture and starter tests | **Starter code; hardware testing not established** |
-| EDGEOPS dashboard design | Simulated interactive HTML prototypes produced separately | **Prototype; not confirmed committed here** |
+| Embedded and offline acquisition source | PlatformIO/C++ firmware, bounded serial capture, candidate conversion and offline verification | **Source and software checks present; physical acquisition pending** |
+| EDGEOPS local dashboard and API | [Authenticated 18-workspace application](projects/industrial-edge-ai-predictive-maintenance/dashboard/README.md), local persistence and access controls | **Implemented local prototype; equipment inputs synthetic** |
+| Observation-to-maintenance workflow | [One saved synthetic operations example](projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/validation/README.md) and frozen source context | **Demonstrated in disposable software test data** |
+| Software regression and browser checks | [Bounded review: 68 targeted tests and browser password checks](projects/industrial-edge-ai-predictive-maintenance/dashboard/reviews/2026-11-24-request-boundary-review.md); four CI workflow families passed at `5ee6ad7` | **Verified for the cited software revision; not physical acceptance** |
 | MQTT → Raspberry Pi → ONNX → FastAPI → database | Architecture and proposed integration sequence | **Not verified end-to-end** |
 | FPGA accelerator, wafer AI and RTL agent | Project descriptions / learning guides | **Planned** |
 | Full CI/CD, security assessment and industrial release | Requirements and acceptance criteria | **Not verified production-ready** |
@@ -278,7 +282,7 @@ flowchart LR
 
 ## Explore the repository
 
-\`\`\`text
+```text
 AI-Edge-Semiconductor-Career-Projects./
 ├── README.md                          # Portfolio overview (this file)
 ├── phases/                            # Eight cross-portfolio skill guides
@@ -297,12 +301,16 @@ AI-Edge-Semiconductor-Career-Projects./
         ├── HARDWARE_BUYING_INTEGRATION_AND_CAREER_GUIDE.md
         ├── PHASE_01_*.md ... PHASE_08_*.md
         ├── assets/                    # Architecture and lifecycle SVGs
+        ├── dashboard/                 # Authenticated local API/UI and tests
+        ├── production-design/         # Consolidated target design and release gates
+        ├── enterprise-architecture/   # Contracts and architecture documents
         └── phase-01-hardware/
             ├── firmware/              # Initial PlatformIO / ESP32 source
-            ├── scripts/               # Serial-capture starter utility
-            ├── tests/                 # Starter test file
-            └── docs/                  # Wiring and safety notes
-\`\`\`
+            ├── scripts/               # Bounded capture and offline preparation
+            ├── tests/                 # Capture, conversion and build checks
+            ├── validation/            # Synthetic result and pending H1 checklist
+            └── docs/                  # Fixed 30-item connection and safety notes
+```
 
 **Other six project folders have not been represented as existing directories.** Add each as a standalone module when implementation begins.
 
@@ -310,10 +318,18 @@ AI-Edge-Semiconductor-Career-Projects./
 
 Because the GitHub repository name **ends with a literal period**, provide a convenient local directory explicitly:
 
-\`\`\`bash
-git clone "https://github.com/zenithdevelopers7-source/AI-Edge-Semiconductor-Career-Projects..git" edge-semiconductor-lab
+```bash
+git clone "https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects..git" edge-semiconductor-lab
 cd edge-semiconductor-lab
-\`\`\`
+```
+
+To inspect the current draft implementation after cloning, select its branch explicitly:
+
+```bash
+git switch --track origin/ui/production-workspace-20261119
+```
+
+This selects review work, not an approved release. For a software-only walkthrough, follow the [isolated synthetic example](projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/validation/README.md); hardware is not required. For the existing local application, use the [dashboard setup instructions](projects/industrial-edge-ai-predictive-maintenance/dashboard/README.md).
 
 ## Start the first practical build
 
@@ -326,10 +342,10 @@ cd edge-semiconductor-lab
 
 Build entrypoint (requires locally installed PlatformIO):
 
-\`\`\`bash
+```bash
 cd projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware/firmware
 pio run
-\`\`\`
+```
 
 This command is a build instruction, **not a claim that the firmware currently passes** or that hardware was tested.
 
