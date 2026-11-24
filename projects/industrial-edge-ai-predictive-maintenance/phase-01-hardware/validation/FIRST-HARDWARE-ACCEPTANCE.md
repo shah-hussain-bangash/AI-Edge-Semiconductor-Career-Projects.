@@ -32,6 +32,8 @@ These are **proposed project acceptance targets**, not manufacturer accuracy gua
 
 The 594/600 target assumes the declared nominal 1 Hz summary configuration. A different actual configuration requires a new pre-approved count target; it is not a silent exception. Report total frames and valid counts separately. Capture boundaries and their timing uncertainty must be documented. The existing firmware loop may not satisfy this target: measure it and record a failure rather than claim an unmeasured rate.
 
+The [offline handoff summary tool](../docs/OFFLINE_CAPTURE_HANDOFF.md#descriptive-timing-and-validity-summary-without-connecting-hardware) calculates descriptive receipt intervals and valid/invalid group counts from an existing verified package. It does not determine H1 pass/fail, infer acquisition sampling rate or replace measured capture boundaries, first-600-second counts, reference comparisons and physical review. Its physical acceptance state stays pending.
+
 ## Evidence package and decision
 
 - [ ] PENDING — Save original capture and SHA-256, received-part/bench inspection records, raw-to-candidate mapping and all reference comparisons. Use the [existing offline handoff](../docs/OFFLINE_CAPTURE_HANDOFF.md): original attachment, candidate observations, quarantine, manifest and offline verification report. Hash the files and record tool/revision provenance; a hash proves content identity, not physical authenticity.

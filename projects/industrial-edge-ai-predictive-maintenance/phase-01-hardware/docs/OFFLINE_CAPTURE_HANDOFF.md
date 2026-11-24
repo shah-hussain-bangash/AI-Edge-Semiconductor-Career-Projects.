@@ -19,7 +19,25 @@ python scripts/prepare_capture.py verify evidence/synthetic-handoff-001
 
 The example contains no readings from physical equipment. The attachment says `NOT-CONNECTED`. Neither command connects hardware. A successful preparation reports two accepted rows and zero quarantined rows, with physical verification and ingestion readiness false.
 
+## Descriptive timing and validity summary, without connecting hardware
+
+An existing prepared package can be summarized offline with the standard-library tool below. Run from `phase-01-hardware`, using a new output filename outside the package:
+
+```powershell
+python scripts/summarize_capture.py evidence/synthetic-handoff-001 --output evidence/synthetic-handoff-001-summary.json
+```
+
+The tool verifies package inventory, hashes and source transformation first, then checks that the observation bytes it summarizes still match the verified manifest. It never opens a serial port or writes to the package or dashboard. The report records source classification, manifest hash, raw/accepted/quarantined counts, accepted sequence gaps and valid/invalid rows for ADXL345, DS18B20 and INA219. Valid zero remains valid; quarantined rows are excluded from group counts and timing. Group counts therefore sum to accepted rows, not total input rows.
+
+Timing uses declared gateway receipts for accepted records in source order: receipt span, interval median, nearest-rank p95, maximum, zero intervals and observed receipt rate `(accepted rows - 1) / receipt span`. Empty or zero-span captures have no inferred rate; streams with fewer than two accepted records have no interval statistics. Receipt-clock quality and sensor sampling rate are not established by these calculations. Folder reads are not an atomic filesystem snapshot.
+
+This report supports review of [H1](../validation/FIRST-HARDWARE-ACCEPTANCE.md) but applies no acceptance threshold. It does not supply capture start/stop elapsed time, stop reason, first-600-second window counts, reference comparisons, verified identity/calibration or physical sign-off. Physical acceptance remains pending and equipment authorization, ingestion readiness and production readiness remain false, including for operator-declared measured inputs. The original capture and capture-tool summary remain required evidence. Existing filenames and output paths inside the package are refused.
+
+Local verification on 24 November 2026: all 60 hardware-side software tests passed, including 10 summary tests covering irregular intervals, nearest-rank p95, invalid groups, valid zero, quarantine reconciliation, empty/single/equal-time captures, UTC offsets, tampering, post-verification changes, CLI behavior and exclusive output creation. All fixtures are synthetic; no equipment was connected.
+
 ## When the ordered hardware arrives
+
+Physical work remains deferred until the complete ordered set is available and the bench is ready and reviewed.
 
 1. Follow the existing physical connection pack for the same 30 selected products. Resolve the exact ordered board labels, motor/driver current limits, INA219 shunt and supply ratings before energizing. This software handoff grants no electrical approval.
 2. Perform the pack's staged sensor-only checks first. Existing firmware reports V1 over USB serial at 115200 baud, nominally once per second. No motor actuation is implemented by this adapter.
