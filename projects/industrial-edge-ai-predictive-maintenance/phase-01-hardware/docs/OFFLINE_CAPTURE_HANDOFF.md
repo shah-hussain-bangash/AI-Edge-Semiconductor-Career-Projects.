@@ -19,6 +19,8 @@ python scripts/prepare_capture.py verify evidence/synthetic-handoff-001
 
 The example contains no readings from physical equipment. The attachment says `NOT-CONNECTED`. Neither command connects hardware. A successful preparation reports two accepted rows and zero quarantined rows, with physical verification and ingestion readiness false.
 
+Arrival ZIP version two includes the summary tool, its tests and the H1 checklist. The reviewed `dashboard/verify_arrival_pack.py` supports exact version-one and version-two inventories and reports `pack_format`; it rejects a version/inventory mismatch. Existing version-one ZIPs remain supported and unchanged, but do not include those three newer files. Use the new pack or the full reviewed repository for the current summary instructions. Older version-one-only checkers cannot verify version-two ZIPs. An archive's bundled checker is not a trust anchor; use an independently reviewed copy. Some links to wider production-design context require the full repository. Physical flags and the blank receipt worksheet remain unverified in either version.
+
 ## Descriptive timing and validity summary, without connecting hardware
 
 An existing prepared package can be summarized offline with the standard-library tool below. Run from `phase-01-hardware`, using a new output filename outside the package:

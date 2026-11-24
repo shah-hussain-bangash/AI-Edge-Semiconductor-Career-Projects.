@@ -45,6 +45,52 @@ class ArrivalVerifierTests(unittest.TestCase):
         for key in ('signature_verified','source_authenticity_verified','physical_acceptance_verified','hardware_connected','equipment_authorized','production_ready'):self.assertIs(report[key],False)
         self.assertEqual(self.files['dashboard/verify_arrival_pack.py'],(ROOT/'verify_arrival_pack.py').read_bytes())
 
+    def test_v2_contains_current_summary_tool_tests_and_pending_checklist(self):
+        self.assertEqual(verifier.verify_bytes(self.raw)['pack_format'],'edgeops-arrival-pack-v2')
+        for name in ('scripts/summarize_capture.py','tests/test_capture_summary.py','validation/FIRST-HARDWARE-ACCEPTANCE.md'):
+            with self.subTest(name=name):
+                self.assertEqual(self.files['phase-01-hardware/'+name],(ROOT.parent/'phase-01-hardware'/name).read_bytes())
+        self.assertIn(b'Physical status: PENDING',self.files['phase-01-hardware/validation/FIRST-HARDWARE-ACCEPTANCE.md'])
+
+    def legacy_pack(self):
+        files={name:data for name,data in self.files.items() if name in verifier.LEGACY_EXPECTED_FILES}
+        manifest=json.loads(files['manifest.json']);manifest['format']='edgeops-arrival-pack-v1'
+        manifest['files']={name:record for name,record in manifest['files'].items() if name in verifier.LEGACY_EXPECTED_FILES}
+        files['manifest.json']=json.dumps(manifest).encode()
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
+            for name,data in files.items():archive.writestr(name,data)
+        return output.getvalue()
+
+    def test_legacy_v1_inventory_remains_supported_without_new_authority(self):
+        report=verifier.verify_bytes(self.legacy_pack())
+        self.assertEqual(report['pack_format'],'edgeops-arrival-pack-v1')
+        self.assertEqual(report['files_checked'],len(verifier.LEGACY_EXPECTED_FILES)-1)
+        self.assertFalse(report['physical_acceptance_verified'])
+
+    def test_declared_version_must_match_exact_inventory(self):
+        manifest=json.loads(self.files['manifest.json']);manifest['format']='edgeops-arrival-pack-v1'
+        with self.assertRaises(verifier.PackError):
+            verifier.verify_bytes(self.repack({'manifest.json':json.dumps(manifest).encode()}))
+        with zipfile.ZipFile(io.BytesIO(self.legacy_pack())) as archive:
+            files={name:archive.read(name) for name in archive.namelist()}
+        manifest=json.loads(files['manifest.json']);manifest['format']='edgeops-arrival-pack-v2'
+        files['manifest.json']=json.dumps(manifest).encode()
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w') as archive:
+            for name,data in files.items():archive.writestr(name,data)
+        with self.assertRaises(verifier.PackError):verifier.verify_bytes(output.getvalue())
+
+    def test_new_source_cannot_be_removed_even_with_rehashed_manifest(self):
+        omitted='phase-01-hardware/scripts/summarize_capture.py'
+        files={name:data for name,data in self.files.items() if name!=omitted}
+        manifest=json.loads(files['manifest.json']);del manifest['files'][omitted]
+        files['manifest.json']=json.dumps(manifest).encode()
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w') as archive:
+            for name,data in files.items():archive.writestr(name,data)
+        with self.assertRaises(verifier.PackError):verifier.verify_bytes(output.getvalue())
+
     def test_changed_file_and_forged_manifest_size_or_hash_are_rejected(self):
         with self.assertRaises(verifier.PackError):verifier.verify_bytes(self.repack({'START-HERE.md':b'changed'}))
         for key,value in [('bytes',True),('bytes',123),('sha256','0'*64),('sha256','bad')]:

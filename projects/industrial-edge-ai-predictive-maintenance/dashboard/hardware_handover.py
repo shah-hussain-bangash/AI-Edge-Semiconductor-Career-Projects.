@@ -17,6 +17,8 @@ START = """# EDGEOPS hardware arrival pack
 
 Preparation only. The owner reports the same 30 selected products ordered; receipt,
 inspection, calibration, connection and production acceptance remain unverified.
+The owner reports partial receipt; the complete set and exact received variants
+remain unconfirmed. No individual item is marked received from that report alone.
 No substitutions or additional hardware are authorized by this pack.
 
 1. Keep power disconnected. Open receipt-worksheet.csv and record the actual
@@ -29,6 +31,10 @@ No substitutions or additional hardware are authorized by this pack.
 3. Read phase-01-hardware/docs/OFFLINE_CAPTURE_HANDOFF.md. This contains the software
    commands and exit-code meanings. Python 3.12+ is needed for the complete suite.
    The included example is synthetic and opens no hardware port.
+   Version two includes scripts/summarize_capture.py and its tests under
+   phase-01-hardware, plus validation/FIRST-HARDWARE-ACCEPTANCE.md. Read the H1
+   checklist before planning a run. Summary statistics do not close physical checks.
+   Links to wider production-design context require the full reviewed repository.
 4. Firmware source and PlatformIO configuration are included for the existing
    ESP32 target. Dependency installation, compilation and upload are separate
    steps; this download does not establish a successful build or exact-board fit.
@@ -106,7 +112,7 @@ def build_pack(root):
         files['START-HERE.md'] = START.encode()
         files['physical-plan.json'] = (json.dumps(plan, indent=2) + '\n').encode()
         if sum(map(len, files.values())) > MAX_TOTAL: raise ValueError('Oversized pack')
-        manifest = {'format': 'edgeops-arrival-pack-v1', 'created_at': datetime.now(timezone.utc).isoformat(),
+        manifest = {'format': 'edgeops-arrival-pack-v2', 'created_at': datetime.now(timezone.utc).isoformat(),
                     'ordered_count_user_reported': 30, 'received_count_verified': 0,
                     'order_verified': False, 'hardware_connected': False, 'calibration_verified': False,
                     'production_ready': False, 'substitution_allowed': False, 'additional_hardware_allowed': False,

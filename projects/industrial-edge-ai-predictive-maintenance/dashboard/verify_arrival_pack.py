@@ -16,7 +16,7 @@ import sys
 import zipfile
 import zlib
 
-HARDWARE_FILES=(
+LEGACY_HARDWARE_FILES=(
     'README.md','firmware/platformio.ini','firmware/src/main.cpp','requirements-build.txt',
     'scripts/record_firmware_build.py','tests/test_firmware_build.py','docs/FIRMWARE_BUILD.md',
     'scripts/capture_serial.py','scripts/prepare_capture.py','scripts/requirements.txt',
@@ -27,11 +27,15 @@ HARDWARE_FILES=(
     'docs/physical-connection-pack/all-30-connection-matrix.csv',
     'docs/physical-connection-pack/sensor-only-reference.svg',
 )
+HARDWARE_FILES=LEGACY_HARDWARE_FILES+('scripts/summarize_capture.py','tests/test_capture_summary.py',
+                                      'validation/FIRST-HARDWARE-ACCEPTANCE.md')
 CONTRACT_FILES=('telemetry-v2.schema.json','tests/test_telemetry_v2_contract.py',
                 'examples/telemetry-v2.synthetic-valid.json','examples/telemetry-v2.synthetic-partial.json')
 SOURCE_FILES=tuple('phase-01-hardware/'+name for name in HARDWARE_FILES)+tuple(
     'enterprise-architecture/contracts/'+name for name in CONTRACT_FILES)+('dashboard/verify_arrival_pack.py',)
 EXPECTED_FILES=frozenset(SOURCE_FILES)|{'receipt-worksheet.csv','physical-plan.json','START-HERE.md','manifest.json'}
+LEGACY_EXPECTED_FILES=EXPECTED_FILES-{'phase-01-hardware/'+name for name in HARDWARE_FILES if name not in LEGACY_HARDWARE_FILES}
+FORMAT_FILES={'edgeops-arrival-pack-v1':LEGACY_EXPECTED_FILES,'edgeops-arrival-pack-v2':EXPECTED_FILES}
 MAX_ARCHIVE=8*1024*1024
 MAX_FILE=512*1024
 MAX_TOTAL=2*1024*1024
@@ -69,7 +73,7 @@ def verify_bytes(raw):
         require(len(raw)<=MAX_ARCHIVE,'Archive exceeds the supported size')
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             entries=archive.infolist();names=[entry.filename for entry in entries]
-            require(len(names)==len(EXPECTED_FILES) and set(names)==EXPECTED_FILES,'Missing, duplicate or unexpected archive entries')
+            require(len(names)==len(set(names)) and frozenset(names) in FORMAT_FILES.values(),'Missing, duplicate or unexpected archive entries')
             require(sum(entry.file_size for entry in entries)<=MAX_TOTAL+MAX_MANIFEST,'Expanded archive exceeds the supported size')
             files={}
             for entry in entries:
@@ -82,13 +86,16 @@ def verify_bytes(raw):
                 require(len(content)==entry.file_size and len(content)<=limit,'Archive member length differs')
                 files[entry.filename]=content
         manifest=decode_json(files['manifest.json'])
-        require(isinstance(manifest,dict) and manifest.get('format')=='edgeops-arrival-pack-v1','Unsupported manifest')
+        require(isinstance(manifest,dict) and isinstance(manifest.get('format'),str)
+                and manifest['format'] in FORMAT_FILES,'Unsupported manifest')
+        expected_files=FORMAT_FILES[manifest['format']]
+        require(set(files)==expected_files,'Archive inventory differs from its declared version')
         for key in ('order_verified','hardware_connected','calibration_verified','production_ready','substitution_allowed','additional_hardware_allowed'):
             require(manifest.get(key) is False,'Manifest claims unsupported physical authority')
         require(type(manifest.get('ordered_count_user_reported')) is int and manifest['ordered_count_user_reported']==30,'Unsupported hardware scope')
         require(type(manifest.get('received_count_verified')) is int and manifest['received_count_verified']==0,'Unsupported receipt claim')
         records=manifest.get('files')
-        require(isinstance(records,dict) and set(records)==EXPECTED_FILES-{'manifest.json'},'Manifest membership differs')
+        require(isinstance(records,dict) and set(records)==expected_files-{'manifest.json'},'Manifest membership differs')
         for name,record in records.items():
             require(isinstance(record,dict) and set(record)=={'bytes','sha256'},'Unsupported manifest file record')
             content=files[name]
@@ -122,7 +129,7 @@ def verify_bytes(raw):
         for index,(row,source) in enumerate(zip(worksheet_rows,rows),1):
             expected=[f'P{index:02}',source['id'],source['selected_family'],source['quantity_basis'],source['role'],'','','','','awaiting-delivery-unverified']
             require(None not in row and [row.get(key) for key in WORKSHEET_HEADERS]==expected,'Worksheet differs from the unopened arrival template')
-        return {'scope':'offline-arrival-pack-file-consistency','file_consistency':'passed',
+        return {'scope':'offline-arrival-pack-file-consistency','file_consistency':'passed','pack_format':manifest['format'],
                 'archive_sha256':hashlib.sha256(raw).hexdigest(),'files_checked':len(records),
                 'hardware_categories':30,'received_count_verified':0,'signature_verified':False,
                 'source_authenticity_verified':False,'physical_acceptance_verified':False,
