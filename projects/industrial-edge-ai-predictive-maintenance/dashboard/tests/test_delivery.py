@@ -32,7 +32,31 @@ class SpoolTests(unittest.TestCase):
     def due(self):
         with self.spool.db() as db:db.execute('UPDATE delivery_spool SET next_at=0,lease_until=0')
 
-    def receipt(self,claim):return {'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'test-only-receipt'}
+    def receipt(self,claim):return {'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'a'*32,'committed_at':'2026-11-24T10:00:00+00:00'}
+
+    def test_malformed_success_receipts_cannot_acknowledge_a_queued_observation(self):
+        changes=[{'receipt_id':value} for value in (True,123,{},[],None,'','test-only','A'*32,'a'*31,'a'*33)]
+        changes.extend({'committed_at':value} for value in (None,True,123,{},'','not-a-time','2026-11-24T10:00:00','x'*41))
+        for index,change in enumerate(changes):
+            with self.subTest(change=change):
+                spool=Spool(Path(self.temp.name)/('invalid-'+str(index)+'.sqlite3'))
+                queued=spool.enqueue(envelope())
+                with spool.db() as db:
+                    original=db.execute('SELECT payload FROM delivery_spool').fetchone()[0]
+                spool.attempt(lambda payload:(200,{**self.receipt(queued),**change}))
+                row=spool.status()['records'][0]
+                self.assertEqual((row['state'],row['attempts'],row['last_error']),('blocked',1,'invalid-central-receipt'))
+                self.assertIsNone(row['receipt'])
+                with spool.db() as db:
+                    self.assertEqual(db.execute('SELECT payload FROM delivery_spool').fetchone()[0],original)
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM delivery_spool').fetchone()[0],1)
+
+    def test_valid_commit_receipt_keeps_exact_identity_and_timestamp(self):
+        self.spool.enqueue(envelope());claim=self.spool.claim();receipt=self.receipt(claim)
+        self.assertTrue(self.spool.finish(claim,receipt=receipt))
+        row=self.spool.status()['records'][0]
+        self.assertEqual(row['state'],'delivered')
+        self.assertEqual(json.loads(row['receipt']),receipt)
 
     def test_restart_replay_and_capacity_do_not_lose_committed_event(self):
         first=self.spool.enqueue(envelope());restarted=Spool(self.path)

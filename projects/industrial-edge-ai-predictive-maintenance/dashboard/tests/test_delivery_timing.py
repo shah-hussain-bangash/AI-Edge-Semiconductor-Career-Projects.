@@ -39,7 +39,7 @@ class DeliveryTimingTests(unittest.TestCase):
             path=Path(self.temp.name)/(state+'.sqlite3');spool=Spool(path)
             with patch('edge_delivery.time.time',return_value=1700000000.125):spool.enqueue(envelope())
             with patch('edge_delivery.time.time',return_value=1700000001.125):claim=spool.claim()
-            receipt={'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'test-only','committed_at':'2020-01-01T00:00:00Z'}
+            receipt={'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'a'*32,'committed_at':'2020-01-01T00:00:00Z'}
             with patch('edge_delivery.time.time',return_value=1700000003.125):
                 if state=='delivered':spool.finish(claim,receipt=receipt)
                 else:spool.finish(claim,error='http-403',permanent=True)

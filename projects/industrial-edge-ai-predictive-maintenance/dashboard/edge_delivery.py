@@ -124,8 +124,17 @@ class Spool:
         now=time.time()
         if receipt is not None:
             if not isinstance(receipt,dict):raise ValueError('Invalid receipt object')
+            receipt_id=receipt.get('receipt_id');committed_at=receipt.get('committed_at')
+            if (not isinstance(receipt_id,str) or len(receipt_id)!=32
+                    or any(char not in '0123456789abcdef' for char in receipt_id)):
+                raise ValueError('Invalid central receipt identity')
+            try:
+                if not isinstance(committed_at,str) or len(committed_at)>40:raise ValueError()
+                if datetime.fromisoformat(committed_at).tzinfo is None:raise ValueError()
+            except ValueError:
+                raise ValueError('Invalid central commit timestamp') from None
             if (receipt.get('tier')!='central-committed' or receipt.get('event_key')!=claim['event_key']
-                    or receipt.get('content_hash')!=claim['content_hash'] or not receipt.get('receipt_id')):
+                    or receipt.get('content_hash')!=claim['content_hash']):
                 raise ValueError('Central receipt does not match the durable source event')
             state='delivered'
         else:state='blocked' if permanent or claim['attempt']>=8 else 'pending'

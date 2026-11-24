@@ -34,7 +34,7 @@ class DeliveryCapacityTests(unittest.TestCase):
         for sequence in range(3):self.enqueue(sequence)
         before=self.spool.status()['usage']
         claim=self.spool.claim()
-        self.spool.finish(claim,receipt={'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'test-receipt'})
+        self.spool.finish(claim,receipt={'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'a'*32,'committed_at':'2026-11-24T10:00:00Z'})
         self.spool.finish(self.spool.claim(),error='http-403',permanent=True)
         for state in ('','pending','inflight','delivered','blocked'):
             data=self.spool.status(state=state,limit=1)
