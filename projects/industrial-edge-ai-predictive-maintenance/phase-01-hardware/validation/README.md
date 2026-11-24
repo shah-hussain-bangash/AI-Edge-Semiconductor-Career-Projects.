@@ -84,3 +84,21 @@ Local checks performed on 24 November 2026:
 H1 defines a measured 600-second sensor-only baseline, acceleration/temperature/current reference comparisons, metadata, quality checks and independently reviewed evidence. Every physical gate is pending. Targets are proposed for acceptance by the owner and qualified reviewer before a real run; they do not approve wiring, electrical ratings or energized work. A zero-current check does not replace a reviewed nonzero current reference check.
 
 Exact dependency: receipt and identification of the already ordered components, a ready reviewed bench and adequate existing reference capability have not been evidenced. The current measured capture handoff is offline; the dashboard remains synthetic-only. No extra hardware, dashboard scope, substitutions, installations, merges, deployments or work on the other six concepts was added. This bounded repository session ends with preparation complete and physical validation pending.
+
+## Synthetic workflow rollback and retry evidence — 24 November 2026
+
+[Sanitized result](synthetic-workflow-integrity-result.json) and [replay tool](run_workflow_integrity.py) verify the existing observation → incident → maintenance-draft path against application commit `61e93848f07dc229652d88d145c6c7416fff3d9b`, tree `71f325c515e6a931ecc1a5f7c4088ad5f4f5e0e7`. The tree identifies the application baseline before this evidence-only addition; the tool is versioned beside the result.
+
+The drill creates exactly one synthetic observation and incident in a disposable authenticated test database. A temporary database trigger forces failure at the linked-plan audit write. Assertions check unchanged plan/link/event/audit counts, the stored incident row and retained observation snapshot. After removing the trigger, the same request saves one draft. An exact retry returns that draft without writes; a changed proposal returns 409 without writes. A later incident acknowledgement increments its revision while the original draft and frozen source snapshot remain unchanged and the changed-source flag is set. No application blocker was demonstrated, so application behavior and dashboard scope are unchanged.
+
+Replay from the predictive-maintenance project directory with the existing dashboard test dependencies:
+
+```powershell
+python phase-01-hardware/validation/run_workflow_integrity.py --output synthetic-workflow-integrity-replay.json
+```
+
+The output path must be new. Temporary credentials, database, trigger and records are discarded; only allowlisted assertions, counts, timestamp and software tree are exported. Result SHA-256: `aa3ca4c9cdf9ba9425612a942fb2129345e9ff478bdd6ddcda7b5aef5a543626`.
+
+Local verification: the drill passed, and the existing `test_observation_incidents.py`, `test_incident_planning.py` and `test_maintenance_requests.py` suites passed all 27 tests. These include scope, access, concurrent retry, stale revision, independent review, rollback and source-preservation regressions. Existing test-client deprecation warnings did not block execution. These local results do not assert the outcome of a later GitHub workflow run.
+
+This establishes deterministic local transaction rollback and sequential retry behavior, not power-loss recovery, distributed exactly-once delivery, real acquisition or physical acceptance. Maintenance stays `draft`, execution is disabled, and hardware/authorization/physical-acceptance/production flags remain false. The original 30 categories are unchanged; connection awaits the complete hardware set and a ready, reviewed bench. The other six concepts remain future scope. No merge or deployment is included.
