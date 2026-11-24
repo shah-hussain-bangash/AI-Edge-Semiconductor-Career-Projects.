@@ -70,6 +70,15 @@ def identity(envelope):
     return hashlib.sha256(key.encode()).hexdigest(),hashlib.sha256(content.encode()).hexdigest()
 
 
+def stored_envelope(row):
+    try:
+        envelope=DeliveryInput.model_validate_json(row['payload']).model_dump(mode='json')
+        if identity(envelope)!=(row['event_key'],row['content_hash']):raise ValueError()
+        return envelope
+    except (ValueError,TypeError,RecursionError):
+        raise ValueError('Stored queued observation failed integrity or contract checks') from None
+
+
 class Spool:
     def __init__(self,path,max_rows=10000,max_bytes=32*1024*1024,lease_seconds=45):
         self.path=Path(path);self.max_rows=max_rows;self.max_bytes=max_bytes;self.lease_seconds=lease_seconds
@@ -102,6 +111,7 @@ class Spool:
             db.execute('BEGIN IMMEDIATE')
             previous=db.execute('SELECT * FROM delivery_spool WHERE event_key=?',(key,)).fetchone()
             if previous:
+                stored_envelope(previous)
                 if previous['content_hash']!=digest:raise ValueError('Source identity has conflicting content')
                 return {'event_key':key,'content_hash':digest,'tier':'edge-committed','created':False}
             rows,size=db.execute('SELECT COUNT(*),COALESCE(SUM(length(CAST(payload AS BLOB))),0) FROM delivery_spool').fetchone()
@@ -117,8 +127,12 @@ class Spool:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute("SELECT * FROM delivery_spool WHERE (state='pending' AND next_at<=?) OR (state='inflight' AND lease_until<=?) ORDER BY created_at,event_key LIMIT 1",(now,now)).fetchone()
             if not row:return None
+            try:envelope=stored_envelope(row)
+            except ValueError:
+                db.execute("UPDATE delivery_spool SET state='blocked',lease_token=NULL,lease_until=NULL,last_error='invalid-local-observation',updated_at=? WHERE event_key=?",(now,row['event_key']))
+                return None
             db.execute("UPDATE delivery_spool SET state='inflight',attempts=attempts+1,lease_token=?,lease_until=?,updated_at=? WHERE event_key=?",(token,now+self.lease_seconds,now,row['event_key']))
-        return {'event_key':row['event_key'],'content_hash':row['content_hash'],'envelope':json.loads(row['payload']),'token':token,'attempt':row['attempts']+1}
+        return {'event_key':row['event_key'],'content_hash':row['content_hash'],'envelope':envelope,'token':token,'attempt':row['attempts']+1}
 
     def finish(self,claim,receipt=None,error=None,permanent=False):
         now=time.time()

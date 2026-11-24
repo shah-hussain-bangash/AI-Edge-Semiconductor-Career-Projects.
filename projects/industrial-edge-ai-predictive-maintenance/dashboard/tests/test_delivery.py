@@ -34,6 +34,52 @@ class SpoolTests(unittest.TestCase):
 
     def receipt(self,claim):return {'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'a'*32,'committed_at':'2026-11-24T10:00:00+00:00'}
 
+    def test_corrupt_saved_payload_is_blocked_before_send_and_retained(self):
+        changed=envelope();changed['observation']['measurements']['acceleration_x_mps2']=123
+        wrong_identity=envelope();wrong_identity['observation']['sequence']=99
+        measured=envelope();measured['observation']['source_type']='measured'
+        payloads=('private-test-marker','[]','null',json.dumps(changed),json.dumps(wrong_identity),json.dumps(measured))
+        for index,payload in enumerate(payloads):
+            with self.subTest(case=index):
+                spool=Spool(Path(self.temp.name)/('damaged-'+str(index)+'.sqlite3'))
+                spool.enqueue(envelope())
+                with spool.db() as db:
+                    db.execute('UPDATE delivery_spool SET payload=?',(payload,))
+                    original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                sent=[]
+                self.assertEqual(spool.attempt(lambda body:sent.append(body)),{'attempted':False})
+                self.assertEqual(sent,[])
+                row=spool.status()['records'][0]
+                self.assertEqual((row['state'],row['attempts'],row['last_error']),('blocked',0,'invalid-local-observation'))
+                self.assertNotIn('private-test-marker',str(row))
+                with spool.db() as db:
+                    retained=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                    for field in ('event_key','content_hash','payload','created_at','attempts'):
+                        self.assertEqual(retained[field],original[field])
+                    self.assertIsNone(retained['lease_token']);self.assertIsNone(retained['lease_until'])
+                with self.assertRaisesRegex(ValueError,'Stored queued observation failed'):
+                    spool.enqueue(envelope())
+
+    def test_corrupt_hash_is_not_trusted_and_next_healthy_event_can_be_claimed(self):
+        bad=self.spool.enqueue(envelope());good=envelope();good['observation']['sequence']=1
+        queued=self.spool.enqueue(good)
+        with self.spool.db() as db:
+            db.execute('UPDATE delivery_spool SET content_hash=?,created_at=0 WHERE event_key=?',('f'*64,bad['event_key']))
+        self.assertIsNone(self.spool.claim())
+        claim=self.spool.claim()
+        self.assertEqual(claim['event_key'],queued['event_key'])
+        self.assertTrue(self.spool.finish(claim,receipt=self.receipt(claim)))
+        self.assertEqual(self.spool.status()['counts'],{'pending':0,'inflight':0,'delivered':1,'blocked':1})
+
+    def test_corrupt_expired_lease_is_blocked_and_old_worker_stays_fenced(self):
+        self.spool.enqueue(envelope());old=self.spool.claim()
+        with self.spool.db() as db:
+            db.execute("UPDATE delivery_spool SET payload='corrupt',lease_until=0")
+        self.assertIsNone(self.spool.claim())
+        self.assertFalse(self.spool.finish(old,receipt=self.receipt(old)))
+        row=self.spool.status()['records'][0]
+        self.assertEqual((row['state'],row['attempts'],row['last_error']),('blocked',1,'invalid-local-observation'))
+
     def test_malformed_success_receipts_cannot_acknowledge_a_queued_observation(self):
         changes=[{'receipt_id':value} for value in (True,123,{},[],None,'','test-only','A'*32,'a'*31,'a'*33)]
         changes.extend({'committed_at':value} for value in (None,True,123,{},'','not-a-time','2026-11-24T10:00:00','x'*41))
