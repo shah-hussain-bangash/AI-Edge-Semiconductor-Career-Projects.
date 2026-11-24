@@ -164,7 +164,24 @@ def verify_backup(directory):
     regular(manifest_path)
     if manifest_path.stat().st_size > 4 * 1024 * 1024:
         raise ValueError('Manifest too large')
-    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    def unique_fields(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('Duplicate manifest field')
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError('Non-finite manifest number')
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'),
+                              object_pairs_hook=unique_fields, parse_constant=reject_constant)
+    except (ValueError, RecursionError):
+        raise ValueError('Invalid backup manifest JSON') from None
+    if not isinstance(manifest, dict):
+        raise ValueError('Unsupported backup manifest')
     entries = manifest.get('files')
     if manifest.get('format') != FORMAT or not isinstance(entries, list) or not 1 <= len(entries) <= MAX_FILES:
         raise ValueError('Unsupported backup manifest')

@@ -1,11 +1,14 @@
 """Real snapshots/restores in disposable directories; never touches the live store."""
-from contextlib import closing
+from contextlib import closing, redirect_stderr
 import hashlib
+import io
 import json
 from pathlib import Path
 import sqlite3
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import recovery
 from experiment_registry import register_experiment, verify_experiment
@@ -123,3 +126,60 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.create()
         self.assertFalse(self.backup.exists())
+
+    def test_manifest_root_must_be_an_object(self):
+        self.create()
+        original = self.source.read_bytes()
+        for value in ([], None, 'private-test-marker', 1, True):
+            with self.subTest(value=value):
+                (self.backup / 'manifest.json').write_text(json.dumps(value), encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, '^Unsupported backup manifest$'):
+                    recovery.restore_backup(self.backup, self.root / 'restored')
+                self.assertFalse((self.root / 'restored').exists())
+        self.assertEqual(original, self.source.read_bytes())
+        self.assertEqual([], list(self.root.glob('.edgeops-pending-*')))
+
+    def test_ambiguous_and_nonstandard_manifest_json_is_rejected(self):
+        self.create()
+        path = self.backup / 'manifest.json'
+        original = path.read_text(encoding='utf-8')
+        manifest = json.loads(original)
+        cases = [original.replace('{', '{"format":"private-test-marker",', 1),
+                 original.replace('{', '{"format":' + json.dumps(recovery.FORMAT) + ',', 1),
+                 original.replace('{', '{"extra":{"key":1,"key":2},', 1),
+                 json.dumps(manifest).replace('"bytes":', '"bytes":0,"bytes":', 1)]
+        cases.extend(original.replace('{', '{"extra":' + value + ',', 1)
+                     for value in ('NaN', 'Infinity', '-Infinity'))
+        for index, content in enumerate(cases):
+            with self.subTest(case=index):
+                path.write_text(content, encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, '^Invalid backup manifest JSON$'):
+                    recovery.restore_backup(self.backup, self.root / 'restored')
+                self.assertFalse((self.root / 'restored').exists())
+        path.write_text(original, encoding='utf-8')
+        recovery.verify_backup(self.backup)
+
+    def test_cli_rejects_malformed_manifest_without_traceback_or_content(self):
+        self.create()
+        original = self.source.read_bytes()
+        cases = ['[]', 'null', '{"private-test-marker":',
+                 '{"private-test-marker":1,"private-test-marker":2}',
+                 '[' * 100000 + '0' + ']' * 100000]
+        for command in ('verify', 'restore'):
+            for index, content in enumerate(cases):
+                with self.subTest(command=command, case=index):
+                    (self.backup / 'manifest.json').write_text(content, encoding='utf-8')
+                    args = ['recovery.py', command, str(self.backup)]
+                    if command == 'restore':
+                        args.extend(['--output', str(self.root / 'restored')])
+                    stderr = io.StringIO()
+                    with patch.object(sys, 'argv', args), redirect_stderr(stderr):
+                        with self.assertRaises(SystemExit) as raised:
+                            recovery.main()
+                    self.assertEqual(1, raised.exception.code)
+                    self.assertTrue(stderr.getvalue().startswith('Recovery operation failed: '))
+                    self.assertNotIn('Traceback', stderr.getvalue())
+                    self.assertNotIn('private-test-marker', stderr.getvalue())
+                    self.assertFalse((self.root / 'restored').exists())
+        self.assertEqual(original, self.source.read_bytes())
+        self.assertEqual([], list(self.root.glob('.edgeops-pending-*')))
