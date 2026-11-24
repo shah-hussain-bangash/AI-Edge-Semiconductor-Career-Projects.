@@ -12,7 +12,7 @@ import unittest
 
 import httpx
 from pydantic import ValidationError
-from edge_delivery import Spool,identity
+from edge_delivery import Spool,identity,MAX_ATTEMPTS
 from delivery_service import DeliveryInput
 from delivery_worker import run_once
 import test_acquisition_registry as fixtures
@@ -33,6 +33,49 @@ class SpoolTests(unittest.TestCase):
         with self.spool.db() as db:db.execute('UPDATE delivery_spool SET next_at=0,lease_until=0')
 
     def receipt(self,claim):return {'tier':'central-committed','event_key':claim['event_key'],'content_hash':claim['content_hash'],'receipt_id':'a'*32,'committed_at':'2026-11-24T10:00:00+00:00'}
+
+    def test_repeated_expired_leases_cannot_exceed_persisted_retry_budget(self):
+        queued=self.spool.enqueue(envelope())
+        with self.spool.db() as db:original=db.execute('SELECT payload FROM delivery_spool').fetchone()[0]
+        for attempt in range(1,MAX_ATTEMPTS+1):
+            # Reopen the persisted queue as a restarted worker would; no finish is saved.
+            claim=Spool(self.path).claim()
+            self.assertEqual(claim['attempt'],attempt)
+            with self.spool.db() as db:db.execute('UPDATE delivery_spool SET lease_until=0')
+        sent=[]
+        self.assertEqual(Spool(self.path).attempt(lambda payload:sent.append(payload)),{'attempted':False})
+        self.assertEqual(sent,[])
+        row=self.spool.status()['records'][0]
+        self.assertEqual((row['state'],row['attempts'],row['last_error']),('blocked',MAX_ATTEMPTS,'retry-budget-exhausted'))
+        self.assertFalse(self.spool.finish(claim,receipt=self.receipt(claim)))
+        with self.spool.db() as db:
+            retained=db.execute('SELECT * FROM delivery_spool WHERE event_key=?',(queued['event_key'],)).fetchone()
+            self.assertEqual(retained['payload'],original)
+            self.assertIsNone(retained['lease_token']);self.assertIsNone(retained['lease_until'])
+        healthy=envelope();healthy['observation']['sequence']=1
+        next_event=self.spool.enqueue(healthy)
+        self.assertEqual(self.spool.claim()['event_key'],next_event['event_key'])
+
+    def test_active_final_attempt_can_still_finish_successfully(self):
+        self.spool.enqueue(envelope())
+        for _ in range(MAX_ATTEMPTS-1):
+            claim=self.spool.claim();self.spool.finish(claim,error='transport-unavailable');self.due()
+        final=self.spool.claim()
+        self.assertEqual(final['attempt'],MAX_ATTEMPTS)
+        self.assertIsNone(self.spool.claim())
+        self.assertEqual(self.spool.status()['counts']['inflight'],1)
+        self.assertTrue(self.spool.finish(final,receipt=self.receipt(final)))
+        self.assertEqual(self.spool.status()['counts']['delivered'],1)
+
+    def test_legacy_pending_records_at_or_above_budget_are_retained_without_send(self):
+        for attempts in (MAX_ATTEMPTS,MAX_ATTEMPTS+1):
+            with self.subTest(attempts=attempts):
+                spool=Spool(Path(self.temp.name)/('exhausted-'+str(attempts)+'.sqlite3'))
+                spool.enqueue(envelope())
+                with spool.db() as db:db.execute('UPDATE delivery_spool SET attempts=?,next_at=0',(attempts,))
+                self.assertIsNone(spool.claim())
+                row=spool.status()['records'][0]
+                self.assertEqual((row['state'],row['attempts'],row['last_error']),('blocked',attempts,'retry-budget-exhausted'))
 
     def test_corrupt_saved_payload_is_blocked_before_send_and_retained(self):
         changed=envelope();changed['observation']['measurements']['acceleration_x_mps2']=123

@@ -16,6 +16,7 @@ from acquisition_registry import DeliveryInput
 
 
 HISTORY_STATES=('', 'pending', 'inflight', 'delivered', 'blocked')
+MAX_ATTEMPTS=8
 
 
 class SpoolReadError(RuntimeError):
@@ -131,6 +132,9 @@ class Spool:
             except ValueError:
                 db.execute("UPDATE delivery_spool SET state='blocked',lease_token=NULL,lease_until=NULL,last_error='invalid-local-observation',updated_at=? WHERE event_key=?",(now,row['event_key']))
                 return None
+            if row['attempts']>=MAX_ATTEMPTS:
+                db.execute("UPDATE delivery_spool SET state='blocked',lease_token=NULL,lease_until=NULL,last_error='retry-budget-exhausted',updated_at=? WHERE event_key=?",(now,row['event_key']))
+                return None
             db.execute("UPDATE delivery_spool SET state='inflight',attempts=attempts+1,lease_token=?,lease_until=?,updated_at=? WHERE event_key=?",(token,now+self.lease_seconds,now,row['event_key']))
         return {'event_key':row['event_key'],'content_hash':row['content_hash'],'envelope':envelope,'token':token,'attempt':row['attempts']+1}
 
@@ -151,7 +155,7 @@ class Spool:
                     or receipt.get('content_hash')!=claim['content_hash']):
                 raise ValueError('Central receipt does not match the durable source event')
             state='delivered'
-        else:state='blocked' if permanent or claim['attempt']>=8 else 'pending'
+        else:state='blocked' if permanent or claim['attempt']>=MAX_ATTEMPTS else 'pending'
         with self.db() as db:
             changed=db.execute('''UPDATE delivery_spool SET state=?,next_at=?,lease_token=NULL,lease_until=NULL,
                 receipt=?,last_error=?,updated_at=? WHERE event_key=? AND state='inflight' AND lease_token=?''',
