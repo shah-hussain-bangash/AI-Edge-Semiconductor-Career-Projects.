@@ -1,5 +1,7 @@
 # Physical connection preparation pack - 20 November 2026
 
+For the bounded first physical validation milestone, see the [sensor-only acceptance checklist](../../validation/FIRST-HARDWARE-ACCEPTANCE.md) and [saved synthetic operations walkthrough](../../validation/README.md). All physical checks remain pending; these records do not authorize equipment work.
+
 Basis: the [newer GitHub 30-product sourcing table](https://github.com/zenithdevelopers7-source/AI-Edge-Semiconductor-Career-Projects./blob/b2c327be2841b2b2faa9055d8240b1feb4b6e7b0/projects/industrial-edge-ai-predictive-maintenance/HARDWARE_30_PRODUCTS_TEMU_SOURCING.md), not the older blanket 12V/5A assumption. The user reports hardware ordered; actual received board revisions, current ratings and wiring have not been verified. P01-P30 correspond to the existing BOM-01-BOM-30 category numbers. This pack prepares physical layout and a conditional sensor wire schedule. It does not certify a motor-power circuit or mark anything connected in software.
 
 ## Fixed hardware scope - user instruction, 20 November 2026

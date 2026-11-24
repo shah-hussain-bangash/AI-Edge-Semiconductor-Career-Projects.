@@ -1,0 +1,70 @@
+{
+  "schema": "edgeops.synthetic-operations-walkthrough.v1",
+  "executed_at_utc": "2026-11-24T05:14:49.376880+00:00",
+  "software_tree": "a8cb8c760978edccd86954d52251c8f81fff89c9",
+  "scope": "In-process authenticated API inspection, incident and maintenance-draft preparation; not a browser or hardware test.",
+  "input": {
+    "binding_revision": 1,
+    "observation": {
+      "schema_version": "2.0",
+      "event_type": "telemetry.sample",
+      "source_type": "synthetic",
+      "site_id": "test-site",
+      "asset_id": "MTR-001",
+      "device_id": "test-device",
+      "boot_id": "synthetic-boot",
+      "sequence": 0,
+      "timestamp": {
+        "device_uptime_ms": 0,
+        "device_time_utc": null,
+        "gateway_received_utc": "2026-11-19T10:00:00Z",
+        "clock_quality": "gateway_receipt_only"
+      },
+      "measurements": {
+        "acceleration_x_mps2": 0.0,
+        "acceleration_y_mps2": 0.0,
+        "acceleration_z_mps2": 0.0,
+        "motor_case_temperature_c": null,
+        "bus_voltage_v": null,
+        "current_a": null
+      },
+      "quality": {
+        "adxl345": "valid",
+        "ds18b20": "not_connected",
+        "ina219": "not_connected",
+        "calibration": "unknown",
+        "session_quality": "verified"
+      }
+    }
+  },
+  "inspection": {
+    "event_key": "307e20b48ecdff300b45b5440c0fc250795997528627f3a1dd6678f2bfbb7f03",
+    "content_hash": "7e5d270746a6aad6bcd913442b7c51f2d951fa1a3ed854a20e5c6aadfef7f810",
+    "freshness_state": "clock-unverified",
+    "unit_current": "A",
+    "zero_preserved": true,
+    "missing_current_preserved_as_null": true,
+    "source_matches_history_and_commit_receipt": true
+  },
+  "incident": {
+    "state": "open",
+    "severity": "watch",
+    "interpretation": "Human-created synthetic review; no equipment fault established."
+  },
+  "maintenance": {
+    "prepared": true,
+    "status": "draft",
+    "source_snapshot_matches": true,
+    "execution_authorized": false,
+    "approval_performed": false
+  },
+  "checks": {
+    "exactly_one_observation": true,
+    "retained_incident_source_matches": true,
+    "automatic_detection": false,
+    "hardware_connected": false,
+    "equipment_authorized": false
+  },
+  "physical_acceptance": "pending",
+  "sanitization": "Allowlisted fields only; no credentials, cookies, user IDs, database files, local paths or live data."
+}
