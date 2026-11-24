@@ -140,6 +140,50 @@ class DeliveryApiTests(unittest.TestCase):
     def setUp(self):
         fixtures.AcquisitionRegistryApiTests.setUp(self);self.assertEqual(self.post('/api/acquisition-bindings',binding()).status_code,201)
 
+    def test_duplicate_commit_refuses_damaged_storage_without_repair_or_receipt(self):
+        first=self.post('/api/acquisition/ingest',envelope());self.assertEqual(first.status_code,201)
+        with self.server.database() as db:
+            original=dict(db.execute('SELECT * FROM acquisition_observations').fetchone())
+        changed=json.loads(original['payload'])
+        changed['observation']['measurements']['acceleration_x_mps2']=123
+        fields=('payload','content_hash','binding_revision','receipt_id','committed_at')
+        cases=({'payload':'corrupt'},{'payload':'[]'},{'payload':json.dumps(changed)},
+               {'content_hash':'f'*64},{'binding_revision':2},{'receipt_id':'invalid'},
+               {'committed_at':'2026-11-24T10:00:00'},{'committed_at':'not-a-time'})
+        for changes in cases:
+            with self.subTest(changes=changes):
+                row={**original,**changes}
+                with self.server.database() as db:
+                    db.execute('UPDATE acquisition_observations SET '+','.join(field+'=?' for field in fields),
+                               tuple(row[field] for field in fields))
+                    before=tuple(db.execute('SELECT * FROM acquisition_observations').fetchone())
+                    audits=db.execute('SELECT count(*) FROM audit').fetchone()[0]
+                response=self.post('/api/acquisition/ingest',envelope())
+                self.assertEqual(response.status_code,503,response.text)
+                self.assertNotIn('receipt_id',response.json())
+                with self.server.database() as db:
+                    self.assertEqual(tuple(db.execute('SELECT * FROM acquisition_observations').fetchone()),before)
+                    self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+                    self.assertEqual(db.execute('SELECT count(*) FROM audit').fetchone()[0],audits)
+
+    def test_lost_response_retry_cannot_deliver_a_corrupted_central_copy(self):
+        spool=Spool(Path(self.temp.name)/'lost-response-spool.sqlite3');spool.enqueue(envelope())
+        def lost(payload):
+            self.assertEqual(self.post('/api/acquisition/ingest',payload).status_code,201)
+            raise TimeoutError('synthetic lost response')
+        spool.attempt(lost)
+        with self.server.database() as db:
+            db.execute("UPDATE acquisition_observations SET payload='damaged synthetic copy'")
+        with spool.db() as db:db.execute('UPDATE delivery_spool SET next_at=0')
+        spool.attempt(lambda payload:(lambda response:(response.status_code,response.json()))(
+            self.post('/api/acquisition/ingest',payload)))
+        row=spool.status()['records'][0]
+        self.assertEqual((row['state'],row['attempts'],row['last_error']),('pending',2,'http-503'))
+        self.assertIsNone(row['receipt'])
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT payload FROM acquisition_observations').fetchone()[0],'damaged synthetic copy')
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+
     def test_delivery_commit_response_loss_and_conflict(self):
         data=envelope();spool=Spool(Path(self.temp.name)/'delivery-spool.sqlite3');spool.enqueue(data)
         def lost_response(payload):

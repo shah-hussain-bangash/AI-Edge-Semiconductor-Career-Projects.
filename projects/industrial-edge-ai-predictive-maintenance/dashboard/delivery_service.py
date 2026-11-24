@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import HTTPException,Request,Response,Query
 from acquisition_registry import DeliveryInput
 from edge_delivery import Spool,SpoolReadError,identity
+import observation_queries as observations
 from maintenance_requests import fresh_actor,require_role,READ_ROLES
 
 BOUNDARY={'scope':'local-synthetic-delivery','hardware_connected':False,'equipment_authorized':False,
@@ -40,6 +41,9 @@ def commit_observation(database,audit,current,body):
         db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,('admin','operator'))
         matching_binding(db,body)
         previous=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(key,)).fetchone()
+        if previous:
+            # A matching hash column alone cannot establish that the stored sample survived intact.
+            observations.present(previous,datetime.now(timezone.utc),60)
         if previous and previous['content_hash']!=digest:
             audit(db,actor['email'],'synthetic_ingest_conflict',key);conflict=True
         elif previous:row=previous;created=False
