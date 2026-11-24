@@ -120,3 +120,21 @@ python -m unittest discover -s tests -p test_incident_planning.py -v
 All 24 test cases passed with no failures, errors or skips. The first combined evidence harness then failed while collecting Git metadata because its environment was missing a Git configuration value. A separate command confirmed the local tree against the GitHub commit tree before the sanitized result was written. This collection limitation is recorded in the result; it is not counted as an application failure or silently omitted. Existing test-client deprecation warnings also remain.
 
 Result SHA-256: `e52c435506afe55d4447ce00e1507c66bb2ea175817c4a40709e09e087b4ef8c`. This is software regression evidence, not proof against a privileged administrator changing the database and its snapshots together. It establishes neither real sensor authenticity nor physical acceptance. Hardware connection and acceptance remain pending, with the same original 30 categories; no merge, deployment or work on the other six concepts is included.
+
+## Process stop after central commit — 24 November 2026
+
+[Sanitized result](synthetic-process-stop-recovery-result.json) records a separate worker process using actual HTTP against an isolated loopback test server. Application behavior is the unchanged baseline `99e989aff13e78d2b145f159d350f079bdf85371`; the new regression is versioned alongside this result in [test_delivery.py](../../dashboard/tests/test_delivery.py).
+
+The fixture stops the worker with `os._exit(74)` only after it receives a matching central-commit receipt and before it saves the local outcome. The parent verifies one committed central observation and an unfinished first queue claim. A controlled active lease prevents early replay; after the disposable lease is explicitly expired, the normal worker replays the observation and saves the original receipt ID and commit timestamp. Final checks show one central observation, one central-commit audit event, two queue claims, an unchanged queued payload and successful SQLite quick checks on both stores.
+
+Replay from the dashboard directory with its existing test dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery.py -k process_exit_after_central_commit -v
+```
+
+The test uses temporary accounts, credentials and databases; no running user dashboard or equipment is contacted. Abrupt exit intentionally skips normal worker cleanup, and the disposable fixture removes its test state afterward. Lease deadlines are controlled in test storage: this is not a measured wait, RTO, power-loss or remote transport test. The injected stop occurs after receipt arrival, so it does not prove every possible network-loss or crash location. It is evidence for this specific local replay path, not a general exactly-once guarantee.
+
+The isolated drill passed, and all 48 tests passed across delivery, worker, history, capacity and timing suites. Counts overlap earlier checks and must not be added as independent acceptance milestones. No application blocker was found or application behavior changed; only regression coverage and sanitized evidence were added. Existing test-client deprecation warnings remain. Result SHA-256: `deafb89bc36301d47ee74873274f2edbe7765b8083bba5b12a6f936eb338a03f`.
+
+The same original 30 hardware categories are preserved. Physical acceptance and equipment authorization remain pending/false; no merge, deployment or work on the other six concepts is included.

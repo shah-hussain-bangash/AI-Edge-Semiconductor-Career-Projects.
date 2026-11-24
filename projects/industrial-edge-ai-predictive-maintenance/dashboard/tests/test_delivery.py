@@ -1,5 +1,6 @@
 """Durability, response loss, lease fencing, identity conflicts and real HTTP delivery."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -300,7 +301,8 @@ class DeliveryApiTests(unittest.TestCase):
         self.login('auditor');self.assertEqual(self.post('/api/acquisition/deliver-once',{}).status_code,403)
         self.assertEqual(self.post('/api/acquisition/ingest',envelope()).status_code,403)
 
-    def test_real_loopback_worker_transmits_and_commits(self):
+    @contextmanager
+    def loopback_server(self):
         sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
         env={**os.environ,'EDGEOPS_ADMIN_EMAIL':'','EDGEOPS_ADMIN_PASSWORD':''}
         service=subprocess.Popen([sys.executable,'-m','uvicorn','server:app','--host','127.0.0.1','--port',str(port)],cwd=Path(__file__).resolve().parents[1],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -310,8 +312,73 @@ class DeliveryApiTests(unittest.TestCase):
                     if httpx.get(f'http://127.0.0.1:{port}/health/ready',trust_env=False).status_code==200:break
                 except httpx.HTTPError:pass
                 time.sleep(.05)
+            else:self.fail('Isolated loopback service did not become ready')
+            yield f'http://127.0.0.1:{port}'
+        finally:
+            if service.poll() is None:service.terminate()
+            service.wait(timeout=10)
+
+    def test_real_loopback_worker_transmits_and_commits(self):
+        with self.loopback_server() as base:
             path=Path(self.temp.name)/'remote-edge.sqlite3';Spool(path).enqueue(envelope())
-            self.assertTrue(run_once(path,f'http://127.0.0.1:{port}','admin@example.invalid',self.password)['attempted'])
+            self.assertTrue(run_once(path,base,'admin@example.invalid',self.password)['attempted'])
             self.assertEqual(Spool(path).status()['counts']['delivered'],1)
             self.assertEqual(self.http.get('/api/acquisition/delivery').json()['central_records'],1)
-        finally:service.terminate();service.wait(timeout=10)
+
+    def test_process_exit_after_central_commit_recovers_same_receipt_without_duplicate(self):
+        with self.loopback_server() as base:
+            path=Path(self.temp.name)/'interrupted-edge.sqlite3';spool=Spool(path)
+            queued=spool.enqueue(envelope())
+            with spool.db() as db:original_payload=db.execute('SELECT payload FROM delivery_spool').fetchone()[0]
+            script='''
+import os,sys
+from edge_delivery import Spool
+from delivery_worker import run_once
+def stop_before_saved_outcome(self,claim,receipt=None,**kwargs):
+    if (isinstance(receipt,dict) and receipt.get('tier')=='central-committed'
+            and receipt.get('event_key')==claim['event_key']
+            and receipt.get('content_hash')==claim['content_hash']):
+        os._exit(74)
+    raise AssertionError('The test stop point requires a matching central commit receipt')
+Spool.finish=stop_before_saved_outcome
+run_once(sys.argv[1],sys.argv[2],'admin@example.invalid',os.environ['EDGEOPS_TEST_WORKER_PASSWORD'])
+raise AssertionError('The worker did not reach the injected stop point')
+'''
+            stopped=subprocess.run([sys.executable,'-c',script,str(path),base],
+                cwd=Path(__file__).resolve().parents[1],capture_output=True,text=True,timeout=30,
+                env={**os.environ,'EDGEOPS_TEST_WORKER_PASSWORD':self.password})
+            self.assertEqual(stopped.returncode,74,'Worker did not stop after receiving the central receipt')
+            row=Spool(path).status()['records'][0]
+            self.assertEqual((row['state'],row['attempts'],row['receipt']),('inflight',1,None))
+            with self.server.database() as db:
+                committed=dict(db.execute('SELECT * FROM acquisition_observations').fetchone())
+                self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+            self.assertEqual((committed['event_key'],committed['content_hash']),
+                             (queued['event_key'],queued['content_hash']))
+            # Control the disposable lease deadline rather than depending on test scheduling speed.
+            with spool.db() as db:db.execute('UPDATE delivery_spool SET lease_until=?',(time.time()+3600,))
+            self.assertFalse(run_once(path,base,'admin@example.invalid',self.password)['attempted'])
+            with spool.db() as db:db.execute('UPDATE delivery_spool SET lease_until=0')
+            self.assertTrue(run_once(path,base,'admin@example.invalid',self.password)['attempted'])
+            recovered=Spool(path).status()['records'][0]
+            self.assertEqual((recovered['state'],recovered['attempts']),('delivered',2))
+            receipt=json.loads(recovered['receipt'])
+            for key in ('event_key','content_hash','receipt_id','committed_at'):
+                self.assertEqual(receipt[key],committed[key])
+            with spool.db() as db:
+                self.assertEqual(db.execute('SELECT payload FROM delivery_spool').fetchone()[0],original_payload)
+                self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+            with self.server.database() as db:
+                self.assertEqual(dict(db.execute('SELECT * FROM acquisition_observations').fetchone()),committed)
+                self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+                self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],1)
+                self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+                self.process_recovery_evidence={
+                    'child_stop_exit_code':stopped.returncode,
+                    'central_records_after_recovery':db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],
+                    'central_commit_audit_events':db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],
+                    'queue_state':recovered['state'],'queue_attempts':recovered['attempts'],
+                    'original_receipt_identity_and_timestamp_preserved':True,
+                    'original_queued_payload_preserved':True,'both_sqlite_quick_checks':'ok',
+                    'active_lease_prevented_early_replay':True,
+                    'lease_expiry':'Controlled in disposable storage; no real-time expiry or RTO measurement.'}
