@@ -110,6 +110,7 @@ class DeliveryCapacityTests(unittest.TestCase):
 
 class DeliveryCapacityApiTests(unittest.TestCase):
     login=fixtures.AcquisitionRegistryApiTests.login
+    post=fixtures.AcquisitionRegistryApiTests.post
     def setUp(self):
         fixtures.AcquisitionRegistryApiTests.setUp(self)
         self.path=Path(self.temp.name)/'capacity-spool.sqlite3'
@@ -117,6 +118,58 @@ class DeliveryCapacityApiTests(unittest.TestCase):
         self.spool=Spool(self.path)
         for sequence in range(2):
             data=envelope();data['observation']['sequence']=sequence;self.spool.enqueue(data)
+
+    def test_full_central_store_preserves_duplicate_receipt_and_edge_backpressure(self):
+        self.assertEqual(self.post('/api/acquisition-bindings',fixtures.binding()).status_code,201)
+        first=self.post('/api/acquisition/ingest',envelope())
+        self.assertEqual(first.status_code,201);original_receipt=first.json()
+        prefix='0' if original_receipt['receipt_id'][0]!='0' else '1'
+        rows=[]
+        for sequence in range(1,10000):
+            sample=envelope();sample['observation']['sequence']=sequence
+            key,digest=identity(sample)
+            rows.append((key,digest,sample['observation']['device_id'],sample['binding_revision'],
+                         json.dumps(sample,sort_keys=True),prefix+f'{sequence:031x}',
+                         '2026-11-24T10:00:00+00:00','bulk-fixture@example.invalid'))
+        with self.server.database() as db:
+            db.executemany('INSERT INTO acquisition_observations VALUES(?,?,?,?,?,?,?,?)',rows)
+            original_audit_count=db.execute('SELECT count(*) FROM audit').fetchone()[0]
+        def snapshot_hash():
+            digest=hashlib.sha256()
+            with self.server.database() as db:
+                for row in db.execute('SELECT * FROM acquisition_observations ORDER BY event_key'):
+                    digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
+            return digest.hexdigest()
+        before=snapshot_hash()
+        duplicate=self.post('/api/acquisition/ingest',envelope())
+        self.assertEqual(duplicate.status_code,200);self.assertEqual(duplicate.json(),original_receipt)
+        sample=envelope();sample['observation']['sequence']=10000
+        rejected=self.post('/api/acquisition/ingest',sample)
+        self.assertEqual(rejected.status_code,429);self.assertNotIn('receipt_id',rejected.json())
+        edge=Spool(Path(self.temp.name)/'full-central-edge.sqlite3');edge.enqueue(sample)
+        statuses=[]
+        def sender(payload):
+            response=self.post('/api/acquisition/ingest',payload);statuses.append(response.status_code)
+            return response.status_code,response.json()
+        edge.attempt(sender)
+        self.assertEqual(statuses,[429])
+        pending=edge.status()['records'][0]
+        self.assertEqual((pending['state'],pending['attempts'],pending['last_error']),('pending',1,'http-429'))
+        self.assertIsNone(pending['receipt'])
+        self.assertEqual(snapshot_hash(),before)
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],10000)
+            self.assertEqual(db.execute('SELECT count(*) FROM audit').fetchone()[0],original_audit_count)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],1)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+            self.central_capacity_evidence={
+                'central_records':10000,'exact_retry_http_status':duplicate.status_code,
+                'original_receipt_preserved':True,'additional_event_http_status':rejected.status_code,
+                'additional_event_received_receipt':False,'edge_delivery_http_status':statuses[0],
+                'edge_state':pending['state'],'edge_attempts':pending['attempts'],'edge_receipt':pending['receipt'],
+                'all_central_rows_and_audit_count_unchanged':True,
+                'api_central_commit_audit_events':1,'sqlite_quick_check':'ok',
+                'fixture_population':'One authenticated API commit plus 9,999 direct synthetic inserts; not 10,000 API ingests or sustained load.'}
 
     def test_supported_readers_receive_global_usage_without_mutating_queue(self):
         with self.spool.db() as db:before=[tuple(row) for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key')]

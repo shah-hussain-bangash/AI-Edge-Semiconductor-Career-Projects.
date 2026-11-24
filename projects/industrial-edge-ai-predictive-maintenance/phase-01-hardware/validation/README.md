@@ -202,3 +202,19 @@ python -m unittest discover -s tests -p test_delivery_capacity.py -k default_rec
 The isolated case and all 51 delivery/worker/history/capacity/timing tests passed. This is a finite local admission-boundary check, not an ingestion-rate, latency, sustained-load, disk-exhaustion or hardware-performance test. Payload-byte accounting excludes SQLite indexes, database pages, WAL and other disk overhead. No application fix was needed; existing test-client deprecation warnings remain.
 
 Result SHA-256: `a39a7fa13fb38c9a21b095a8df9ec57d6bb791c92823fe838057e3cc1e7a0c15`. Only regression coverage and aggregate software evidence are added. Counts overlap earlier executions. The original 30 products are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
+
+## Central capacity and edge backpressure — 24 November 2026
+
+[Sanitized result](synthetic-central-capacity-backpressure-result.json) checks the central store's default 10,000-observation limit and the existing queue's response to HTTP 429. The unchanged application baseline is `9d6fc9f4fb916f678c0393d76e10e68a73754644`; fixture/assertions are in [test_delivery_capacity.py](../../dashboard/tests/test_delivery_capacity.py).
+
+One authenticated API commit plus 9,999 direct synthetic inserts populate a disposable central database. At that boundary, an exact retry returns HTTP 200 and the original receipt unchanged. A distinct observation returns HTTP 429 without a receipt. Attempting that new event from a separate disposable edge queue also receives 429 and leaves the event pending with no central receipt. A hash over every central row matches before/after, total audit count remains unchanged, exactly one API central-commit event remains, and SQLite quick check passes. The bulk fixture rows are not represented as API-ingested or individually audited commits.
+
+Replay from the dashboard directory with existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery_capacity.py -k full_central_store -v
+```
+
+The isolated case and all 52 delivery/worker/history/capacity/timing tests passed. No application fix was needed. This is finite admission/backpressure verification through the authenticated in-process API, not a load/soak, latency, sustained ingestion, remote transport, disk-exhaustion or PostgreSQL-capacity benchmark. Existing test-client deprecation warnings remain.
+
+Result SHA-256: `53cc049dfa75aeced119e1f4249b10e2fd890123e70e66ccbebc53b6c9a5d382`. Counts overlap earlier executions and do not close physical acceptance. The original 30 categories are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
