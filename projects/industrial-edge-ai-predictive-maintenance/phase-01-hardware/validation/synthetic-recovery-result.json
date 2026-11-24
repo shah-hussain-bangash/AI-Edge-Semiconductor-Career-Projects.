@@ -1,0 +1,30 @@
+{
+  "schema": "edgeops.synthetic-recovery-drill.v1",
+  "executed_at_utc": "2026-11-24T06:48:29.998504+00:00",
+  "software_tree": "898aba69af1ec30e4d70914b219a139cf7d9d01a",
+  "scope": "One disposable dashboard database; no live data, serial port, deployment or hardware.",
+  "backup_verified": true,
+  "restored_database_integrity": "ok",
+  "restored_foreign_key_violations": 0,
+  "restored_domain_counts_before_login": {
+    "acquisition_observations": 1,
+    "synthetic_incidents": 1,
+    "maintenance_requests": 1,
+    "incident_plan_links": 1,
+    "incident_observation_sources": 1
+  },
+  "sessions_revoked": 1,
+  "old_session_rejected": true,
+  "new_login_succeeded": true,
+  "observation_snapshot_preserved": true,
+  "incident_to_plan_snapshot_preserved": true,
+  "maintenance_status": "draft",
+  "corrupt_backup_rejected_without_published_restore": true,
+  "original_database_bytes_unchanged": true,
+  "equipment_authorized": false,
+  "hardware_connected": false,
+  "physical_acceptance_verified": false,
+  "production_ready": false,
+  "limitations": "No coordinated multi-store recovery, live cutover, offsite/encrypted backup, measured RPO/RTO or physical maintenance is established.",
+  "sanitization": "Allowlisted assertions and synthetic counts only; private databases, backups, identities, credentials and session tokens are not exported."
+}

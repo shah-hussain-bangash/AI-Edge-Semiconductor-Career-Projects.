@@ -10,6 +10,26 @@ The verified source was GitHub commit `60e2ff5198838008d43a6c7694ad9de8b3844c01`
 
 The result records the installed versions and downloaded archive SHA-256 values. They describe this installation snapshot, not a cross-platform lockfile or a security assessment of those packages. The replay's source-tree identity, draft state, content hash and sanitization were checked. Browser acceptance, real acquisition and deployment were not exercised in this new environment. All physical acceptance remains pending. The earlier evidence below retains its original source revision and scope.
 
+## Disposable backup and recovery drill — 24 November 2026
+
+[Sanitized recovery result](synthetic-recovery-result.json) · [Replay script](run_recovery_drill.py) · [Existing recovery implementation](../../dashboard/recovery.py)
+
+One temporary dashboard database containing a synthetic observation, its incident and a linked maintenance draft was backed up, verified and restored to a new temporary directory. The restored database passed integrity and foreign-key checks. All five relevant domain tables retained one record each, including observation and incident-to-plan source links. The API returned the original frozen observation and plan snapshots after restoration; the maintenance request remained `draft` with execution disabled.
+
+The restore revoked the single saved session. Its old browser token was rejected; a fresh login succeeded. An intentionally altered **separate backup copy** was rejected without publishing a restore directory. The original temporary source database remained byte-for-byte unchanged. Private databases/backups and generated credentials were removed by fixture cleanup; only the allowlisted result was retained.
+
+The application source tree was `898aba69af1ec30e4d70914b219a139cf7d9d01a`, matching GitHub commit `e7b941ccdd9deb7f8ff7fd1862ba922466bbcbe7`. The replay tool and result are versioned together after that source snapshot. Result SHA-256 (original LF file bytes): `245e64513f8c4c07222c2c2257532b3e62fb9b8bffe750572e0d1fbadbad94a4`.
+
+Related regression checks passed: `test_recovery.py` 8/8, `test_observation_incidents.py` 10/10 and `test_incident_planning.py` 9/9, for **27 passing tests**. No application recovery blocker was demonstrated, so the existing backup/restore implementation was unchanged.
+
+To replay from the project directory inside a Git checkout, use an interpreter with the dashboard test dependencies and a new output filename:
+
+```powershell
+python phase-01-hardware/validation/run_recovery_drill.py --output synthetic-recovery-replay.json
+```
+
+The script trusts only its own checkout path for the Git source-tree read, without changing global Git configuration. Execution timestamps and source-tree revisions can differ between runs, so compare assertions and provenance rather than expecting the saved JSON hash to repeat. This is a one-store software drill: coordinated multi-store recovery, real cutover, offsite/encrypted backup, operational recovery-time/data-loss targets and physical maintenance remain unverified. No live data or connected equipment was involved.
+
 ## Saved synthetic operations example
 
 [Sanitized result](synthetic-operations-result.json) · [replay script](run_synthetic_operations.py) · [first hardware acceptance checklist](FIRST-HARDWARE-ACCEPTANCE.md)
