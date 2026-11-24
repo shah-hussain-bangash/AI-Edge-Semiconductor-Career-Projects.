@@ -1,9 +1,11 @@
 """Retained-row and serialized-payload accounting; reads never reclaim capacity."""
+from concurrent.futures import ThreadPoolExecutor
 import os
 import hashlib
 import json
 from pathlib import Path
 import tempfile
+from threading import Barrier
 import unittest
 from unittest.mock import patch
 
@@ -119,13 +121,13 @@ class DeliveryCapacityApiTests(unittest.TestCase):
         for sequence in range(2):
             data=envelope();data['observation']['sequence']=sequence;self.spool.enqueue(data)
 
-    def test_full_central_store_preserves_duplicate_receipt_and_edge_backpressure(self):
+    def populate_central(self,count):
         self.assertEqual(self.post('/api/acquisition-bindings',fixtures.binding()).status_code,201)
         first=self.post('/api/acquisition/ingest',envelope())
         self.assertEqual(first.status_code,201);original_receipt=first.json()
         prefix='0' if original_receipt['receipt_id'][0]!='0' else '1'
         rows=[]
-        for sequence in range(1,10000):
+        for sequence in range(1,count):
             sample=envelope();sample['observation']['sequence']=sequence
             key,digest=identity(sample)
             rows.append((key,digest,sample['observation']['device_id'],sample['binding_revision'],
@@ -133,14 +135,20 @@ class DeliveryCapacityApiTests(unittest.TestCase):
                          '2026-11-24T10:00:00+00:00','bulk-fixture@example.invalid'))
         with self.server.database() as db:
             db.executemany('INSERT INTO acquisition_observations VALUES(?,?,?,?,?,?,?,?)',rows)
-            original_audit_count=db.execute('SELECT count(*) FROM audit').fetchone()[0]
-        def snapshot_hash():
-            digest=hashlib.sha256()
-            with self.server.database() as db:
-                for row in db.execute('SELECT * FROM acquisition_observations ORDER BY event_key'):
-                    digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
-            return digest.hexdigest()
-        before=snapshot_hash()
+        return original_receipt
+
+    def central_snapshot_hash(self,exclude=None):
+        digest=hashlib.sha256()
+        query='SELECT * FROM acquisition_observations'+(' WHERE event_key<>?' if exclude else '')+' ORDER BY event_key'
+        with self.server.database() as db:
+            for row in db.execute(query,(exclude,) if exclude else ()):
+                digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
+        return digest.hexdigest()
+
+    def test_full_central_store_preserves_duplicate_receipt_and_edge_backpressure(self):
+        original_receipt=self.populate_central(10000)
+        with self.server.database() as db:original_audit_count=db.execute('SELECT count(*) FROM audit').fetchone()[0]
+        before=self.central_snapshot_hash()
         duplicate=self.post('/api/acquisition/ingest',envelope())
         self.assertEqual(duplicate.status_code,200);self.assertEqual(duplicate.json(),original_receipt)
         sample=envelope();sample['observation']['sequence']=10000
@@ -156,7 +164,7 @@ class DeliveryCapacityApiTests(unittest.TestCase):
         pending=edge.status()['records'][0]
         self.assertEqual((pending['state'],pending['attempts'],pending['last_error']),('pending',1,'http-429'))
         self.assertIsNone(pending['receipt'])
-        self.assertEqual(snapshot_hash(),before)
+        self.assertEqual(self.central_snapshot_hash(),before)
         with self.server.database() as db:
             self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],10000)
             self.assertEqual(db.execute('SELECT count(*) FROM audit').fetchone()[0],original_audit_count)
@@ -170,6 +178,44 @@ class DeliveryCapacityApiTests(unittest.TestCase):
                 'all_central_rows_and_audit_count_unchanged':True,
                 'api_central_commit_audit_events':1,'sqlite_quick_check':'ok',
                 'fixture_population':'One authenticated API commit plus 9,999 direct synthetic inserts; not 10,000 API ingests or sustained load.'}
+
+    def test_concurrent_requests_for_last_central_slot_cannot_exceed_limit(self):
+        self.populate_central(9999)
+        before=self.central_snapshot_hash()
+        with self.server.database() as db:audit_before=db.execute('SELECT count(*) FROM audit').fetchone()[0]
+        payloads=[]
+        for sequence in (9999,10000):
+            sample=envelope();sample['observation']['sequence']=sequence;payloads.append(sample)
+        gate=Barrier(2)
+        def submit(payload):
+            gate.wait(timeout=10)
+            return self.post('/api/acquisition/ingest',payload)
+        with ThreadPoolExecutor(max_workers=2) as pool:responses=list(pool.map(submit,payloads))
+        self.assertEqual(sorted(response.status_code for response in responses),[201,429])
+        winner=next(index for index,response in enumerate(responses) if response.status_code==201)
+        receipt=responses[winner].json();denied=responses[1-winner]
+        self.assertNotIn('receipt_id',denied.json())
+        expected_key,expected_hash=identity(payloads[winner]);denied_key,_=identity(payloads[1-winner])
+        self.assertEqual((receipt['event_key'],receipt['content_hash']),(expected_key,expected_hash))
+        retried=self.post('/api/acquisition/ingest',payloads[winner])
+        self.assertEqual(retried.status_code,200);self.assertEqual(retried.json(),receipt)
+        self.assertEqual(self.central_snapshot_hash(exclude=expected_key),before)
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],10000)
+            self.assertIsNone(db.execute('SELECT 1 FROM acquisition_observations WHERE event_key=?',(denied_key,)).fetchone())
+            self.assertEqual(db.execute('SELECT receipt_id FROM acquisition_observations WHERE event_key=?',(expected_key,)).fetchone()[0],receipt['receipt_id'])
+            self.assertEqual(db.execute('SELECT count(*) FROM audit').fetchone()[0],audit_before+1)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],2)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(),[])
+            self.concurrent_capacity_evidence={
+                'initial_central_records':9999,'concurrent_requests':2,
+                'observed_http_statuses':sorted(response.status_code for response in responses),
+                'final_central_records':10000,'rejected_request_received_receipt':False,
+                'successful_retry_http_status':retried.status_code,'successful_receipt_preserved':True,
+                'preexisting_rows_unchanged':True,'new_audit_events':1,
+                'api_central_commit_audit_events':2,'sqlite_quick_check':'ok','foreign_key_violations':0,
+                'fixture_population':'One API commit plus 9,998 direct synthetic inserts, then two barrier-started in-process API requests; not a load/soak benchmark.'}
 
     def test_supported_readers_receive_global_usage_without_mutating_queue(self):
         with self.spool.db() as db:before=[tuple(row) for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key')]

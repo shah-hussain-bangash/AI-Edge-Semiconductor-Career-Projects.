@@ -218,3 +218,19 @@ python -m unittest discover -s tests -p test_delivery_capacity.py -k full_centra
 The isolated case and all 52 delivery/worker/history/capacity/timing tests passed. No application fix was needed. This is finite admission/backpressure verification through the authenticated in-process API, not a load/soak, latency, sustained ingestion, remote transport, disk-exhaustion or PostgreSQL-capacity benchmark. Existing test-client deprecation warnings remain.
 
 Result SHA-256: `53cc049dfa75aeced119e1f4249b10e2fd890123e70e66ccbebc53b6c9a5d382`. Counts overlap earlier executions and do not close physical acceptance. The original 30 categories are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
+
+## Concurrent requests for the final central slot — 24 November 2026
+
+[Sanitized race result](synthetic-central-last-slot-result.json) checks two requests competing for the final observation slot against unchanged application baseline `ff52301b93bcfa4baa47cfa6a636a0ab4f09eda5`. The regression and shared fixtures are in [test_delivery_capacity.py](../../dashboard/tests/test_delivery_capacity.py).
+
+One API commit and 9,998 direct synthetic inserts populate a disposable central database to 9,999 rows. Two authenticated in-process requests with distinct new identities are released from a two-thread barrier. Exactly one returns HTTP 201 and one returns HTTP 429 without a receipt. Final count is 10,000. Retrying the successful request returns HTTP 200 with the same receipt. A hash of all preexisting rows is unchanged, the rejected identity is absent, and only one new audit event was added. There are two API central-commit audit events overall: the initial fixture commit and the winning request. SQLite quick check and foreign-key check pass.
+
+Replay from the dashboard directory with existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery_capacity.py -k last_central_slot -v
+```
+
+The isolated race and all 53 delivery/worker/history/capacity/timing tests passed. This observes one finite two-request race; it does not establish every interleaving, distributed contention, PostgreSQL behavior, throughput or soak performance. Most initial rows were inserted directly, not ingested through the API. Existing test-client deprecation warnings remain; no application fix was needed.
+
+Result SHA-256: `55a5d7d658bb7076befb4637c204fbfe3a9024fc95d12f93e1bbe898e9364506`. Only regression coverage and aggregate software evidence are added. Counts overlap earlier executions. The original 30 products are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
