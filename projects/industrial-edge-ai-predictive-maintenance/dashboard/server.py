@@ -179,7 +179,10 @@ def require_user(request: Request):
 def require_csrf(request: Request, current: dict):
     header = request.headers.get("x-edgeops-csrf", "")
     cookie = request.cookies.get(CSRF_COOKIE, "")
-    if not header or not cookie or not hmac.compare_digest(header, cookie):
+    # Issued tokens are ASCII. Reject malformed HTTP text before compare_digest,
+    # which raises TypeError for non-ASCII strings instead of denying access.
+    if (not header or not cookie or not header.isascii() or not cookie.isascii()
+            or not hmac.compare_digest(header, cookie)):
         raise HTTPException(403, "CSRF token missing or invalid")
     if not hmac.compare_digest(token_hash(header), current["csrf_hash"]):
         raise HTTPException(403, "CSRF token missing or invalid")

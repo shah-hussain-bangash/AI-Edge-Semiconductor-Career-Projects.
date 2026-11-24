@@ -365,5 +365,33 @@ class DashboardApiTests(unittest.TestCase):
 
 
 
+    def test_26_non_ascii_csrf_tokens_rejected_without_logging_out(self):
+        self.sign_in()
+        csrf = self.http.cookies['edgeops_csrf']
+        session = self.http.cookies['edgeops_session'].encode('ascii')
+        malformed_cookie = b'edgeops_session=' + session + b'; edgeops_csrf=\xff'
+        variants = [
+            [(b'x-edgeops-csrf', b'\xff')],
+            [(b'x-edgeops-csrf', b'\xc3\xa9')],
+            [(b'x-edgeops-csrf', csrf.encode('ascii')), (b'cookie', malformed_cookie)],
+            [(b'x-edgeops-csrf', b'\xff'), (b'cookie', malformed_cookie)],
+        ]
+        with self.server.database() as db:
+            before = db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0]
+            audit_before = db.execute('SELECT COUNT(*) FROM audit').fetchone()[0]
+        for headers in variants:
+            with self.subTest(header_names=[key for key, _ in headers]):
+                result = self.http.post('/api/auth/logout', headers=headers)
+                self.assertEqual(result.status_code, 403)
+                self.assertEqual(result.json()['detail'], 'CSRF token missing or invalid')
+                self.assertEqual(result.headers['x-content-type-options'], 'nosniff')
+                self.assertEqual(self.http.get('/api/me').status_code, 200)
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0], before)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM audit').fetchone()[0], audit_before)
+        self.assertEqual(self.http.post('/api/auth/logout', headers={'x-edgeops-csrf': csrf}).status_code, 200)
+        self.assertEqual(self.http.get('/api/me').status_code, 401)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
