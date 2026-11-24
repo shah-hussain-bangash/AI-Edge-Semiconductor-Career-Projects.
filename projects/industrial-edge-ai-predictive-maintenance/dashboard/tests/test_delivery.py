@@ -230,6 +230,62 @@ class DeliveryApiTests(unittest.TestCase):
     def setUp(self):
         fixtures.AcquisitionRegistryApiTests.setUp(self);self.assertEqual(self.post('/api/acquisition-bindings',binding()).status_code,201)
 
+    def test_local_receipt_write_failure_retains_event_and_recovers_original_commit(self):
+        import sqlite3
+        from unittest.mock import patch
+        path=Path(self.temp.name)/'receipt-write-failure.sqlite3';spool=Spool(path)
+        queued=spool.enqueue(envelope());claim=spool.claim()
+        with spool.db() as db:original_payload=db.execute('SELECT payload FROM delivery_spool').fetchone()[0]
+        receipts=[]
+        def send(payload):
+            response=self.post('/api/acquisition/ingest',payload)
+            self.assertEqual(response.status_code,201)
+            receipts.append(response.json())
+            return response.status_code,response.json()
+        @contextmanager
+        def readonly():
+            db=sqlite3.connect(path.as_uri()+'?mode=ro',uri=True);db.row_factory=sqlite3.Row
+            try:yield db
+            finally:db.close()
+        with patch.object(spool,'db',readonly):
+            with self.assertRaises(sqlite3.OperationalError) as raised:spool.process(claim,send)
+        error_code=raised.exception.sqlite_errorcode&255
+        self.assertEqual(error_code,sqlite3.SQLITE_READONLY)
+        self.assertEqual(len(receipts),1)
+        unfinished=Spool(path).status()['records'][0]
+        self.assertEqual((unfinished['state'],unfinished['attempts'],unfinished['receipt']),('inflight',1,None))
+        with self.server.database() as db:
+            committed=dict(db.execute('SELECT * FROM acquisition_observations').fetchone())
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+        self.assertEqual((committed['event_key'],committed['content_hash']),(queued['event_key'],queued['content_hash']))
+        with spool.db() as db:db.execute('UPDATE delivery_spool SET lease_until=0')
+        replay_status=[]
+        def retry(payload):
+            response=self.post('/api/acquisition/ingest',payload);replay_status.append(response.status_code)
+            return response.status_code,response.json()
+        spool.attempt(retry)
+        self.assertEqual(replay_status,[200])
+        recovered=Spool(path).status()['records'][0]
+        self.assertEqual((recovered['state'],recovered['attempts']),('delivered',2))
+        self.assertEqual(json.loads(recovered['receipt']),receipts[0])
+        with spool.db() as db:
+            self.assertEqual(db.execute('SELECT payload FROM delivery_spool').fetchone()[0],original_payload)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+        with self.server.database() as db:
+            self.assertEqual(dict(db.execute('SELECT * FROM acquisition_observations').fetchone()),committed)
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],1)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+            self.receipt_storage_failure_evidence={
+                'sqlite_error_base_code':error_code,'sqlite_error':'SQLITE_READONLY',
+                'queue_state_after_failed_save':unfinished['state'],'queue_receipt_after_failed_save':unfinished['receipt'],
+                'retry_http_status':replay_status[0],'queue_state_after_recovery':recovered['state'],
+                'queue_attempts':recovered['attempts'],
+                'central_records':db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],
+                'central_commit_audit_events':db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],
+                'original_receipt_and_payload_preserved':True,'both_sqlite_quick_checks':'ok',
+                'lease_expiry':'Controlled in disposable storage; no real-time recovery measurement.'}
+
     def test_duplicate_commit_refuses_damaged_storage_without_repair_or_receipt(self):
         first=self.post('/api/acquisition/ingest',envelope());self.assertEqual(first.status_code,201)
         with self.server.database() as db:

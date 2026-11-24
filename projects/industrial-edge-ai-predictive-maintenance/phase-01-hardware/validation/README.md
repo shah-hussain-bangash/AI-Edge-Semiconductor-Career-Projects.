@@ -154,3 +154,19 @@ python -m unittest discover -s tests -p test_delivery.py -k central_process_exit
 The isolated drill and all 49 delivery/worker/history/capacity/timing tests passed. The new test controls retry eligibility in its disposable queue instead of measuring elapsed backoff or recovery time. It tests one injected process-exit location, not power loss, storage-device failure, every crash/network boundary or a general exactly-once guarantee. Temporary synthetic accounts, sessions, databases and server processes are discarded. No user service, external endpoint or equipment is used. Existing test-client deprecation warnings remain; no application fix was needed.
 
 Result SHA-256: `8af884eb141d379db7a9d0f3192e419c6ff18d150ec1f76b71d2065968987382`. This adds regression coverage and software evidence only. Counts overlap earlier executions. The original 30 categories are unchanged; physical acceptance and equipment authorization remain pending/false. No merge, deployment or other-project scope is included.
+
+## Local receipt-storage failure — 24 November 2026
+
+[Sanitized result](synthetic-receipt-storage-failure-result.json) records recovery when the central commit succeeds but local receipt storage fails. The unchanged application baseline is `db8346c6742444d923c33d9dbdbe9911d4b9f8b2`; the new regression is in [test_delivery.py](../../dashboard/tests/test_delivery.py).
+
+An authenticated in-process request commits one observation through the existing central API. A real SQLite `mode=ro` connection then causes `SQLITE_READONLY` when the queue tries to save its outcome. The error propagates; the saved queue entry remains in flight with no receipt, rather than claiming delivery completion. Restoring the normal writable connection and controlling expiry of the disposable lease allows retry. That retry returns HTTP 200 for the existing central observation and saves the exact original receipt. Assertions verify unchanged queued payload, unchanged central row, one central-commit audit event and successful SQLite quick checks on both stores.
+
+Replay from the dashboard directory with existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery.py -k local_receipt_write_failure -v
+```
+
+The isolated case and all 50 delivery/worker/history/capacity/timing tests passed. This is an actual SQLite read-only write failure, not a test that fills the user's disk or proves recovery from hardware storage failure, power loss or all disk-error classes. API requests in this case are in-process, not remote-network tests. Lease eligibility is controlled; recovery duration is not measured. Existing test-client deprecation warnings remain. No application fix was needed.
+
+Result SHA-256: `01e67e1992665f4fc95c97d8f361dfe06c38616c27775b0fea117ccb68ea9c7d`. Only regression coverage and allowlisted software evidence are added. Counts overlap earlier executions. The original 30 hardware categories are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, running user service, merge, deployment or other-project scope is included.
