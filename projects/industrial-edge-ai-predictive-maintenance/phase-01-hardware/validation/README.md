@@ -138,3 +138,19 @@ The test uses temporary accounts, credentials and databases; no running user das
 The isolated drill passed, and all 48 tests passed across delivery, worker, history, capacity and timing suites. Counts overlap earlier checks and must not be added as independent acceptance milestones. No application blocker was found or application behavior changed; only regression coverage and sanitized evidence were added. Existing test-client deprecation warnings remain. Result SHA-256: `deafb89bc36301d47ee74873274f2edbe7765b8083bba5b12a6f936eb338a03f`.
 
 The same original 30 hardware categories are preserved. Physical acceptance and equipment authorization remain pending/false; no merge, deployment or work on the other six concepts is included.
+
+## Central process stop before commit — 24 November 2026
+
+[Sanitized result](synthetic-central-stop-recovery-result.json) complements the worker-stop drill above. The unchanged application baseline is `e78d1e1508b7df2f47e530899c952181dcbd6f3f`; the new regression is versioned in [test_delivery.py](../../dashboard/tests/test_delivery.py).
+
+A separate test server receives the observation over actual loopback HTTP. An injected audit callback exits that server with `os._exit(75)` after inserting the observation and its audit event inside the transaction, before commit. Reopening the disposable central database confirms both inserts rolled back. The worker retains a pending queue entry with no receipt and its sanitized transport-failure reason. A normal server restart against the same test storage and a retry produce exactly one observation, one central-commit audit event and a matching valid receipt. Original queued identity/payload and SQLite quick checks on both stores are verified.
+
+Replay from the dashboard directory with the existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery.py -k central_process_exit_before_commit -v
+```
+
+The isolated drill and all 49 delivery/worker/history/capacity/timing tests passed. The new test controls retry eligibility in its disposable queue instead of measuring elapsed backoff or recovery time. It tests one injected process-exit location, not power loss, storage-device failure, every crash/network boundary or a general exactly-once guarantee. Temporary synthetic accounts, sessions, databases and server processes are discarded. No user service, external endpoint or equipment is used. Existing test-client deprecation warnings remain; no application fix was needed.
+
+Result SHA-256: `8af884eb141d379db7a9d0f3192e419c6ff18d150ec1f76b71d2065968987382`. This adds regression coverage and software evidence only. Counts overlap earlier executions. The original 30 categories are unchanged; physical acceptance and equipment authorization remain pending/false. No merge, deployment or other-project scope is included.

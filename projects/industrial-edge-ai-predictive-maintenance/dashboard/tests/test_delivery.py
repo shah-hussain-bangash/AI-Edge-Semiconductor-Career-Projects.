@@ -302,10 +302,24 @@ class DeliveryApiTests(unittest.TestCase):
         self.assertEqual(self.post('/api/acquisition/ingest',envelope()).status_code,403)
 
     @contextmanager
-    def loopback_server(self):
+    def loopback_server(self,stop_before_commit=False):
         sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
         env={**os.environ,'EDGEOPS_ADMIN_EMAIL':'','EDGEOPS_ADMIN_PASSWORD':''}
-        service=subprocess.Popen([sys.executable,'-m','uvicorn','server:app','--host','127.0.0.1','--port',str(port)],cwd=Path(__file__).resolve().parents[1],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        command=[sys.executable,'-m','uvicorn','server:app','--host','127.0.0.1','--port',str(port)]
+        if stop_before_commit:
+            script='''
+import os,sys,uvicorn,server,delivery_service
+original=delivery_service.commit_observation
+def interrupted(database,audit,current,body):
+    def stop_in_transaction(db,actor,action,detail):
+        audit(db,actor,action,detail)
+        if action=='synthetic_central_commit':os._exit(75)
+    return original(database,stop_in_transaction,current,body)
+delivery_service.commit_observation=interrupted
+uvicorn.run(server.app,host='127.0.0.1',port=int(sys.argv[1]))
+'''
+            command=[sys.executable,'-c',script,str(port)]
+        service=subprocess.Popen(command,cwd=Path(__file__).resolve().parents[1],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
             for _ in range(100):
                 try:
@@ -316,7 +330,47 @@ class DeliveryApiTests(unittest.TestCase):
             yield f'http://127.0.0.1:{port}'
         finally:
             if service.poll() is None:service.terminate()
-            service.wait(timeout=10)
+            self.last_loopback_exit_code=service.wait(timeout=10)
+
+    def test_central_process_exit_before_commit_rolls_back_and_retry_succeeds(self):
+        path=Path(self.temp.name)/'central-stop-edge.sqlite3';spool=Spool(path)
+        queued=spool.enqueue(envelope())
+        with spool.db() as db:original_payload=db.execute('SELECT payload FROM delivery_spool').fetchone()[0]
+        with self.loopback_server(stop_before_commit=True) as base:
+            self.assertTrue(run_once(path,base,'admin@example.invalid',self.password)['attempted'])
+        self.assertEqual(self.last_loopback_exit_code,75)
+        pending=Spool(path).status()['records'][0]
+        self.assertEqual((pending['state'],pending['attempts'],pending['last_error']),('pending',1,'transport-unavailable'))
+        self.assertIsNone(pending['receipt'])
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],0)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+        # Backoff is persisted but eligibility is controlled here; elapsed recovery time is not measured.
+        with spool.db() as db:db.execute('UPDATE delivery_spool SET next_at=0')
+        with self.loopback_server() as base:
+            self.assertTrue(run_once(path,base,'admin@example.invalid',self.password)['attempted'])
+        recovered=Spool(path).status()['records'][0]
+        self.assertEqual((recovered['state'],recovered['attempts']),('delivered',2))
+        receipt=json.loads(recovered['receipt'])
+        self.assertEqual((receipt['event_key'],receipt['content_hash']),(queued['event_key'],queued['content_hash']))
+        with spool.db() as db:
+            self.assertEqual(db.execute('SELECT payload FROM delivery_spool').fetchone()[0],original_payload)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],1)
+            self.assertEqual(db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],1)
+            self.assertEqual(db.execute('SELECT receipt_id FROM acquisition_observations').fetchone()[0],receipt['receipt_id'])
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+            self.central_stop_recovery_evidence={
+                'injected_server_exit_code':75,'central_records_after_stop':0,
+                'central_commit_audit_events_after_stop':0,'queue_state_after_stop':pending['state'],
+                'queue_receipt_after_stop':pending['receipt'],
+                'central_records_after_recovery':db.execute('SELECT count(*) FROM acquisition_observations').fetchone()[0],
+                'central_commit_audit_events_after_recovery':db.execute("SELECT count(*) FROM audit WHERE action='synthetic_central_commit'").fetchone()[0],
+                'queue_state_after_recovery':recovered['state'],'queue_attempts':recovered['attempts'],
+                'original_identity_and_payload_preserved':True,'both_sqlite_quick_checks':'ok',
+                'retry_timing':'Eligibility controlled in disposable storage; no elapsed backoff or RTO measurement.'}
 
     def test_real_loopback_worker_transmits_and_commits(self):
         with self.loopback_server() as base:
