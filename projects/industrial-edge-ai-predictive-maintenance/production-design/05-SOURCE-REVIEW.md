@@ -12,6 +12,12 @@ Evidence precedence: exact scoped source and execution artifact → current cons
 
 ## 2. Reconciliation and conflict disposition
 
+### Fixed-selection addendum — 25 November 2026
+
+The owner's later instruction fixes the original 30 selected products and forbids substitutions or additional hardware in this scope. Older wording in the hardware integration design allowed an alternative driver or current-monitor module when incompatible. The [current hardware design](02-HARDWARE-INTEGRATION.md) now keeps an incompatible ordered path BLOCKED for qualified exact-part review instead. A future selection change would require a separate explicit owner decision and compatibility review; no such change is authorized here. Conditional components and the existing cold spare retain their documented roles.
+
+This addendum corrects selection policy only. It does not revise the dated 19 November source inventory, regenerate historical source hashes, verify received parts, prescribe wiring or pass any physical criterion. The original documents and 30-category register are preserved.
+
 | ID | Finding | Consolidated disposition |
 |---|---|---|
 | REC-01 | Full 30-category hardware register versus dashboard's 14 grouped names/16 generic slots | BOM-01..30 design categories; preserve legacy aliases; actual purchases/instances separately verified |
