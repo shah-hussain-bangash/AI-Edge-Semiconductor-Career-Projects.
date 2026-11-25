@@ -171,7 +171,9 @@ class Spool:
         try:
             status,result=sender(claim['envelope'])
             if status in (200,201):
-                try:self.finish(claim,receipt=result)
+                try:
+                    if not isinstance(result,dict):raise ValueError('Invalid central receipt object')
+                    self.finish(claim,receipt=result)
                 except ValueError:self.finish(claim,error='invalid-central-receipt',permanent=True)
             else:self.finish(claim,error='http-'+str(status),permanent=400<=status<500 and status not in (408,429))
         except Exception:

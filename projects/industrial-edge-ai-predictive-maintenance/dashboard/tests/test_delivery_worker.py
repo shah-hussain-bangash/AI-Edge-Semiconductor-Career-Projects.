@@ -90,6 +90,36 @@ class DeliveryWorkerTests(unittest.TestCase):
         self.assertEqual((row['state'],row['last_error']),('pending','http-307'))
         self.assertIsNone(row['receipt'])
 
+    def test_non_object_success_response_blocks_without_losing_source(self):
+        for status in (200,201):
+            for index,body in enumerate((None,[],False,0,'private-test-marker')):
+                with self.subTest(status=status,body_index=index):
+                    path=Path(self.temp.name)/f'non-object-{status}-{index}.sqlite3'
+                    spool=Spool(path);spool.enqueue(envelope());calls=[];options=[]
+                    with spool.db() as db:
+                        original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                    def handler(request):
+                        calls.append(request.url.path)
+                        if request.url.path=='/api/auth/login':
+                            return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+                        if request.url.path=='/api/acquisition/ingest':
+                            return httpx.Response(status,content=json.dumps(body),headers={'content-type':'application/json'})
+                        return httpx.Response(200,json={})
+                    with self.client(handler,options):
+                        self.assertTrue(delivery_worker.run_once(path,'http://127.0.0.1:8877',
+                            'test@example.invalid','test-only')['attempted'])
+                    row=spool.status()['records'][0]
+                    self.assertEqual((row['state'],row['attempts'],row['last_error']),
+                                     ('blocked',1,'invalid-central-receipt'))
+                    self.assertIsNone(row['receipt']);self.assertNotIn('private-test-marker',str(row))
+                    with spool.db() as db:
+                        retained=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                        self.assertEqual(db.execute('SELECT count(*) FROM delivery_spool').fetchone()[0],1)
+                    for field in ('event_key','content_hash','payload','created_at'):
+                        self.assertEqual(retained[field],original[field])
+                    self.assertIsNone(retained['lease_token']);self.assertIsNone(retained['lease_until'])
+                    self.assertEqual(calls,['/api/auth/login','/api/acquisition/ingest','/api/auth/logout'])
+
     def test_cli_invalid_port_has_no_traceback_or_credential_disclosure(self):
         result=subprocess.run([sys.executable,str(Path(delivery_worker.__file__)),
             '--spool',str(self.path),'--server','http://127.0.0.1:not-a-port'],capture_output=True,text=True,
