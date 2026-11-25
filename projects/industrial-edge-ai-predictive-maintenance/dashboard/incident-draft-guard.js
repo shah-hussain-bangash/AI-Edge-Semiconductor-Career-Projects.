@@ -16,8 +16,15 @@ function incidentDirtyForms(except=''){
  return Object.entries(incidentDraftForms).filter(([id,definition])=>id!==except&&root.contains($(id))&&incidentDraftBaselines.has(id)&&incidentDraftValue(definition)!==incidentDraftBaselines.get(id)).map(([id,definition])=>({id,label:definition.label}));
 }
 function refreshIncidentDraftNotice(){
+ const dirty=incidentDirtyForms();
+ if(dirty.length)window.addEventListener('beforeunload',warnIncidentDraftExit);
+ else window.removeEventListener('beforeunload',warnIncidentDraftExit);
  const notice=$('incident-draft-notice');if(!notice)return;
- const dirty=incidentDirtyForms();notice.hidden=dirty.length===0;const text=dirty.length?'Unsaved changes: '+dirty.map(item=>item.label).join(' · ')+'.':'';if(notice.textContent!==text)notice.textContent=text;
+ notice.hidden=dirty.length===0;const text=dirty.length?'Unsaved changes: '+dirty.map(item=>item.label).join(' · ')+'.':'';if(notice.textContent!==text)notice.textContent=text;
+}
+function warnIncidentDraftExit(event){
+ if(!incidentDirtyForms().length)return;
+ event.preventDefault();event.returnValue='Unsaved changes';
 }
 function finishIncidentDraftDialog(value){
  const pending=incidentDraftPending;incidentDraftPending=null;const dialog=$('incident-draft-dialog');
@@ -44,6 +51,7 @@ async function guardIncidentDeparture(action,description='Continue and replace t
  return action();
 }
 function clearIncidentDraftGuard(){
+ window.removeEventListener('beforeunload',warnIncidentDraftExit);
  incidentDraftGeneration++;incidentDraftController?.abort();incidentDraftObserver?.disconnect();incidentDraftController=null;incidentDraftObserver=null;incidentDraftBaselines.clear();
  if(incidentDraftPending)finishIncidentDraftDialog('context-changed');
 }

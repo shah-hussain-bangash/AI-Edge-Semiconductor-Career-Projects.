@@ -42,6 +42,8 @@ The interface rejects unsupported response scope, clears unavailable queues, dis
 
 ## Storage and verification
 
+Tracked dirty planning and maintenance-exercise editors request a browser-owned exit warning on reload, full-page navigation or tab closure where supported after user interaction. Cancelling retains the current page; accepting discards unsaved text. Clean, reverted, saved, explicitly discarded and read-only views do not request a warning. The listener is active only while a tracked editor is dirty and is independent of any retained incident draft. This is not autosave: no private form content is newly stored in browser storage or on the server. Browser policy, mobile process termination and crashes can bypass warnings; save or copy important notes before leaving.
+
 Startup adds `maintenance_requests` and `maintenance_request_events` tables and an index to the existing local database; users, sessions, reports and audit records are preserved. The installation process creates a consistent SQLite backup before enabling the extension. No additional package dependency or automatic account creation is needed.
 
 Eight isolated API tests cover authorization/CSRF/read scope, retry-safe creation, independent review, approval invalidation, rejection/resubmission, concurrent edit serialization, revocation during authorization, validation and pagination/search. A separate Chromium suite uses disposable users/databases to exercise persistence, asset context, literal evidence text, independent review, conflicts, rejection/history, administrator self-review denial, auditor read-only access, service recovery, delayed detail responses and five viewport widths. Test users and test requests are never installed into the user's live local database.

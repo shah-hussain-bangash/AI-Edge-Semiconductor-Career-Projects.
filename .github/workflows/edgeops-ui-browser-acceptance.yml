@@ -78,6 +78,8 @@ jobs:
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_source_context.cjs
       - name: Maintenance planning and exercise draft protection
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_drafts.cjs
+      - name: Browser reload and tab-close draft warnings
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_draft_exit.cjs
       - name: Maintenance workbench navigation and history filters
         run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_planning_workbench.cjs
       - name: Read-only saved planning revision comparison

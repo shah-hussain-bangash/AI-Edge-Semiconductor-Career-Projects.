@@ -13,7 +13,14 @@ function planningDirtyForm(){
  return $('planning-dialog-body').contains($(id))&&planningDraftValue(definition)!==value?definition:null;
 }
 function refreshPlanningDraftNotice(){
- const notice=$('planning-draft-notice');if(!notice)return;const dirty=planningDirtyForm();notice.hidden=!dirty;notice.textContent=dirty?'Unsaved changes: '+dirty.label+'.':'';
+ const dirty=planningDirtyForm();
+ if(dirty)window.addEventListener('beforeunload',warnPlanningDraftExit);
+ else window.removeEventListener('beforeunload',warnPlanningDraftExit);
+ const notice=$('planning-draft-notice');if(!notice)return;notice.hidden=!dirty;notice.textContent=dirty?'Unsaved changes: '+dirty.label+'.':'';
+}
+function warnPlanningDraftExit(event){
+ if(!planningDirtyForm())return;
+ event.preventDefault();event.returnValue='Unsaved changes';
 }
 function finishPlanningDraftDialog(value){
  const pending=planningDraftPending;planningDraftPending=null;const dialog=$('planning-draft-dialog');if(dialog?.open)dialog.close(value);
