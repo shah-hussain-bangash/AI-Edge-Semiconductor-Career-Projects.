@@ -23,13 +23,12 @@ class DeliveryCapacityTests(unittest.TestCase):
         data=envelope();data['observation']['sequence']=sequence
         return self.spool.enqueue(data)
 
-    def test_default_record_limit_preserves_ten_thousand_existing_events(self):
-        self.assertEqual(self.spool.max_rows,10000)
+    def populate_queue(self,count):
         self.enqueue(0)
         with self.spool.db() as db:
             expected_bytes=len(db.execute('SELECT payload FROM delivery_spool').fetchone()[0].encode('utf-8'))
         rows=[]
-        for sequence in range(1,10000):
+        for sequence in range(1,count):
             sample=envelope();sample['observation']['sequence']=sequence
             key,digest=identity(sample)
             payload=json.dumps(sample,sort_keys=True,separators=(',',':'),allow_nan=False)
@@ -39,13 +38,20 @@ class DeliveryCapacityTests(unittest.TestCase):
         # Bulk population isolates the real default admission boundary; this is not an ingest-rate test.
         with self.spool.db() as db:
             db.executemany('INSERT INTO delivery_spool VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',rows)
-        def snapshot_hash():
-            digest=hashlib.sha256()
-            with self.spool.db() as db:
-                for row in db.execute('SELECT * FROM delivery_spool ORDER BY event_key'):
-                    digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
-            return digest.hexdigest()
-        before=snapshot_hash();status=self.spool.status()
+        return expected_bytes
+
+    def queue_snapshot_hash(self,exclude=None):
+        digest=hashlib.sha256()
+        query='SELECT * FROM delivery_spool'+(' WHERE event_key<>?' if exclude else '')+' ORDER BY event_key'
+        with self.spool.db() as db:
+            for row in db.execute(query,(exclude,) if exclude else ()):
+                digest.update((json.dumps(tuple(row),separators=(',',':'))+'\n').encode('utf-8'))
+        return digest.hexdigest()
+
+    def test_default_record_limit_preserves_ten_thousand_existing_events(self):
+        self.assertEqual(self.spool.max_rows,10000)
+        expected_bytes=self.populate_queue(10000)
+        before=self.queue_snapshot_hash();status=self.spool.status()
         self.assertEqual(status['usage'],{'records':10000,'payload_bytes':expected_bytes})
         self.assertLess(expected_bytes,status['limits']['payload_bytes'])
         self.assertEqual(status['counts']['pending'],10000)
@@ -55,7 +61,7 @@ class DeliveryCapacityTests(unittest.TestCase):
         restarted=Spool(self.path)
         after=restarted.status()
         self.assertEqual(after['usage'],status['usage']);self.assertEqual(after['counts'],status['counts'])
-        self.assertEqual(snapshot_hash(),before)
+        self.assertEqual(self.queue_snapshot_hash(),before)
         with self.spool.db() as db:self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
         self.default_capacity_evidence={
             'configured_record_limit':status['limits']['records'],
@@ -65,6 +71,51 @@ class DeliveryCapacityTests(unittest.TestCase):
             'all_saved_rows_unchanged':True,'restart_preserved_counts_and_usage':True,
             'sqlite_quick_check':'ok',
             'fixture_population':'One normal enqueue plus 9,999 bulk-inserted valid synthetic rows; not 10,000 API ingests or a throughput/soak test.'}
+
+    def test_concurrent_producers_for_last_queue_slot_preserve_retained_events(self):
+        expected_bytes=self.populate_queue(9999)
+        initial=self.spool.status();before=self.queue_snapshot_hash()
+        self.assertEqual(initial['usage'],{'records':9999,'payload_bytes':expected_bytes})
+        self.assertEqual(initial['limits']['records'],10000)
+        self.assertLess(expected_bytes,initial['limits']['payload_bytes'])
+        payloads=[]
+        for sequence in (9999,10000):
+            sample=envelope();sample['observation']['sequence']=sequence;payloads.append(sample)
+        self.assertLess(expected_bytes+sum(len(json.dumps(payload,sort_keys=True,separators=(',',':'),allow_nan=False).encode('utf-8')) for payload in payloads),initial['limits']['payload_bytes'])
+        gate=Barrier(2)
+        def submit(payload):
+            gate.wait(timeout=10)
+            try:return 'accepted',self.spool.enqueue(payload)
+            except OverflowError:return 'capacity-refused',None
+        with ThreadPoolExecutor(max_workers=2) as pool:outcomes=list(pool.map(submit,payloads))
+        labels=sorted(outcome[0] for outcome in outcomes)
+        self.assertEqual(labels,['accepted','capacity-refused'])
+        winner=next(index for index,outcome in enumerate(outcomes) if outcome[0]=='accepted')
+        receipt=outcomes[winner][1];expected_key,expected_hash=identity(payloads[winner])
+        denied_key,_=identity(payloads[1-winner])
+        self.assertTrue(receipt['created']);self.assertEqual(receipt['tier'],'edge-committed')
+        self.assertNotIn('receipt_id',receipt)
+        self.assertEqual((receipt['event_key'],receipt['content_hash']),(expected_key,expected_hash))
+        self.assertFalse(self.spool.enqueue(payloads[winner])['created'])
+        self.assertEqual(self.queue_snapshot_hash(exclude=expected_key),before)
+        after=self.spool.status()
+        self.assertEqual((after['usage']['records'],after['counts']['pending']),(10000,10000))
+        with self.spool.db() as db:
+            self.assertIsNone(db.execute('SELECT 1 FROM delivery_spool WHERE event_key=?',(denied_key,)).fetchone())
+            added_bytes=len(db.execute('SELECT payload FROM delivery_spool WHERE event_key=?',(expected_key,)).fetchone()[0].encode('utf-8'))
+            self.assertEqual(after['usage']['payload_bytes'],expected_bytes+added_bytes)
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0],'ok')
+        restarted=Spool(self.path).status()
+        self.assertEqual(restarted['usage'],after['usage']);self.assertEqual(restarted['counts'],after['counts'])
+        self.assertEqual(self.queue_snapshot_hash(exclude=expected_key),before)
+        self.queue_race_evidence={
+            'initial_records':9999,'producer_calls':2,'producer_outcomes':labels,
+            'final_records':restarted['usage']['records'],'pending_records':restarted['counts']['pending'],
+            'accepted_receipt_tier':receipt['tier'],'duplicate_retry_created_record':False,
+            'preexisting_rows_unchanged':True,'rejected_identity_absent':True,
+            'payload_byte_accounting_correct':True,'restart_preserved_counts_and_usage':True,
+            'sqlite_quick_check':'ok',
+            'fixture_population':'One normal enqueue plus 9,998 direct synthetic inserts, then two barrier-started producers; not throughput or sustained load.'}
 
     def test_empty_capacity_and_stored_utf8_byte_accounting(self):
         self.assertEqual(self.spool.status()['usage'],{'records':0,'payload_bytes':0})

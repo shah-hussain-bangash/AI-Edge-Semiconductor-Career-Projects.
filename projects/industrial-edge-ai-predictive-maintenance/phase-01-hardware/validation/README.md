@@ -234,3 +234,21 @@ python -m unittest discover -s tests -p test_delivery_capacity.py -k last_centra
 The isolated race and all 53 delivery/worker/history/capacity/timing tests passed. This observes one finite two-request race; it does not establish every interleaving, distributed contention, PostgreSQL behavior, throughput or soak performance. Most initial rows were inserted directly, not ingested through the API. Existing test-client deprecation warnings remain; no application fix was needed.
 
 Result SHA-256: `55a5d7d658bb7076befb4637c204fbfe3a9024fc95d12f93e1bbe898e9364506`. Only regression coverage and aggregate software evidence are added. Counts overlap earlier executions. The original 30 products are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
+
+## Concurrent producers for the final local queue slot — 25 November 2026
+
+[Sanitized queue race result](synthetic-queue-last-slot-result.json) complements the central-store race. The unchanged application baseline is `c6ea43b2b90258d05d46d5bde20738a2a87c6ecc`; the regression and shared fixtures are in [test_delivery_capacity.py](../../dashboard/tests/test_delivery_capacity.py).
+
+One normal enqueue and 9,998 direct synthetic inserts populate a disposable local queue to 9,999 rows. Two producers are released from a two-thread barrier with distinct new events. Exactly one is accepted and one raises the existing capacity refusal. There is enough payload-byte budget for both, so the record limit is the binding constraint. Final count is 10,000 pending rows. The accepted response is only `edge-committed`, with no central receipt ID; an identical retry creates no additional row.
+
+The rejected identity is absent, a hash of all preexisting rows remains unchanged, and payload-byte accounting increases only by the accepted row's saved payload. Reopening the queue preserves counts and usage, and SQLite quick check passes. This does not establish central delivery or physical acquisition.
+
+Replay from the dashboard directory with existing dependencies:
+
+```powershell
+python -m unittest discover -s tests -p test_delivery_capacity.py -k last_queue_slot -v
+```
+
+The isolated case and all 54 delivery/worker/history/capacity/timing tests passed. This observes one finite two-producer race, not every interleaving, multi-host/distributed behavior, sustained throughput, soak performance or disk exhaustion. Most initial rows were inserted directly. Existing test-client deprecation warnings remain; no application fix was needed.
+
+Result SHA-256: `2bac20c4d37890569f48894e3896cdfc09fba97ec4da11ede4028deffc90bbeb`. Only regression coverage and aggregate software evidence are added. Counts overlap earlier executions. The original 30 categories are unchanged; physical acceptance and equipment authorization remain pending/false. No equipment, user database, dashboard scope, merge, deployment or other-project work is included.
