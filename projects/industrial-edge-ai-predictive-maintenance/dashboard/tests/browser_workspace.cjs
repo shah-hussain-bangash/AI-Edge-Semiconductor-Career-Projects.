@@ -132,6 +132,18 @@ serverSocket.listen(0,'127.0.0.1',async()=>{
     assert(await page.locator('.nav-item[data-page="'+stage+'"]').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=15),'Navigation text too small at '+width);
     assert(await page.locator('.top-heading p').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=14),'Page description too small at '+width);
 
+    if(stage==='overview'){
+     const jump=page.getByRole('button',{name:'Jump to attention queue',exact:true});
+     assert(await jump.isVisible()===(width<=800),'Mobile attention shortcut visibility incorrect at '+width);
+     if(width<=800){
+      assert(await jump.evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('.hero-machine'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Attention shortcut follows the large asset visual');
+      await jump.focus();await page.keyboard.press('Enter');
+      await page.waitForFunction(()=>{const heading=document.getElementById('overview-attention-title'),rect=heading.getBoundingClientRect();return document.activeElement===heading&&rect.top>=document.querySelector('.topbar').getBoundingClientRect().bottom&&rect.bottom<=innerHeight;});
+      assert(await page.locator('.nav-item.active').getAttribute('data-page')==='overview','Attention shortcut changed workspace');
+      await page.evaluate(()=>window.scrollTo(0,0));
+     }
+    }
+
     if(stage==='overview'||stage==='telemetry'){
      const chartId=stage==='overview'?'trend-chart':'telemetry-chart';
      await page.waitForFunction(id=>{const svg=document.getElementById(id),label=svg.querySelector('text'),matrix=label?.getScreenCTM();const pixels=label&&matrix?parseFloat(getComputedStyle(label).fontSize)*Math.min(matrix.a,matrix.d):0;return Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<2&&Number.isFinite(pixels)&&pixels>=11.5;},chartId);

@@ -293,3 +293,8 @@
 .dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy h2{color:#fff}
 .dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy p{color:#e0eaf4}
 .dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy .section-kicker{color:#acf1e2}
+
+.dashboard-page.pro-workspace main .experience-attention-jump{display:none}
+#overview-attention{scroll-margin-top:96px}
+#overview-attention-title:focus-visible{outline:2px solid #245bdc;outline-offset:4px;border-radius:3px}
+@media(max-width:800px){.dashboard-page.pro-workspace main .experience-attention-jump{display:inline-flex;align-items:center;min-height:44px;background:#edf4ff;color:#174a7d;border-color:#8fb6e9}}
