@@ -288,3 +288,8 @@
 .dashboard-page.pro-workspace main .sensor-readouts strong{font-size:26px;color:#142c46}
 .dashboard-page.pro-workspace main .sensor-readouts small{font-size:13px;color:#344b64}
 .dashboard-page.pro-workspace main :is(.visual-image-caption,.experience-coverage-total small){font-size:12px}
+
+/* Image-backed banner copy needs its own palette after the light-page rules. */
+.dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy h2{color:#fff}
+.dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy p{color:#e0eaf4}
+.dashboard-page.pro-workspace main .experience-guide-banner .visual-banner-copy .section-kicker{color:#acf1e2}
