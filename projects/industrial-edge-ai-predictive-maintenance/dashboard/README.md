@@ -39,6 +39,10 @@ For a fresh database only, set EDGEOPS_ADMIN_EMAIL and a unique EDGEOPS_ADMIN_PA
 
 Keep this development server on loopback. HTTPS-only cookies require HTTPS; the environment example is documentation and is not automatically loaded as a secrets file. Production identity, managed credentials, TLS deployment and network isolation remain separate work.
 
+Local login protection reserves an attempt before password verification: at most five failed/in-flight attempts per client and normalized email, and thirty across emails from the same client, within a 15-minute monotonic window. Completed successful attempts release their reservation and clear that identity's completed failures; they do not clear other in-flight work or source-wide failures. Tracking is capped at 4,096 source/identity buckets. Expired buckets are reclaimed on admission/completion; a full table rejects new identities with the same generic 429 response instead of evicting active limits. No raw addresses, emails or passwords are stored in these in-memory keys.
+
+This guard is single-process and resets on restart. It is not a distributed limiter, identity provider or production security approval. Requests behind a proxy can share a client address; trusted proxy configuration and an appropriate shared/gateway limit must be qualified before network or multi-worker deployment. Limit saturation can temporarily deny legitimate users; the fifteen-minute expiry provides bounded recovery. No live installation is changed by a source commit.
+
 ## Service observations
 
 Settings > Service checks & recovery shows the current data-store check, service uptime, available storage and source fingerprint. Admin/auditor accounts can refresh and export diagnostics; operators cannot access private diagnostics. Failed checks clear previous results and disable export until recovery.

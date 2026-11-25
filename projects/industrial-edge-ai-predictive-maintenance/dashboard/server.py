@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from request_limits import RequestBodyLimit, SECURITY_HEADERS
+from login_protection import LoginThrottle, LoginThrottled
 import physical_build
 import incidents
 import observation_queries
@@ -221,8 +222,9 @@ class AlertAction(BaseModel):
     note: str = Field(default="", max_length=200)
 
 
-# Small single-process throttle ONLY; needs distributed rate limiting at scale.
-FAILED_LOGINS: dict[str, list[int]] = {}
+# Bounded single-process guard; shared/gateway enforcement is still required
+# before a network-exposed or multi-worker production deployment.
+LOGIN_THROTTLE = LoginThrottle()
 
 
 @app.middleware("http")
@@ -261,44 +263,41 @@ def main_app(request: Request):
 @app.post("/api/auth/login")
 def login(request: Request, body: LoginInput):
     email = body.email.strip().lower()
-    # Hash email rather than store raw passwords or arbitrary client identifiers.
     client = request.client.host if request.client else "unknown"
-    ipkey = token_hash(client + "|" + email)
-    window = now_epoch() - 900
-    attempts = [x for x in FAILED_LOGINS.get(ipkey, []) if x > window]
-    if len(attempts) >= 5:
+    try:
+        reservation = LOGIN_THROTTLE.reserve(client, email)
+    except LoginThrottled:
         raise HTTPException(429, "Too many attempts; retry later")
-    with database() as db:
-        user = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        # Do expensive KDF for nonexistent accounts to limit timing differences.
-        dummy = "pbkdf2_sha256$480000$" + ("00" * 16) + "$" + ("00" * 32)
-        ok = password_matches(body.password, user["password_hash"] if user else dummy)
-        if not user or user["disabled"] or not ok:
-            FAILED_LOGINS[ipkey] = attempts + [now_epoch()]
-            record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
-            # Persist the denial before propagating the HTTP exception.
-            db.commit()
-            raise HTTPException(401, "Invalid email or password")
-        # Password hashing can overlap a credential/access change. Serialize the
-        # final credential check with session issuance so an old password cannot
-        # create a new session after a successful password rotation.
-        db.execute("BEGIN IMMEDIATE")
-        latest = db.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
-        if not latest or latest["disabled"] or latest["password_hash"] != user["password_hash"]:
-            FAILED_LOGINS[ipkey] = attempts + [now_epoch()]
-            record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
-            db.commit()
-            raise HTTPException(401, "Invalid email or password")
-        user = latest
-        FAILED_LOGINS.pop(ipkey, None)
-        token = secrets.token_hex(32)
-        csrf = secrets.token_urlsafe(32)
-        db.execute("INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at) VALUES(?,?,?,?)",
-                   (token_hash(token), user["id"], token_hash(csrf), now_epoch() + SESSION_SECONDS))
-        record_audit(db, email, "login", "authenticated local browser session")
-    response = JSONResponse({"ok": True, "role": user["role"], "redirect": "/app"})
-    set_session(response, token, csrf)
-    return response
+    succeeded = False
+    try:
+        with database() as db:
+            user = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+            # Do expensive KDF for nonexistent accounts to limit timing differences.
+            dummy = "pbkdf2_sha256$480000$" + ("00" * 16) + "$" + ("00" * 32)
+            ok = password_matches(body.password, user["password_hash"] if user else dummy)
+            if not user or user["disabled"] or not ok:
+                record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
+                db.commit()
+                raise HTTPException(401, "Invalid email or password")
+            # Serialize current credentials/access with session issuance.
+            db.execute("BEGIN IMMEDIATE")
+            latest = db.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+            if not latest or latest["disabled"] or latest["password_hash"] != user["password_hash"]:
+                record_audit(db, "unauthenticated", "login_failed", "invalid credentials")
+                db.commit()
+                raise HTTPException(401, "Invalid email or password")
+            user = latest
+            token = secrets.token_hex(32)
+            csrf = secrets.token_urlsafe(32)
+            db.execute("INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at) VALUES(?,?,?,?)",
+                       (token_hash(token), user["id"], token_hash(csrf), now_epoch() + SESSION_SECONDS))
+            record_audit(db, email, "login", "authenticated local browser session")
+        response = JSONResponse({"ok": True, "role": user["role"], "redirect": "/app"})
+        set_session(response, token, csrf)
+        succeeded = True
+        return response
+    finally:
+        LOGIN_THROTTLE.finish(reservation, succeeded)
 
 
 @app.get("/api/me")
