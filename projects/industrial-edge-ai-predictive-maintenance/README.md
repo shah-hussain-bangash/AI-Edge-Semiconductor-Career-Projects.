@@ -1,7 +1,24 @@
 # EDGEOPS — Industrial Edge AI Predictive Maintenance & Autonomous Operations
 
+> **Consolidated production design — 19 November 2026:** Start with the [complete production system design baseline](production-design/README.md). It reconciles all 48 existing project text documents, maps all 30 planned hardware categories, and specifies the target contracts, services, workflows and acceptance path. The current local dashboard is an authenticated development prototype; hardware commissioning and production acceptance are not established. Older status statements below describe earlier source snapshots.
+
 > **Engineering portfolio project | Architecture and implementation roadmap | Demonstration UI**  
-> **Status:** Documentation and initial ESP32 starter code exist. The dashboard is a simulated frontend prototype. A validated end-to-end hardware-to-cloud deployment has **not** yet been demonstrated.
+> **Status:** The local dashboard has authenticated accounts, verified offline experiment reports and a responsive product workspace. Equipment views remain simulated. A validated end-to-end hardware-to-cloud deployment has **not** yet been demonstrated.
+
+## Current implementation and evidence — 24 November 2026
+
+The current implementation is on `ui/production-workspace-20261119` in [draft PR #2](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./pull/2), targeting `dashboard-live-edit`. It includes the [local FastAPI/dashboard application](dashboard/README.md), persisted synthetic observation inspection, incident preparation and maintenance drafts with retained source evidence. It is not a merged release or accepted industrial deployment.
+
+- [Reproduce the saved synthetic operations example](phase-01-hardware/validation/README.md): one observation inspected, an incident created and a maintenance record retained as a draft in disposable data.
+- [Read the bounded software review](dashboard/reviews/2026-11-24-request-boundary-review.md): malformed anti-forgery token handling fixed; 68 targeted regression tests and the browser password suite passed.
+- [Review the public visual walkthrough and PDF brief](https://github.com/shah-hussain-bangash/shah-hussain-bangash/blob/main/docs/edgeops/EVIDENCE.md): captures and test results are explicitly synthetic and pinned to their recorded source revisions.
+- [Prepare H1 hardware acceptance](phase-01-hardware/validation/FIRST-HARDWARE-ACCEPTANCE.md): proposed 600-second sensor-only baseline and channel reference checks; every physical check remains pending.
+
+All four workflow families passed for software commit `5ee6ad79e94f473588fbde1d5b0d5c6ccf75c620`: [dashboard checks](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661219), [browser acceptance](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661341), [offline experiment registry](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661330) and [offline model comparison](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661339). These are historical software outcomes, not a live badge or physical verification.
+
+The owner reports that some hardware has arrived. Connection is deferred until the original ordered set is complete and the relevant bench review is ready. No exact received variant, calibration or real acquisition is verified by this README. The measured capture handoff remains offline and dashboard ingestion remains synthetic-only.
+
+## Target system
 
 EDGEOPS is a proposed end-to-end industrial condition-monitoring platform that combines **low-voltage sensors, ESP32 firmware, MQTT messaging, Raspberry Pi edge inference, ONNX anomaly detection, FastAPI, PostgreSQL/TimescaleDB, a monitoring dashboard, AI-assisted maintenance guidance, and human-approved work orders**.
 
@@ -22,7 +39,7 @@ Industrial teams often have fragmented equipment telemetry, late detection of ab
 
 **Safety boundary:** EDGEOPS is intended for a guarded low-voltage demonstration motor. It is not a safety-rated industrial controller. No AI output may directly operate safety-critical equipment.
 
-## 2. System architecture
+## 2. Target system architecture — integration pending
 
 ```mermaid
 flowchart TD
@@ -48,7 +65,9 @@ flowchart TD
 
 ![End-to-end system process](assets/complete-process-flow.svg)
 
-## 3. EDGEOPS user interface — 15-screen experience
+## 3. UI design reference and current workspace
+
+The committed local application currently provides [18 workspaces plus sign-in](dashboard/README.md). The 15-screen table below is an earlier design reference; its illustrative interactions do not define current authorization or acquisition behavior. Use [current functionality and boundaries](dashboard/PRODUCT_WORKSPACE.md) for the implemented workspace.
 
 The visual design reference uses a **dark navy industrial control-room theme**, teal navigation, high-contrast KPI tiles, motor/sensor imagery, dense tables and clear status badges.
 
@@ -139,6 +158,9 @@ projects/industrial-edge-ai-predictive-maintenance/
 │   ├── edge-ai-data-pipeline.svg
 │   ├── dashboard-maintenance-workflow.svg
 │   └── evaluation-deployment-lifecycle.svg
+├── dashboard/                       # Current local FastAPI/UI implementation and tests
+├── production-design/               # Consolidated design and acceptance gates
+├── enterprise-architecture/          # Contracts and architecture references
 └── phase-01-hardware/
     ├── README.md
     ├── docs/WIRING_AND_SAFETY.md
@@ -146,21 +168,24 @@ projects/industrial-edge-ai-predictive-maintenance/
     ├── firmware/src/main.cpp
     ├── scripts/requirements.txt
     ├── scripts/capture_serial.py
-    └── tests/test_capture.py
+    ├── tests/test_capture.py
+    └── validation/                  # Synthetic result and pending physical checklist
 ```
 
-The structure above lists the documentation, diagrams and starter files currently known in the repository. **Future backend, dashboard, RAG and deployment source directories are planned, not represented as completed code.**
+The structure above is a selected view of committed documentation and software. The local dashboard/API is implemented; measured MQTT/Pi/ONNX integration, live RAG and production deployment remain separate unverified target capabilities.
 
 ## 7. Getting started — reproducible first milestone
 
-**Prerequisites:** A development laptop, Python 3, PlatformIO (CLI or VS Code extension), a compatible ESP32 board and low-voltage sensors. Use the wiring/safety guide before connecting power.
+**Software-only review:** Start with the [synthetic walkthrough](phase-01-hardware/validation/README.md) or [dashboard setup](dashboard/README.md); neither requires connected equipment. The steps below describe the embedded/offline preparation path. A real bench run has separate part-identification, readiness and qualified-review prerequisites in [H1](phase-01-hardware/validation/FIRST-HARDWARE-ACCEPTANCE.md).
 
 ```bash
-git clone https://github.com/zenithdevelopers7-source/AI-Edge-Semiconductor-Career-Projects..git
-cd AI-Edge-Semiconductor-Career-Projects./projects/industrial-edge-ai-predictive-maintenance
+git clone "https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects..git" edgeops-projects
+cd edgeops-projects
+git switch --track origin/ui/production-workspace-20261119
+cd projects/industrial-edge-ai-predictive-maintenance
 ```
 
-> The repository name intentionally ends in a period. If your OS or shell handles trailing periods unusually, clone into an explicit safe local directory using `git clone <URL> edgeops-projects`.
+> The remote repository name ends in a period; the explicit local directory avoids trailing-period path handling. The selected branch is draft review work, not a release.
 
 ### Step A — Review the build
 
@@ -189,14 +214,15 @@ Check the actual CLI help and script configuration before choosing a serial port
 
 ```bash
 cd ..
-python -m pytest tests
+python -m pip install -r tests/requirements.txt
+python -m unittest discover -s tests -v
 ```
 
-This requires `pytest` in your environment. Test success is not claimed here; run the tests and record their actual output.
+This runs the hardware-folder software tests with their declared test dependencies. It does not read a serial port or establish physical sensor operation. Record your own environment and results.
 
 ### Step E — Progress through integration
 
-After hardware readings are validated, implement MQTT publication, Raspberry Pi ingestion, ONNX inference, API persistence, dashboard integration, and approval enforcement **in that order**. Use the phase documents as the work plan and commit measured evidence for each milestone.
+Use the existing local API, dashboard and synthetic review workflows as software foundations. After the separate physical entry gates and sensor baseline are satisfied, evaluate measured transport, Raspberry Pi processing and model inference against the [consolidated acceptance plan](production-design/04-IMPLEMENTATION-AND-ACCEPTANCE.md). Do not route measured data through the synthetic-only ingestion API. Record evidence for each stage rather than treating a planned architecture as an integrated system.
 
 ## 8. Proposed telemetry contract
 
@@ -323,10 +349,12 @@ The dashboard may **suggest** actions, but production APIs must enforce authenti
 | Hardware inventory and safety | Requirements, buying guide and wiring notes | **Documented** |
 | Embedded firmware | PlatformIO starter and serial-capture tooling | **Starter code; unverified on hardware** |
 | System diagrams | SVG architecture and lifecycle visuals | **Documented** |
-| EDGEOPS visual dashboard | Interactive simulated HTML designed in conversation | **Prototype; repository hosting not yet verified** |
+| Local dashboard and FastAPI service | [Committed application, persistence, authentication and tests](dashboard/README.md) | **Implemented local development prototype; synthetic equipment inputs** |
+| Observation evidence and maintenance preparation | [Saved synthetic operations example](phase-01-hardware/validation/README.md) | **Demonstrated software path; no equipment action** |
+| Software review and verification | [68 targeted tests, browser password workflow and documented fix](dashboard/reviews/2026-11-24-request-boundary-review.md); CI snapshot above | **Verified for the cited source revision** |
 | MQTT / Raspberry Pi | Integration instructions | **Not verified implemented** |
 | ONNX anomaly model | Model design and evaluation plan | **Not verified trained/deployed** |
-| FastAPI / TimescaleDB | Architecture and implementation guide | **Not verified implemented** |
+| PostgreSQL / TimescaleDB deployment | Target architecture; current local service uses SQLite | **Not verified deployed** |
 | RAG copilot | Controlled recommendation design | **Not connected to live RAG** |
 | Production security / MLOps | Requirements and release gates | **Not production validated** |
 

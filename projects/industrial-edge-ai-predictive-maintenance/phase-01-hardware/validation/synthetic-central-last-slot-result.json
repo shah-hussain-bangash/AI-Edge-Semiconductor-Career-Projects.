@@ -1,0 +1,29 @@
+{
+  "schema": "edgeops.synthetic-central-last-slot-concurrency.v1",
+  "executed_at_utc": "2026-11-24T13:18:04.364490+00:00",
+  "application_baseline_commit": "ff52301b93bcfa4baa47cfa6a636a0ab4f09eda5",
+  "test_method": "test_delivery_capacity.DeliveryCapacityApiTests.test_concurrent_requests_for_last_central_slot_cannot_exceed_limit",
+  "scope": "Disposable SQLite store and two barrier-started authenticated in-process API requests.",
+  "initial_central_records": 9999,
+  "concurrent_requests": 2,
+  "observed_http_statuses": [
+    201,
+    429
+  ],
+  "final_central_records": 10000,
+  "rejected_request_received_receipt": false,
+  "successful_retry_http_status": 200,
+  "successful_receipt_preserved": true,
+  "preexisting_rows_unchanged": true,
+  "new_audit_events": 1,
+  "api_central_commit_audit_events": 2,
+  "sqlite_quick_check": "ok",
+  "foreign_key_violations": 0,
+  "fixture_population": "One API commit plus 9,998 direct synthetic inserts, then two barrier-started in-process API requests; not a load/soak benchmark.",
+  "hardware_connected": false,
+  "physical_acceptance_verified": false,
+  "equipment_authorized": false,
+  "production_ready": false,
+  "limitations": "One finite two-request race; not proof of all interleavings, distributed contention, PostgreSQL behavior, throughput, soak or physical acceptance.",
+  "sanitization": "Aggregate counts/statuses/assertions only; no credentials, identities, sessions, receipts, event IDs, database files or local paths exported."
+}

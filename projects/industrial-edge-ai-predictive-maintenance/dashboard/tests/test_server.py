@@ -30,6 +30,9 @@ class DashboardApiTests(unittest.TestCase):
         os.environ["EDGEOPS_ADMIN_EMAIL"] = cls.email
         os.environ["EDGEOPS_ADMIN_PASSWORD"] = cls.password
         import server
+        # Other test modules may already have imported the telemetry ledger.
+        # Bind it to this suite's temporary database before any fixture writes.
+        importlib.reload(server.telemetry_store)
         cls.server = importlib.reload(server)
         cls.server.init_db()
 
@@ -71,7 +74,10 @@ class DashboardApiTests(unittest.TestCase):
         self.sign_in()
         data = self.http.get("/api/hardware").json()
         self.assertEqual(len(data["devices"]), 30)
-        self.assertEqual(data["confirmed_hardware_count"], 14)
+        self.assertEqual(data["confirmed_hardware_count"], 0)
+        self.assertEqual(data["named_category_count"], 30)
+        self.assertEqual([d["id"] for d in data["devices"]], [f"BOM-{i:02d}" for i in range(1,31)])
+        self.assertTrue(all(d["lifecycle"] == "ordered-user-reported" and not d["purchase_verified"] for d in data["devices"]))
         self.assertEqual(sum(1 for d in data["devices"] if d["connected"]), 0)
 
     def test_06_static_file_allowlist_blocks_secrets(self):
@@ -357,6 +363,34 @@ class DashboardApiTests(unittest.TestCase):
                 report_file.write_text('{"f1":1.0}', encoding="utf-8")
                 self.assertEqual(self.http.get("/api/offline-experiments").json()["experiments"], [])
 
+
+
+    def test_26_non_ascii_csrf_tokens_rejected_without_logging_out(self):
+        self.sign_in()
+        csrf = self.http.cookies['edgeops_csrf']
+        session = self.http.cookies['edgeops_session'].encode('ascii')
+        malformed_cookie = b'edgeops_session=' + session + b'; edgeops_csrf=\xff'
+        variants = [
+            [(b'x-edgeops-csrf', b'\xff')],
+            [(b'x-edgeops-csrf', b'\xc3\xa9')],
+            [(b'x-edgeops-csrf', csrf.encode('ascii')), (b'cookie', malformed_cookie)],
+            [(b'x-edgeops-csrf', b'\xff'), (b'cookie', malformed_cookie)],
+        ]
+        with self.server.database() as db:
+            before = db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0]
+            audit_before = db.execute('SELECT COUNT(*) FROM audit').fetchone()[0]
+        for headers in variants:
+            with self.subTest(header_names=[key for key, _ in headers]):
+                result = self.http.post('/api/auth/logout', headers=headers)
+                self.assertEqual(result.status_code, 403)
+                self.assertEqual(result.json()['detail'], 'CSRF token missing or invalid')
+                self.assertEqual(result.headers['x-content-type-options'], 'nosniff')
+                self.assertEqual(self.http.get('/api/me').status_code, 200)
+        with self.server.database() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0], before)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM audit').fetchone()[0], audit_before)
+        self.assertEqual(self.http.post('/api/auth/logout', headers={'x-edgeops-csrf': csrf}).status_code, 200)
+        self.assertEqual(self.http.get('/api/me').status_code, 401)
 
 
 if __name__ == "__main__":

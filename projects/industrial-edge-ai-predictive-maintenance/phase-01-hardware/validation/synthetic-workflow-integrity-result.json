@@ -1,0 +1,25 @@
+{
+  "schema": "edgeops.synthetic-workflow-integrity.v1",
+  "executed_at_utc": "2026-11-24T08:43:12.189277+00:00",
+  "software_tree": "71f325c515e6a931ecc1a5f7c4088ad5f4f5e0e7",
+  "scope": "In-process authenticated API and disposable database; no live service or hardware.",
+  "observation_count": 1,
+  "incident_count": 1,
+  "linked_maintenance_draft_count": 1,
+  "checks": {
+    "injected_audit_failure_rolled_back_plan_link_events_and_audit": true,
+    "source_incident_and_observation_unchanged_after_failure": true,
+    "retry_after_failure_succeeded": true,
+    "exact_retry_returned_existing_draft_without_writes": true,
+    "changed_retry_rejected_without_writes": true,
+    "later_incident_revision_flagged_without_changing_plan_snapshot": true
+  },
+  "maintenance_status": "draft",
+  "execution_enabled": false,
+  "hardware_connected": false,
+  "equipment_authorized": false,
+  "physical_acceptance_verified": false,
+  "production_ready": false,
+  "limitations": "Deterministic local transaction failure and sequential retries only; not a power-loss, distributed delivery, browser or physical acceptance test.",
+  "sanitization": "Allowlisted assertions and counts; no credentials, identities, record IDs, database files or local paths exported."
+}

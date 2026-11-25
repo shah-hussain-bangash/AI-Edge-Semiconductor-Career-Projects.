@@ -1,0 +1,23 @@
+{
+  "schema": "edgeops.synthetic-process-stop-recovery.v1",
+  "executed_at_utc": "2026-11-24T11:57:10.044782+00:00",
+  "application_baseline_commit": "99e989aff13e78d2b145f159d350f079bdf85371",
+  "test_method": "test_delivery.DeliveryApiTests.test_process_exit_after_central_commit_recovers_same_receipt_without_duplicate",
+  "scope": "Separate worker process and real HTTP to an isolated loopback test server; temporary synthetic accounts and databases only.",
+  "child_stop_exit_code": 74,
+  "central_records_after_recovery": 1,
+  "central_commit_audit_events": 1,
+  "queue_state": "delivered",
+  "queue_attempts": 2,
+  "original_receipt_identity_and_timestamp_preserved": true,
+  "original_queued_payload_preserved": true,
+  "both_sqlite_quick_checks": "ok",
+  "active_lease_prevented_early_replay": true,
+  "lease_expiry": "Controlled in disposable storage; no real-time expiry or RTO measurement.",
+  "hardware_connected": false,
+  "physical_acceptance_verified": false,
+  "equipment_authorized": false,
+  "production_ready": false,
+  "limitations": "Injected abrupt process exit after receipt arrival but before saving the local outcome; not a power-loss, remote transport, general exactly-once or physical acceptance test.",
+  "sanitization": "Allowlisted counts and assertions only; no credentials, session tokens, identities, record IDs, URLs, database files or local paths exported."
+}

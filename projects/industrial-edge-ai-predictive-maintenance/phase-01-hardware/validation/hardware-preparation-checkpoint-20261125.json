@@ -1,0 +1,93 @@
+{
+  "schema": "edgeops.hardware-preparation-checkpoint.v1",
+  "review_date": "2026-11-25",
+  "application_commit": "63411f9f798a0424334ee26cc09b92d32c58d4d6",
+  "application_tree": "0745bb9a07ba60040a2b0b86b875d46997abbfe1",
+  "draft_branch": "ui/production-workspace-20261119",
+  "base_branch": "dashboard-live-edit",
+  "scope": "Bounded software verification of existing hardware preparation; no dashboard feature changes, real acquisition, deployment or work on the other six concepts.",
+  "checks": {
+    "hardware_preparation_suite": {
+      "passed": 61,
+      "failed": 0,
+      "command": "python -m unittest discover -s tests -v",
+      "directory": "phase-01-hardware"
+    },
+    "arrival_and_physical_build_suites": {
+      "passed": 31,
+      "failed": 0
+    },
+    "firmware_record_suite": {
+      "passed": 3,
+      "failed": 0,
+      "dummy_artifact_fixtures": true
+    },
+    "counts_overlap_do_not_add": true
+  },
+  "synthetic_operations": {
+    "observation_count": 1,
+    "inspection_passed": true,
+    "incident_prepared": true,
+    "maintenance_status": "draft",
+    "source_snapshot_matches": true,
+    "physical_acceptance": "pending"
+  },
+  "offline_handoff": {
+    "input_rows": 2,
+    "accepted_rows": 2,
+    "quarantined_rows": 0,
+    "cli_checks": 6,
+    "damaged_copy_verification_rejected": true,
+    "damaged_copy_summary_rejected": true,
+    "existing_summary_preserved": true,
+    "original_fixture_and_package_preserved": true
+  },
+  "arrival_package": {
+    "format": "edgeops-arrival-pack-v2",
+    "sha256": "c368c2e26be94ea313a7e2f4ce8f7fa932488cc9d8582df68a295eda8cb878e7",
+    "files_checked": 32,
+    "hardware_categories": 30,
+    "verified_received_count": 0,
+    "archive_modified": false,
+    "difference_from_current_source": "One additional 600-record regression test in tests/test_capture_summary.py; packaged tools, checklist and all other included sources match after CRLF normalization.",
+    "consistency_is_not_authenticity": true
+  },
+  "firmware_compile_evidence": {
+    "run": "https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45550735221",
+    "job": "https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45550735221/job/138991015076",
+    "head_matches_application_commit": true,
+    "conclusion": "success",
+    "fresh_local_compile_performed": false,
+    "artifact_contents_independently_hashed_in_this_review": false
+  },
+  "file_hygiene_review": {
+    "changed_head_files_checked": 240,
+    "ignore_probes_passed": 17,
+    "credential_marker_patterns": 6,
+    "findings": 0,
+    "archived_prototypes_byte_identical": 7,
+    "limitations": "Finite filename/header/marker review, not a comprehensive secret scan, malware analysis, full historical scan, source authentication or production certification. Findings would require interpretation; no secret values are exported."
+  },
+  "first_physical_milestone": {
+    "id": "H1",
+    "checklist": "FIRST-HARDWARE-ACCEPTANCE.md",
+    "baseline": "Reviewed 600-second stationary sensor-only capture; motor disconnected",
+    "priority_groups": [
+      "P03 ADXL345 acceleration",
+      "P04 DS18B20 temperature",
+      "P05 INA219 current"
+    ],
+    "state": "pending"
+  },
+  "remaining_dependencies": [
+    "Complete receipt and identification of the original 30 selected products; owner reports partial receipt only.",
+    "Exact received-board pinouts, supply/shunt ratings, compatibility and ready bench reviewed by a qualified person.",
+    "Adequate existing reference capability and numerical targets agreed before collecting acceptance data.",
+    "Separate authorization for physical acquisition and the gated nonzero-current reference check."
+  ],
+  "hardware_connected": false,
+  "physical_acceptance_verified": false,
+  "equipment_authorized": false,
+  "production_ready": false,
+  "limitations": "Synthetic fixtures and finite software tests do not establish received-board compatibility, physical calibration, real fault prediction, industrial safety or complete production qualification. No hardware substitutions or new purchases are included."
+}

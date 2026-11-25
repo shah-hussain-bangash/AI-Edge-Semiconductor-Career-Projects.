@@ -1,0 +1,23 @@
+{
+  "schema": "edgeops.synthetic-default-queue-capacity.v1",
+  "executed_at_utc": "2026-11-24T12:52:42.031204+00:00",
+  "application_baseline_commit": "71c9eff743026fc287ebedf440add3d3755839dc",
+  "test_method": "test_delivery_capacity.DeliveryCapacityTests.test_default_record_limit_preserves_ten_thousand_existing_events",
+  "scope": "Disposable synthetic SQLite queue; default row-limit admission boundary only.",
+  "configured_record_limit": 10000,
+  "configured_payload_byte_limit": 33554432,
+  "retained_records": 10000,
+  "retained_payload_bytes": 6758890,
+  "duplicate_retry_created_record": false,
+  "additional_event_rejected": true,
+  "all_saved_rows_unchanged": true,
+  "restart_preserved_counts_and_usage": true,
+  "sqlite_quick_check": "ok",
+  "fixture_population": "One normal enqueue plus 9,999 bulk-inserted valid synthetic rows; not 10,000 API ingests or a throughput/soak test.",
+  "hardware_connected": false,
+  "physical_acceptance_verified": false,
+  "equipment_authorized": false,
+  "production_ready": false,
+  "limitations": "No ingestion throughput, latency, sustained load, disk exhaustion, hardware performance or physical acceptance is established. Payload-byte accounting is not total SQLite/WAL disk usage.",
+  "sanitization": "Aggregate limits, counts and assertions only; no database files, payloads, identities, credentials, record IDs or local paths exported."
+}

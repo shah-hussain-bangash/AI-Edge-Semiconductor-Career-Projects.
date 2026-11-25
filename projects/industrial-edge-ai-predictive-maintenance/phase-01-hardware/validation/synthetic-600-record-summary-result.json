@@ -1,0 +1,61 @@
+{
+  "schema": "edgeops.synthetic-600-record-summary.v1",
+  "executed_at_utc": "2026-11-24T12:41:17.337486+00:00",
+  "application_baseline_commit": "c99fab2965f90772ed5d90e8528706879de14438",
+  "test_method": "test_capture_summary.CaptureSummaryTests.test_600_record_fixture_preserves_partial_quality_and_gap_without_acceptance",
+  "scope": "Generated synthetic CSV and disposable verified offline package; no serial port or real-time run.",
+  "fixture_definition": "600 rows; sequence skips two identities after row 299; gateway receipt jumps three extra seconds at row 300; 6 ADXL345, 4 DS18B20 and 2 INA219 invalid groups; one valid current zero.",
+  "summary": {
+    "format": "edgeops-offline-capture-summary-v1",
+    "generated_at_utc": "2026-11-24T12:41:17.324862+00:00",
+    "source_manifest_sha256": "cc9546b18f2d8d7c2154e08820fc67d7ff37556453bb283013f9f7b45040c7f4",
+    "source_type": "synthetic",
+    "input_rows": 600,
+    "accepted_rows": 600,
+    "quarantined_rows": 0,
+    "accepted_sequence_gaps": 2,
+    "requires_review": false,
+    "sensor_groups": {
+      "adxl345": {
+        "valid_rows": 594,
+        "invalid_rows": 6
+      },
+      "ds18b20": {
+        "valid_rows": 596,
+        "invalid_rows": 4
+      },
+      "ina219": {
+        "valid_rows": 598,
+        "invalid_rows": 2
+      }
+    },
+    "timing": {
+      "basis": "declared gateway receipt times of accepted records in source order",
+      "interval_count": 599,
+      "receipt_span_seconds": 602.0,
+      "interval_median_seconds": 1.0,
+      "interval_p95_seconds": 1.0,
+      "interval_max_seconds": 4.0,
+      "zero_interval_count": 0,
+      "observed_receipt_rate_hz": 0.9950166112956811,
+      "capture_elapsed_verified": false,
+      "sensor_sampling_rate_verified": false
+    },
+    "physical_acceptance": "pending",
+    "physical_source_verified": false,
+    "calibration_verified": false,
+    "hardware_connected": false,
+    "equipment_authorized": false,
+    "ready_for_ingestion": false,
+    "production_ready": false,
+    "atomic_folder_snapshot": false,
+    "limitations": "Descriptive statistics only. Quarantined records are excluded from timing and sensor counts. Receipt span is not capture duration or sensor sampling rate. H1 still requires start/stop records, stop reason, first-600-second counts, reference comparisons and independent physical review. No threshold or acceptance decision is applied."
+  },
+  "invalid_values_preserved_as_null": true,
+  "valid_current_zero_preserved": true,
+  "physical_acceptance_verified": false,
+  "equipment_authorized": false,
+  "production_ready": false,
+  "limitations": "600 records are not a measured 600-second capture. The synthetic receipt span is 602 seconds with a four-second gap. No H1 acceptance decision or real sensor performance is established. The temporary package was discarded; this snapshot does not include its source archive.",
+  "hardware_connected": false
+}

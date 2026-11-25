@@ -1,0 +1,203 @@
+"""Worker connection boundaries using a mock HTTP transport, never external hosts."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import httpx
+import delivery_worker
+from edge_delivery import Spool, identity
+from test_delivery import envelope
+
+
+class DeliveryWorkerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory(prefix='edgeops-worker-')
+        self.addCleanup(self.temp.cleanup)
+        self.path=Path(self.temp.name)/'spool.sqlite3'
+
+    def client(self,handler,options):
+        actual=httpx.Client
+        def factory(**kwargs):
+            options.append(kwargs.copy())
+            return actual(**kwargs,transport=httpx.MockTransport(handler))
+        return patch.object(delivery_worker.httpx,'Client',side_effect=factory)
+
+    def test_invalid_origins_fail_before_client_or_spool_creation(self):
+        targets=('http://example.invalid','https://127.0.0.1','http://user:pass@localhost',
+                 'http://@localhost','http://localhost/path','http://localhost?query=1',
+                 'http://localhost#fragment','http://127.0.0.1:not-a-port',
+                 'http://localhost:0','http://localhost:65536','http://[::1',
+                 ' http://localhost','http://local\nhost','',None)
+        for target in targets:
+            with self.subTest(target=target),patch.object(delivery_worker.httpx,'Client') as client:
+                with self.assertRaisesRegex(ValueError,'explicit loopback HTTP origin'):
+                    delivery_worker.run_once(self.path,target,'test@example.invalid','test-only')
+                client.assert_not_called()
+                self.assertFalse(self.path.exists())
+
+    def test_valid_loopback_origins_keep_redirect_and_proxy_protection(self):
+        for index,origin in enumerate(('http://127.0.0.1:8877','http://localhost:8877','http://[::1]:8877')):
+            with self.subTest(origin=origin):
+                path=Path(self.temp.name)/(str(index)+'.sqlite3');Spool(path).enqueue(envelope())
+                calls=[];options=[]
+                def handler(request):
+                    calls.append(request)
+                    if request.url.path=='/api/auth/login':
+                        return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+                    if request.url.path=='/api/acquisition/ingest':
+                        key,digest=identity(json.loads(request.content))
+                        self.assertEqual(request.headers['x-edgeops-csrf'],'test-csrf')
+                        return httpx.Response(201,json={'tier':'central-committed','event_key':key,
+                            'content_hash':digest,'receipt_id':'a'*32,'committed_at':'2026-11-24T10:00:00Z'})
+                    return httpx.Response(200,json={})
+                with self.client(handler,options):
+                    self.assertTrue(delivery_worker.run_once(path,origin,'test@example.invalid','test-only')['attempted'])
+                self.assertEqual(Spool(path).status()['counts']['delivered'],1)
+                self.assertEqual([request.url.path for request in calls],
+                                 ['/api/auth/login','/api/acquisition/ingest','/api/auth/logout'])
+                self.assertFalse(options[0]['follow_redirects']);self.assertFalse(options[0]['trust_env'])
+
+    def test_login_redirect_never_contacts_redirect_target(self):
+        calls=[];options=[]
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(307,headers={'location':'https://external.invalid/collect'})
+        with self.client(handler,options):
+            with self.assertRaises(httpx.HTTPStatusError):
+                delivery_worker.run_once(self.path,'http://127.0.0.1:8877','test@example.invalid','test-only')
+        self.assertEqual(len(calls),1);self.assertEqual(calls[0].url.host,'127.0.0.1')
+        self.assertFalse(self.path.exists())
+
+    def test_ingest_redirect_retains_queue_and_logs_out_at_original_origin(self):
+        Spool(self.path).enqueue(envelope());calls=[];options=[]
+        def handler(request):
+            calls.append(request)
+            if request.url.path=='/api/auth/login':
+                return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+            if request.url.path=='/api/acquisition/ingest':
+                return httpx.Response(307,headers={'location':'https://external.invalid/collect'})
+            return httpx.Response(200,json={})
+        with self.client(handler,options):
+            delivery_worker.run_once(self.path,'http://127.0.0.1:8877','test@example.invalid','test-only')
+        self.assertEqual([request.url.host for request in calls],['127.0.0.1']*3)
+        self.assertEqual(calls[-1].url.path,'/api/auth/logout')
+        row=Spool(self.path).status()['records'][0]
+        self.assertEqual((row['state'],row['last_error']),('pending','http-307'))
+        self.assertIsNone(row['receipt'])
+
+    def test_non_object_success_response_blocks_without_losing_source(self):
+        for status in (200,201):
+            for index,body in enumerate((None,[],False,0,'private-test-marker')):
+                with self.subTest(status=status,body_index=index):
+                    path=Path(self.temp.name)/f'non-object-{status}-{index}.sqlite3'
+                    spool=Spool(path);spool.enqueue(envelope());calls=[];options=[]
+                    with spool.db() as db:
+                        original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                    def handler(request):
+                        calls.append(request.url.path)
+                        if request.url.path=='/api/auth/login':
+                            return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+                        if request.url.path=='/api/acquisition/ingest':
+                            return httpx.Response(status,content=json.dumps(body),headers={'content-type':'application/json'})
+                        return httpx.Response(200,json={})
+                    with self.client(handler,options):
+                        self.assertTrue(delivery_worker.run_once(path,'http://127.0.0.1:8877',
+                            'test@example.invalid','test-only')['attempted'])
+                    row=spool.status()['records'][0]
+                    self.assertEqual((row['state'],row['attempts'],row['last_error']),
+                                     ('blocked',1,'invalid-central-receipt'))
+                    self.assertIsNone(row['receipt']);self.assertNotIn('private-test-marker',str(row))
+                    with spool.db() as db:
+                        retained=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                        self.assertEqual(db.execute('SELECT count(*) FROM delivery_spool').fetchone()[0],1)
+                    for field in ('event_key','content_hash','payload','created_at'):
+                        self.assertEqual(retained[field],original[field])
+                    self.assertIsNone(retained['lease_token']);self.assertIsNone(retained['lease_until'])
+                    self.assertEqual(calls,['/api/auth/login','/api/acquisition/ingest','/api/auth/logout'])
+
+    def test_login_failures_leave_saved_queue_unchanged(self):
+        for mode in ('unauthorized','server-error','timeout','missing-csrf'):
+            with self.subTest(mode=mode):
+                path=Path(self.temp.name)/f'login-{mode}.sqlite3'
+                spool=Spool(path);spool.enqueue(envelope());calls=[];options=[]
+                with spool.db() as db:
+                    original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+                def handler(request):
+                    calls.append(request.url.path)
+                    if mode=='timeout':raise httpx.ReadTimeout('private-test-marker',request=request)
+                    return httpx.Response(401 if mode=='unauthorized' else 503 if mode=='server-error' else 200,json={})
+                expected=ValueError if mode=='missing-csrf' else httpx.ReadTimeout if mode=='timeout' else httpx.HTTPStatusError
+                with self.client(handler,options),self.assertRaises(expected):
+                    delivery_worker.run_once(path,'http://127.0.0.1:8877','test@example.invalid','test-only')
+                with spool.db() as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM delivery_spool').fetchone()[0],1)
+                    self.assertEqual(dict(db.execute('SELECT * FROM delivery_spool').fetchone()),original)
+                self.assertEqual(calls,['/api/auth/login'])
+
+    def test_ingest_timeout_retains_source_with_sanitized_retry_and_logout(self):
+        spool=Spool(self.path);spool.enqueue(envelope());calls=[];options=[]
+        with spool.db() as db:
+            original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+        def handler(request):
+            calls.append(request.url.path)
+            if request.url.path=='/api/auth/login':
+                return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+            if request.url.path=='/api/acquisition/ingest':
+                raise httpx.ReadTimeout('private-test-marker',request=request)
+            return httpx.Response(200,json={})
+        with self.client(handler,options):
+            self.assertTrue(delivery_worker.run_once(self.path,'http://127.0.0.1:8877',
+                'test@example.invalid','test-only')['attempted'])
+        with spool.db() as db:
+            retained=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+            self.assertEqual(db.execute('SELECT count(*) FROM delivery_spool').fetchone()[0],1)
+        self.assertEqual((retained['state'],retained['attempts'],retained['last_error']),
+                         ('pending',1,'transport-unavailable'))
+        for field in ('event_key','content_hash','payload','created_at'):
+            self.assertEqual(retained[field],original[field])
+        self.assertGreater(retained['next_at'],retained['updated_at'])
+        self.assertIsNone(retained['receipt']);self.assertIsNone(retained['lease_token'])
+        self.assertIsNone(retained['lease_until']);self.assertNotIn('private-test-marker',str(retained))
+        self.assertEqual(calls,['/api/auth/login','/api/acquisition/ingest','/api/auth/logout'])
+
+    def test_logout_timeout_does_not_undo_a_saved_commit_receipt(self):
+        spool=Spool(self.path);queued=spool.enqueue(envelope());calls=[];options=[]
+        with spool.db() as db:
+            original=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+        receipt={'tier':'central-committed','event_key':queued['event_key'],
+            'content_hash':queued['content_hash'],'receipt_id':'a'*32,'committed_at':'2026-11-25T06:00:00Z'}
+        def handler(request):
+            calls.append(request.url.path)
+            if request.url.path=='/api/auth/login':
+                return httpx.Response(200,headers={'set-cookie':'edgeops_csrf=test-csrf; Path=/'},json={})
+            if request.url.path=='/api/acquisition/ingest':return httpx.Response(201,json=receipt)
+            raise httpx.ReadTimeout('private-test-marker',request=request)
+        with self.client(handler,options):
+            self.assertTrue(delivery_worker.run_once(self.path,'http://127.0.0.1:8877',
+                'test@example.invalid','test-only')['attempted'])
+        with spool.db() as db:
+            retained=dict(db.execute('SELECT * FROM delivery_spool').fetchone())
+            self.assertEqual(db.execute('SELECT count(*) FROM delivery_spool').fetchone()[0],1)
+        self.assertEqual((retained['state'],retained['attempts'],retained['last_error']),('delivered',1,None))
+        self.assertEqual(json.loads(retained['receipt']),receipt)
+        for field in ('event_key','content_hash','payload','created_at'):
+            self.assertEqual(retained[field],original[field])
+        self.assertIsNone(retained['lease_token']);self.assertIsNone(retained['lease_until'])
+        self.assertNotIn('private-test-marker',str(retained))
+        self.assertEqual(calls,['/api/auth/login','/api/acquisition/ingest','/api/auth/logout'])
+
+    def test_cli_invalid_port_has_no_traceback_or_credential_disclosure(self):
+        result=subprocess.run([sys.executable,str(Path(delivery_worker.__file__)),
+            '--spool',str(self.path),'--server','http://127.0.0.1:not-a-port'],capture_output=True,text=True,
+            env={**os.environ,'EDGEOPS_DELIVERY_EMAIL':'private-test-marker@example.invalid',
+                 'EDGEOPS_DELIVERY_PASSWORD':'private-test-marker-password'})
+        self.assertEqual(result.returncode,1)
+        self.assertIn('Delivery worker unavailable',result.stderr)
+        self.assertNotIn('Traceback',result.stderr)
+        self.assertNotIn('private-test-marker',result.stdout+result.stderr)
+        self.assertFalse(self.path.exists())
