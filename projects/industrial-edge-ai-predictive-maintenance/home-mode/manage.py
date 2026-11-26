@@ -8,7 +8,7 @@ import subprocess
 import sys
 import venv
 
-from home_core import ProcessLock, ROOT
+from home_core import ProcessLock, ROOT, serial_ports
 
 SUPPORTED = {(3, 12), (3, 13), (3, 14)}
 VENV = ROOT / '.venv-home'
@@ -66,12 +66,17 @@ def update():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update'))
+    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update', 'ports'))
     args = parser.parse_args(argv)
     if args.action == 'check':
         print('System:', platform.system(), platform.machine(), platform.mac_ver()[0] or platform.release())
         print('Python:', platform.python_version())
         if sys.version_info[:2] not in SUPPORTED: raise ValueError('Supported Python: 3.12, 3.13 and 3.14')
+    elif args.action == 'ports':
+        ports = serial_ports()
+        print('Detected serial ports (none opened):')
+        for port in ports: print(port['port'] + ' | ' + port['description'])
+        if not ports: print('No serial ports detected.')
     elif args.action == 'setup': setup()
     elif args.action == 'verify': verify(); print('Managed home environment verified.')
     else: update()

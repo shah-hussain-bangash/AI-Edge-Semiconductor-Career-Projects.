@@ -42,7 +42,7 @@ try {
     if ($Action -eq 'Check' -or $Action -eq 'Ports') {
         & $homePython home-mode/manage.py check
         if ($LASTEXITCODE -ne 0) { throw 'Python requirements are not met.' }
-        & $homePython -c 'from serial.tools.list_ports import comports; ports=list(comports()); print("Detected serial ports (none opened):"); [print(p.device + " | " + p.description) for p in ports]; print("No serial ports detected." if not ports else "Select only the board physically connected to this computer.")'
+        & $homePython home-mode/manage.py ports
         if ($LASTEXITCODE -ne 0) { throw 'Serial enumeration failed.' }
         Write-Host 'A Windows PC cannot detect USB hardware connected to the home Mac.'
         return
