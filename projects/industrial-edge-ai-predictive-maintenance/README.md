@@ -1,5 +1,8 @@
 # EDGEOPS — Industrial Edge AI Predictive Maintenance & Autonomous Operations
 
+
+**Home Mac USB mode:** [setup, launch and safe update instructions](HOME_MAC.md). Lightweight local dashboard, ESP32-only test and source-labelled sensor history; no Docker or home training. Online hosting and ESP32 Wi-Fi remain pending.
+
 > **MacBook / arriving hardware handoff — 26 November 2026:** [Start here](MACBOOK_START_HERE.md). The release branch includes the current dashboard, lightweight USB-to-configurable-HTTPS gateway, scoped bench-reading endpoint, secret-free configuration examples and a 16-item arrival guide. Hosting is deferred; exact-part checks and real Mac/ESP32 acceptance remain pending.
 
 > **Consolidated production design — 19 November 2026:** Start with the [complete production system design baseline](production-design/README.md). It reconciles all 48 existing project text documents, maps all 30 planned hardware categories, and specifies the target contracts, services, workflows and acceptance path. The current local dashboard is an authenticated development prototype; hardware commissioning and production acceptance are not established. Older status statements below describe earlier source snapshots.
@@ -18,7 +21,7 @@ The current implementation is on `ui/production-workspace-20261119` in [draft PR
 
 All four workflow families passed for software commit `5ee6ad79e94f473588fbde1d5b0d5c6ccf75c620`: [dashboard checks](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661219), [browser acceptance](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661341), [offline experiment registry](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661330) and [offline model comparison](https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects./actions/runs/45338661339). These are historical software outcomes, not a live badge or physical verification.
 
-The owner reports that some hardware has arrived. Connection is deferred until the original ordered set is complete and the relevant bench review is ready. No exact received variant, calibration or real acquisition is verified by this README. The measured capture handoff remains offline and dashboard ingestion remains synthetic-only.
+The owner reports that some hardware has arrived. Sensor-only communication bring-up can proceed with reviewed received parts; full motor operation remains gated by the relevant bench review. No exact received variant, calibration or real acquisition is verified by this README. The full operational dashboard remains a synthetic rehearsal. This release also has a separate scoped USB bench-ingest view and a lightweight direct USB home dashboard; real physical measurement acceptance remains pending.
 
 ## Target system
 

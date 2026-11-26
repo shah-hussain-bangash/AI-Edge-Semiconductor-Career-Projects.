@@ -1,0 +1,81 @@
+name: EDGEOPS lightweight home USB
+on:
+  push:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-home-mode.yml'
+  pull_request:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-home-mode.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  home-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel]
+        python: ['3.12', '3.13', '3.14']
+        include:
+          - os: windows-latest
+            python: '3.13'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Set up and verify isolated minimal environment twice
+        shell: bash
+        run: |
+          python home-mode/manage.py check
+          python home-mode/manage.py setup
+          python home-mode/manage.py setup
+          for file in home_*.command; do bash -n "$file"; done
+      - name: Install pinned fixture dependency
+        run: python -m pip install -r home-mode/requirements.txt
+      - name: Contract, HTTP and real pySerial pseudo-terminal fixtures, no hardware
+        run: python -m unittest discover -s home-mode/tests -v
+  home-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance
+    env:
+      PYTHON_BINARY: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test tools
+        run: |
+          python -m pip install -r home-mode/requirements.txt
+          npm install --prefix .local/home-browser-tests playwright@1.62.1
+          .local/home-browser-tests/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser simulation and local failure checks, no physical USB
+        run: NODE_PATH="$PWD/.local/home-browser-tests/node_modules" node home-mode/tests/browser_home.cjs
+  esp32-only-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r phase-01-hardware/requirements-build.txt
+      - name: Compile only; never flash or claim board verification
+        run: pio run --project-dir phase-01-hardware/firmware-esp32-only --environment esp32dev

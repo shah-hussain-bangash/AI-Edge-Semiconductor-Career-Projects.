@@ -1,5 +1,16 @@
 # Mac gateway handoff verification — 26 November 2026
 
+
+## Lightweight home mode addition — 26 November 2026
+
+Source inspection used release base `597f8ca87c4813238c0653cb26e0784b6194e359`. The existing scoped USB gateway/bench portal path was already partly integrated; direct local USB display without portal credentials was missing. [HOME_MAC.md](HOME_MAC.md) describes the added standalone mode.
+
+Local Windows/Python 3.12 checks: 15 home unittest methods discovered, 14 passed and one POSIX pseudo-terminal method skipped. Coverage includes strict V1/text parsing, invalid/duplicate/nonfinite frames, zero/null/current units, fragmented/oversized serial input, stale clearing, simulated unplug, storage failure, rolling history/hash checks, reader fencing, private configuration, process locking, unmanaged-environment preservation, dirty/wrong-branch update refusal, and real loopback HTTP controls/CSRF/Host/limits/CSV. Fresh setup, exact pySerial 3.5 verification and an idempotent second setup passed in a disposable folder. The initial sandbox-account switch blocked an isolated test directory; the successful setup used a fresh disposable folder. No user runtime folder was changed.
+
+The new GitHub home workflow runs these software tests across Python 3.12–3.14 on Linux and modern hosted Intel macOS (including a real pySerial pseudo-terminal fixture), plus Windows 3.13, browser checks and a compile-only ESP32 test sketch. Workflow configuration is not itself a passed result: consult the commit's actual Actions runs. Local Chromium browser checks passed for demo/source labels, sensor unavailability after stop/error, valid zero display, history/CSV labels, service-outage clearing, five viewport widths and solid-surface text contrast. The three new Mac shell scripts passed `bash -n`; Python/JavaScript syntax and Git whitespace checks passed. These are software-only results.
+
+No physical ESP32, sensor, MacBook, motor or hosted portal was accessed. The owner's reported ESP32 text test is separate prior evidence. No production status or physical acceptance was promoted. The older verification records below refer to their stated prior gateway/full-dashboard scope.
+
 Scope: source preparation and GitHub handoff. Hosting/deployment is deferred at the owner's request.
 No received hardware, USB device, motor, live portal or private Windows dashboard data was used.
 

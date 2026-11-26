@@ -1,5 +1,8 @@
 # EDGEOPS industrial monitoring workspace
 
+
+For the 4 GB home Mac, use the separate [lightweight USB home mode](../HOME_MAC.md). It does not require this FastAPI stack or portal credentials. This full dashboard and its synthetic operational flows remain separate from unverified physical bench readings.
+
 Status: authenticated local development platform. Hardware will be connected later. This is not an accepted industrial production deployment.
 
 The dashboard provides 18 workspaces plus sign-in. Working local services include authenticated sessions, CSRF, audit, a 30-category planning catalog, a synthetic telemetry ledger, verified offline experiments/comparisons, independent report review, saved maintenance planning and the full 53-criterion readiness evidence register. Equipment cards/charts and incident examples remain synthetic; profile previews never change account permissions.

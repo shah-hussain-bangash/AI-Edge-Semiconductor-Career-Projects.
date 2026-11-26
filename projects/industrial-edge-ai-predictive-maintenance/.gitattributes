@@ -1,3 +1,6 @@
 *.command text eol=lf
 *.sh text eol=lf
 mac-gateway/*.py text eol=lf
+home-mode/*.py text eol=lf
+home-mode/web/* text eol=lf
+phase-01-hardware/esp32_only/*.ino text eol=lf

@@ -1,5 +1,8 @@
 # EDGEOPS home MacBook handoff
 
+**Start with [HOME_MAC.md](HOME_MAC.md) for the new lightweight local USB dashboard.** It needs only pySerial, supports your existing ESP32 text test, and has no portal credentials. The older instructions below describe the separate HTTPS gateway/full-portal path; hosting is still deferred.
+
+
 Prepared 26 November 2026. **Source and software tests only. Hosting is intentionally deferred.**
 The original 30-product selection remains intact. Your 16 arriving items are a partial receipt,
 not an accepted complete production system. This handoff adds a USB gateway and a separate
@@ -24,7 +27,7 @@ Use Python 3.11–3.13; Python 3.12 is the CI reference. Install a supported, pa
 The Python 3.12.10 universal installer documents macOS 10.13 or newer, but that historical release
 has been superseded: see its [official release notes](https://www.python.org/downloads/release/python-31210/).
 This is not proof that current dependencies or your USB adapter work on every old macOS version.
-Your MacBook year, macOS version, USB chip and exact ESP32 model remain unconfirmed.
+The owner now reports a 2015 Intel MacBook Air / Monterey 12.7.6, a successful classic ESP32 upload and a working text test. This software handoff did not independently verify those physical details. Exact sensor/probe variants and wiring still need review.
 
 For a read-only environment report before installing anything:
 

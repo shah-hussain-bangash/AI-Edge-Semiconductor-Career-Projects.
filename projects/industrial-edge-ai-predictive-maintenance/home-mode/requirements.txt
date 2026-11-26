@@ -1,0 +1,2 @@
+# Only third-party dependency for home mode. HTTP, storage and UI use the standard library.
+pyserial==3.5

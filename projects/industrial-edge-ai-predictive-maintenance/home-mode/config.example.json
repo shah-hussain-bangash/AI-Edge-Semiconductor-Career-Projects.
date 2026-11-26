@@ -1,0 +1,5 @@
+{
+  "mode": "esp32-only",
+  "port": "/dev/cu.usbserial-0001",
+  "expected_device_id": "motor-001"
+}

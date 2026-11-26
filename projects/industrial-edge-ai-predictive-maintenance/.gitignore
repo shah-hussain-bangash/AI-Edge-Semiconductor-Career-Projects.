@@ -2,6 +2,8 @@
 .local/
 .venv-gateway/
 .venv-portal/
+.venv-home/
+.vscode/
 .env
 .env.*
 !.env.example
