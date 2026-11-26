@@ -35,6 +35,10 @@ class ManagerTests(unittest.TestCase):
             'EDGEOPS_ADMIN_PASSWORD':secrets.token_urlsafe(24),'EDGEOPS_PRIVATE_KEY_FILE':'','EDGEOPS_SMTP_HOST':'',
             'EDGEOPS_DELIVERY_SPOOL_DB':str(self.root/'spool.sqlite3'),'EDGEOPS_OFFLINE_EXPERIMENT_ROOT':str(self.root/'artifacts'),
             'EDGEOPS_SYNTHETIC_TELEMETRY_DB':str(self.root/'telemetry.sqlite3'),'PYTHONDONTWRITEBYTECODE':'1'}
+        # Each disposable child records stacks if startup stalls before logging.
+        # This hook is confined to the temporary fixture, never live processes.
+        (self.root/'sitecustomize.py').write_text('import faulthandler\nfaulthandler.dump_traceback_later(10,repeat=True)\n',encoding='utf-8')
+        self.env['PYTHONPATH']=str(self.root)+os.pathsep+self.env.get('PYTHONPATH','')
         self.addCleanup(self.cleanup)
 
     def command(self,action,*extra):
