@@ -209,7 +209,8 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             for row in cases:
                 row['first_snapshot']=json.loads(row['first_snapshot']);row['last_snapshot']=json.loads(row['last_snapshot'])
             rules=[dict(row) for row in db.execute('SELECT * FROM operational_rules ORDER BY created_at DESC LIMIT 100')]
-            return dict(assets=assets,rules=rules,cases=cases,orders=orders,role=actor['role'],user_id=actor['id'],**BOUNDARY)
+            assignees=[dict(row) for row in db.execute("SELECT id,email,role FROM users WHERE disabled=0 AND role IN ('admin','operator') ORDER BY email,id LIMIT 100")] if actor['role'] in WRITE_ROLES else []
+            return dict(assets=assets,rules=rules,cases=cases,orders=orders,assignees=assignees,role=actor['role'],user_id=actor['id'],**BOUNDARY)
 
     @app.post('/api/operational/assets')
     def create_asset(body:Asset,request:Request,response:Response):

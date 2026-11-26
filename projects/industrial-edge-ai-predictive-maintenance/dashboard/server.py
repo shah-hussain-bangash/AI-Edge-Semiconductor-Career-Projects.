@@ -293,17 +293,23 @@ def root(request: Request):
     return RedirectResponse("/app" if auth_context(request) else "/signin", status_code=303)
 
 
+def selected_view_suffix(request: Request):
+    # Only a local enumerated view is carried across sign-in; never accept a return URL.
+    view=request.query_params.get('view')
+    return '?view='+view if view in ('registered','demonstration') else ''
+
+
 @app.get("/signin")
 def signin(request: Request):
     if auth_context(request):
-        return RedirectResponse("/app", status_code=303)
+        return RedirectResponse("/app"+selected_view_suffix(request), status_code=303)
     return FileResponse(ROOT / "signin.html")
 
 
 @app.get("/app")
 def main_app(request: Request):
     if not auth_context(request):
-        return RedirectResponse("/signin", status_code=303)
+        return RedirectResponse("/signin"+selected_view_suffix(request), status_code=303)
     return FileResponse(ROOT / "index.html")
 
 

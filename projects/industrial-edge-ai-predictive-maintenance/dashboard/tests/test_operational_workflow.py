@@ -134,3 +134,31 @@ class OperationalTests(unittest.TestCase):
         self.assertEqual(frozen['case_snapshot_sha256'],order['case_snapshot_sha256'])
         with self.server.database() as db:db.execute("UPDATE operational_orders SET case_snapshot='{}'")
         self.assertEqual(self.http.get('/api/operational/summary').status_code,503)
+
+    def test_assignment_choices_are_minimal_current_and_revalidated(self):
+        people=self.summary()['assignees']
+        self.assertTrue(any(person['id']==self.technician for person in people))
+        self.assertTrue(all(set(person)=={'id','email','role'} for person in people))
+        self.assertFalse(any(person['role']=='auditor' for person in people))
+        self.rule();self.ingest(temp_c=40);case=self.summary()['cases'][0]
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=1 WHERE id=?',(self.technician,))
+        self.assertFalse(any(person['id']==self.technician for person in self.summary()['assignees']))
+        response=self.post('/api/operational/cases/'+case['id']+'/assign',dict(expected_revision=case['revision'],assignee_id=self.technician,**self.authorization))
+        self.assertEqual(response.status_code,422,response.text)
+        self.assertEqual(self.order(case).status_code,422)
+        self.login('auditor');self.assertEqual(self.summary()['assignees'],[])
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=0 WHERE id=?',(self.technician,))
+        self.login('operator');self.assertTrue(self.summary()['assignees'])
+
+    def test_signin_preserves_only_the_enumerated_local_view(self):
+        for view in ('registered','demonstration'):
+            response=self.http.get('/signin?view='+view,follow_redirects=False)
+            self.assertEqual(response.headers['location'],'/app?view='+view)
+        self.http.cookies.clear()
+        for view in ('registered','demonstration'):
+            response=self.http.get('/app?view='+view,follow_redirects=False)
+            self.assertEqual(response.headers['location'],'/signin?view='+view)
+        for value in ('https://example.invalid','//example.invalid','registered%26next%3Dhttps://example.invalid'):
+            response=self.http.get('/app?view='+value,follow_redirects=False)
+            self.assertEqual(response.headers['location'],'/signin')
+        self.assertEqual(self.http.get('/app?next=https://example.invalid',follow_redirects=False).headers['location'],'/signin')
