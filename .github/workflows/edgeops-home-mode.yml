@@ -44,14 +44,12 @@ jobs:
     # instead of actions/checkout's nonexistent trailing-dot workspace path.
     runs-on: windows-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: ${{ runner.temp }}
     steps:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Check out the exact public commit into a Windows-safe directory
+        working-directory: ${{ runner.temp }}
         shell: pwsh
         env:
           SOURCE_REPOSITORY: ${{ github.repository }}
@@ -65,6 +63,7 @@ jobs:
           git -c core.longpaths=true checkout --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify Windows setup and software contracts without hardware
+        working-directory: ${{ runner.temp }}
         shell: pwsh
         run: |
           Set-Location edgeops-home-check/projects/industrial-edge-ai-predictive-maintenance
