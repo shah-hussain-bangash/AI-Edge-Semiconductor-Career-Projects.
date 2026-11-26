@@ -42,7 +42,7 @@ class PreflightTests(unittest.TestCase):
         return {p.relative_to(self.project).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in self.project.rglob('*') if p.is_file()}
     def run_report(self):
         env=dict(os.environ);env.pop('BASH_ENV',None);env.pop('ENV',None)
-        args=[self.bash,'-c','export PATH="$1:/usr/bin:/bin"; exec /bin/bash "$2"','preflight-fixture',bash_path(self.tools),bash_path(self.project/'home_preflight.command')]
+        args=[self.bash,'-c','export PATH="$1"; exec /bin/bash "$2"','preflight-fixture',bash_path(self.tools),bash_path(self.project/'home_preflight.command')]
         return subprocess.run(args,env=env,cwd=self.directory,capture_output=True,text=True)
     def test_report_is_read_only_and_python_probe_uses_isolated_interpreter(self):
         python=bash_path(sys.executable)
