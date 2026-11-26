@@ -43,6 +43,7 @@ import operational_notifications
 import operational_models
 import account_mfa
 import platform_operations
+import local_readiness
 import production_readiness
 from pathlib import Path
 
@@ -63,7 +64,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"evidence-files-ui.js", "platform-operations-ui.js", "registered-workspace.js", "operational-workspace.css", "account-protection-ui.js", "baseline-models-ui.js", "workflow-notifications-ui.js", "guidance-ui.js", "operational-ui.js", "bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"local-readiness-ui.js", "evidence-files-ui.js", "platform-operations-ui.js", "registered-workspace.js", "operational-workspace.css", "account-protection-ui.js", "baseline-models-ui.js", "workflow-notifications-ui.js", "guidance-ui.js", "operational-ui.js", "bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.middleware("http")
 async def observe_platform_requests(request: Request, call_next):
@@ -631,3 +632,5 @@ operational_notifications.install_routes(app, database, require_user, require_cs
 operational_models.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
 account_mfa.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
 platform_operations.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+
+local_readiness.install_routes(app, database, require_user)

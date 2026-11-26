@@ -29,3 +29,4 @@ edgeops-baseline-review*.json
 *.pem
 *.p12
 *.pfx
+edgeops-local-capability-observations*.json

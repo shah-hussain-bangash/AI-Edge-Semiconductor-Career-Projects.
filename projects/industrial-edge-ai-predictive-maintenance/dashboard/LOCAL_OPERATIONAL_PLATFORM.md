@@ -25,6 +25,16 @@ Open the full dashboard at `http://127.0.0.1:8877/app?view=registered` after the
 
 The preparation/readiness register remains an evidence register. These new capabilities do not automatically mark its criteria accepted. Installation enables no threshold policy, model, email route, MFA enrollment, backup schedule or retention deletion.
 
+## Live local capability checks
+
+Production readiness now includes a **Local capability checks** panel covering all 14 software areas. It reads the current local database and configuration presence, shows the next review for each area, and links to the related workspace. Use the filter to find configuration, missing records, review work or optional account protection. Labels describe local next steps; they are not acceptance grades or an implementation percentage.
+
+Refresh after making changes and check the observation timestamp. Fixture runs and gateway-declared measurement runs remain separate; the latter remain unverified. Models and approved guidance are counted only with their existing integrity and authority checks. The panel never contacts an email provider, tests a physical device, builds a release or runs a worker.
+
+Case/work/evidence counts follow the signed-in account's existing visibility. Authenticator status is for the current account only. Detailed service, recovery and retention observations are restricted to administrators/auditors. Export includes these same account-scoped observations, without passwords, private paths, provider settings, source text or control secrets. Treat the JSON as local operational information.
+
+**Export local observations** is separate from the existing 53-criterion register export. The new read-only endpoint is `GET /api/production-readiness/local-capabilities`; it saves no acceptance records. If checks fail, old cards and their export are cleared while the independent acceptance register remains available. No status is promoted to production acceptance automatically.
+
 ## Full-dashboard setup and update
 
 The [local process manager](LOCAL_DASHBOARD_CONTROL.md) adds background/foreground startup, status and graceful shutdown for the full dashboard. It avoids PID-based stopping and checks port ownership before initializing the application.
