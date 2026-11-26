@@ -81,6 +81,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./.venv-home/Scripts/python.exe -m unittest discover -s home-mode/tests -v
           exit $LASTEXITCODE
+      - name: Graceful demo status and stop in Windows PowerShell 5.1 and 7
+        working-directory: ${{ runner.temp }}/edgeops-home-check/projects/industrial-edge-ai-predictive-maintenance
+        run: ./.venv-home/Scripts/python.exe home-mode/tests/windows_control_smoke.py
   home-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 10

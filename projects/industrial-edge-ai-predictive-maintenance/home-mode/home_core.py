@@ -31,6 +31,14 @@ contract = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(contract)
 
 
+def instance_identity(directory):
+    def normalize(path):
+        text = Path(path).resolve().as_posix()
+        return text.casefold() if os.name == 'nt' else text
+    value = canonical(dict(checkout=normalize(ROOT), data_directory=normalize(directory)))
+    return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 
@@ -177,6 +185,7 @@ class Controller:
         self.stop_event = threading.Event(); self.thread = None; self.generation = 0
         self.latest = None; self.last_tick = None; self.state = 'disconnected'; self.error = None
         self.accepted = self.rejected = 0; self.session_id = None; self.recording = None; self.record_seconds = None
+        self.shutting_down = False
 
     def stop(self):
         with self.operation: self._stop()
@@ -197,6 +206,7 @@ class Controller:
             if settings['mode'] == 'demo': raise ValueError('Raw recording requires a USB mode')
         if settings['mode'] != 'demo' and not settings['port']: raise ValueError('Select a serial port first')
         with self.operation:
+            if self.shutting_down: raise ValueError('Server is shutting down; no new reader was started')
             self._stop()
             save_settings(self.directory, settings)
             with self.lock:
@@ -279,6 +289,19 @@ class Controller:
                     if generation == self.generation:
                         if self.state != 'error': self.state = 'disconnected'
                         self.latest = None; self.last_tick = None
+
+    def prepare_demo_shutdown(self):
+        # Fence new starts before stopping: another tab cannot start USB between
+        # the demo check and HTTP server shutdown.
+        with self.operation:
+            with self.lock:
+                if self.settings['mode'] != 'demo' or self.recording is not None:
+                    raise ValueError('Only a demo can be stopped by this helper; use its original Terminal for USB sessions')
+                self.shutting_down = True
+            try: self._stop()
+            except Exception:
+                with self.lock: self.shutting_down = False
+                raise
 
     def recording_package(self):
         from home_recording import package

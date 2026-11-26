@@ -1,6 +1,12 @@
 # Mac gateway handoff verification — 26 November 2026
 
 
+## Graceful office demo lifecycle preparation
+
+Added read-only Status and graceful demo-only Stop to the Windows launcher, with equivalent standard-library CLI actions. A supported server reports a per-start nonce and a hash binding its checkout/data directory; these are local mismatch guards, not remote authentication. Shutdown requires Host/origin/token/nonce checks and atomically refuses USB/recording sessions or reader starts during shutdown. The client ignores proxies, refuses redirects and waits for the existing lock to release. Legacy/other-checkout/custom-directory mismatches are preserved; there is no PID kill or lock deletion fallback.
+
+Eight local Windows Python 3.12 lifecycle tests passed against disposable loopback servers, covering token redaction/read-only status, graceful exit/history preservation, different checkout/data refusal, USB-mode preservation without opening a port, legacy refusal, ignored proxy settings, redirect refusal, HTTP auth/nonce/origin rejection and a reader-start race guard. Existing suite/browser checks remain separate. The GitHub Windows job additionally exercises the actual native wrapper in PowerShell 5.1 and 7 using only disposable CI demo processes. No current office server or Mac/ESP32 hardware was stopped or verified for this source-preparation change. The one-time legacy upgrade procedure remains documented.
+
 ## Office/daytime and home/night setup clarification
 
 Owner clarification, 26 November 2026: the owner is at the office Windows PC and does not have the MacBook available. Fresh MacBook preflight, current ESP32 connection and physical measurements remain **PENDING**. Earlier reported upload/text-test success stays prior owner evidence; no new hardware result was obtained.

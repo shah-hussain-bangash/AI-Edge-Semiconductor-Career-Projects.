@@ -10,10 +10,11 @@ import secrets
 import re
 import platform
 import sys
+import threading
 from urllib.parse import parse_qs, urlsplit
 
 from session_export import build_package, summarize
-from home_core import BOUNDARY, CHANNELS, ROOT, Controller, ProcessLock, Store, load_settings, serial_ports, strict_json
+from home_core import BOUNDARY, CHANNELS, ROOT, Controller, ProcessLock, Store, load_settings, serial_ports, strict_json, instance_identity
 
 WEB = Path(__file__).resolve().parent / 'web'
 HEADERS = {
@@ -27,6 +28,7 @@ class HomeServer(ThreadingHTTPServer):
     daemon_threads = True
     def __init__(self, port, controller):
         self.controller = controller; self.write_token = secrets.token_hex(32)
+        self.instance_id = secrets.token_hex(16); self.identity = instance_identity(controller.directory)
         super().__init__(('127.0.0.1', port), Handler)
 
 
@@ -55,7 +57,7 @@ class Handler(BaseHTTPRequestHandler):
         route = urlsplit(self.path)
         try:
             if route.path == '/api/status':
-                self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system()}); return
+                self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system(), 'instance_id': self.server.instance_id, 'instance_identity': self.server.identity, 'shutdown_protocol': 1}); return
             if route.path == '/api/ports':
                 self.send(200, {'ports': serial_ports(), **BOUNDARY}); return
             if route.path == '/api/capture.zip':
@@ -101,6 +103,13 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', '-1'))
             if not 0 <= length <= 4096: self.send(413, {'error': 'Request exceeds 4 KiB'}); return
             body = strict_json(self.rfile.read(length).decode('utf-8'))
+            if self.path == '/api/shutdown':
+                if not isinstance(body, dict) or set(body) != {'instance_id'} or not isinstance(body['instance_id'],str) or not re.fullmatch('[a-f0-9]{32}',body['instance_id']) or not hmac.compare_digest(body['instance_id'],self.server.instance_id):
+                    raise ValueError('Server instance changed; nothing stopped')
+                self.server.controller.prepare_demo_shutdown()
+                try: self.send(200, {'stopping':True,'instance_id':self.server.instance_id})
+                finally: threading.Thread(target=self.server.shutdown,daemon=True,name='edgeops-home-shutdown').start()
+                return
             if self.path == '/api/record':
                 if not isinstance(body, dict) or set(body) != {'settings','seconds'}: raise ValueError('Use settings and seconds')
                 if type(body['seconds']) is not int: raise ValueError('Use an integer duration')

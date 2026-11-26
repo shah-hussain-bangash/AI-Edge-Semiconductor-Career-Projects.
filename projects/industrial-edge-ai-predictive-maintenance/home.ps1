@@ -1,7 +1,7 @@
 # Native Windows entry point. No Git clone, firmware upload or equipment control.
 [CmdletBinding()]
 param(
-    [ValidateSet('Setup','Check','Ports','Start','Demo','Update')]
+    [ValidateSet('Setup','Check','Ports','Start','Demo','Update','Status','Stop')]
     [string]$Action = 'Start',
     [ValidateSet('esp32-only','sensors')]
     [string]$Mode = 'esp32-only',
@@ -32,6 +32,12 @@ try {
     }
     & $homePython home-mode/manage.py verify
     if ($LASTEXITCODE -ne 0) { throw 'Environment verification failed. Stop home mode, then run Setup.' }
+    if ($Action -eq 'Status' -or $Action -eq 'Stop') {
+        $controlAction = if ($Action -eq 'Status') { 'status' } else { 'stop-demo' }
+        & $homePython home-mode/manage.py $controlAction --web-port $WebPort
+        if ($LASTEXITCODE -ne 0) { throw 'Local control stopped without force-killing anything. Review the message above.' }
+        return
+    }
     if ($Action -eq 'Update') {
         & $homePython home-mode/manage.py update
         if ($LASTEXITCODE -ne 0) { throw 'Update stopped without discarding local work.' }
@@ -52,7 +58,7 @@ try {
     try { $existing = Invoke-RestMethod -Uri "http://127.0.0.1:$WebPort/api/status" -TimeoutSec 2 } catch { }
     if ($existing -and $existing.scope -eq 'edgeops-lightweight-home') {
         Write-Host "An EDGEOPS home server is already responding: $dashboardUrl"
-        Write-Host 'Open that URL, or stop its original Terminal with Ctrl+C before starting another session.'
+        Write-Host 'Use .\home.ps1 -Action Status to inspect it. Use -Action Stop for this checkout''s updated demo, or Ctrl+C in its original Terminal.'
         Write-Host 'No reader settings or existing processes were changed.'
         return
     }

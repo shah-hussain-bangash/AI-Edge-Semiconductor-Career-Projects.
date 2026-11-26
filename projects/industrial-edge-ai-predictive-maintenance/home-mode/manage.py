@@ -66,8 +66,16 @@ def update():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update', 'ports'))
+    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update', 'ports', 'status', 'stop-demo'))
+    parser.add_argument('--web-port',type=int,default=8878,help='Loopback port for status/stop-demo')
+    parser.add_argument('--data-dir',type=Path,help='Expected data directory for status/stop-demo')
     args = parser.parse_args(argv)
+    if args.action in ('status','stop-demo'):
+        from demo_control import status, stop_demo
+        result=(status if args.action=='status' else stop_demo)(args.web_port,args.data_dir)
+        print(json.dumps(result,sort_keys=True))
+        return
+    if args.data_dir is not None or args.web_port!=8878: parser.error('Port/data directory options apply only to status/stop-demo')
     if args.action == 'check':
         print('System:', platform.system(), platform.machine(), platform.mac_ver()[0] or platform.release())
         print('Python:', platform.python_version())

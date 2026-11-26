@@ -4,7 +4,7 @@ Current handoff, 26 November 2026: development is on the office Windows PC. The 
 
 | Where you are | Open this guide | What you can do |
 |---|---|---|
-| Office Windows; prompt starts `PS C:\...` | [Office Windows guide](OFFICE_WINDOWS.md) | Develop, run the simulated demo, review GitHub changes and train models separately. |
+| Office Windows; prompt starts `PS C:\...` | [Office Windows guide](OFFICE_WINDOWS.md) | Develop, run/check/gracefully stop the simulated demo, review GitHub changes and train models separately. |
 | Home MacBook; macOS Terminal | [Tonight's checklist](TONIGHT_MAC.md), then [complete Mac guide](HOME_MAC.md) | Inspect the host and USB port, prepare the minimal environment, then test the physically attached ESP32. |
 | Future online portal | [Existing advanced gateway handoff](MACBOOK_START_HERE.md) | Hosting and ESP32 Wi-Fi remain deferred; no public portal URL is provisioned. |
 

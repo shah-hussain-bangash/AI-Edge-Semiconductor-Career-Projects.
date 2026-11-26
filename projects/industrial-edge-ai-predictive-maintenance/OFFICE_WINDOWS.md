@@ -41,11 +41,26 @@ if ($LASTEXITCODE -ne 0) { throw 'Setup failed; stop here.' }
 
 The `pymanager` example uses the owner's already installed Python 3.13. It is not a requirement to install another global Python. With an installed Python 3.12–3.14 `python` command, `.\home.ps1 -Action Setup` is available; `-PythonPath` accepts an explicit installed executable. Runtime installs only `pyserial==3.5`. Scripts preserve unmanaged existing environments and do not change global execution policy.
 
+## Inspect or stop an updated demo
+
+After this release is installed **and its server restarted**, use:
+
+```powershell
+.\home.ps1 -Action Status
+.\home.ps1 -Action Stop
+```
+
+`Status` is read-only and redacts anti-forgery tokens. `Stop` sends a graceful loopback shutdown only when the server identifies this exact checkout and expected data directory, reports the supported control protocol and is currently in demo mode. The server rechecks the mode and prevents a new USB reader from starting during shutdown. The helper waits for the process lock to release. It does not look up or kill a PID, delete locks, stop USB/recording sessions, follow HTTP redirects or use environment proxies. This identity is an accidental-mismatch guard for a personal local tool, not authentication for an online portal.
+
+For a different web port, pass `-WebPort 8879` to both commands. The Windows launcher expects the default `.local/home` data folder. An explicitly configured custom folder can use the environment Python with `home-mode/manage.py status --web-port 8879 --data-dir YOUR_PRIVATE_FOLDER` or `stop-demo` with the same options. Use your actual private path. A different data directory is refused unless explicitly selected. No custom-folder update is automated.
+
+A running pre-upgrade server has no supported instance identity; `Stop` deliberately refuses it. Use Ctrl+C or the one-time legacy procedure below, then update and restart. Installing new source does not update code already loaded in an older running process.
+
 ## Stop before updating
 
-Preferred: Ctrl+C in the Terminal originally running the server. **Disconnect reader** closes USB reading, but the server still holds its process lock. Closing only the browser does not stop the server. Repeating Start/Update cannot release that lock.
+For an updated demo, use `.\home.ps1 -Action Stop`. For a USB/recording session or an older server, use Ctrl+C in the Terminal originally running the server. **Disconnect reader** closes USB reading, but the server still holds its process lock. Closing only the browser does not stop the server. Repeating Start/Update cannot release that lock.
 
-A demo started by the assistant may run in the background. If its original Terminal is unavailable, the optional block below stops **only a responding demo owned by this exact project**. It checks the live port owner and command line, gracefully disconnects the reader, and then stops the verified process. It refuses a different project, a non-demo session or an unknown service. It does not use a PID copied from an older chat.
+A pre-upgrade demo started by the assistant may run in the background. If its original Terminal is unavailable, the one-time legacy block below stops **only a responding demo owned by this exact project**. It checks the live port owner and command line, gracefully disconnects the reader, and then stops the verified process. It refuses a different project, a non-demo session or an unknown service. It does not use a PID copied from an older chat.
 
 Run this only from the intended project folder when you want to stop its office demo:
 
@@ -66,7 +81,7 @@ Stop-Process -Id $listener.OwningProcess
 
 If process lookup is unavailable or the block refuses, preserve the running service and use its original Terminal or ask for help identifying it. Do not kill all Python processes or delete a lock file to force an update.
 
-After stopping the intended home server, update and launch:
+After stopping the intended home server (for an updated demo, `-Action Stop`), update and launch:
 
 ```powershell
 .\home.ps1 -Action Update
