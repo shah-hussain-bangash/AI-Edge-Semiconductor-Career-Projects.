@@ -45,7 +45,7 @@ jobs:
         working-directory: ${{ runner.temp }}/edgeops-operations/projects/industrial-edge-ai-predictive-maintenance/dashboard
         env:
           PYTHONPATH: tests
-        run: python -m unittest test_operational_workflow test_approved_guidance test_operational_notifications test_operational_models test_account_mfa test_protected_recovery test_platform_operations test_release_bundle test_operational_evidence test_bench_ingress test_recovery -v
+        run: python -m unittest test_local_dashboard test_operational_workflow test_approved_guidance test_operational_notifications test_operational_models test_account_mfa test_protected_recovery test_platform_operations test_release_bundle test_operational_evidence test_bench_ingress test_recovery -v
   browser-workflows:
     runs-on: ubuntu-latest
     timeout-minutes: 12

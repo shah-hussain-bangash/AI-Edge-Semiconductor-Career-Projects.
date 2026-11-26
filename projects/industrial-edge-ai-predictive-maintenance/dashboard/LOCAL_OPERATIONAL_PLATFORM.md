@@ -27,6 +27,8 @@ The preparation/readiness register remains an evidence register. These new capab
 
 ## Full-dashboard setup and update
 
+The [local process manager](LOCAL_DASHBOARD_CONTROL.md) adds background/foreground startup, status and graceful shutdown for the full dashboard. It avoids PID-based stopping and checks port ownership before initializing the application.
+
 Use Python **3.12–3.14**, with 3.12 as the reference. The full runtime is pinned in `requirements-runtime.txt` and `requirements-security.txt`; optional laboratory ML/MQTT requirements remain separate. No Docker, local training, serial connection or external email is needed to use these screens. The 4 GB Mac should continue using [lightweight home mode](../HOME_MAC.md) unless the full local dashboard is explicitly desired. The full dashboard and home mode have separate servers and databases.
 
 For an existing installation: inspect `git status --short`; preserve local edits before updating. Stop only the identified server you intend to update. Record the configured database, artifact and spool locations, then use [the existing backup runbook](RECOVERY.md). Verify the backup before first startup of this version, which adds tables in a transaction. Retain the prior source and environment for rollback. Do not run two server versions against one database. Changing bootstrap environment variables does not reset existing credentials.

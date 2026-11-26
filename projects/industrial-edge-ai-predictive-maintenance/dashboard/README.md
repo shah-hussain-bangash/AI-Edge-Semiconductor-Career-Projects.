@@ -36,6 +36,8 @@ The superseded accumulated setup guide is preserved in [history](history/README-
 
 ## Local setup and access
 
+For repeatable local start/status/graceful-stop commands, use the [full-dashboard process controls](LOCAL_DASHBOARD_CONTROL.md). They manage only their own instances and preserve existing data paths.
+
 The existing installation uses the user's Windows checkout and http://127.0.0.1:8877/app. If it is already running, refresh that page; do not start a second server or replace the existing database/password.
 
 For a new checkout, use Python 3.12–3.14 and create a local virtual environment from this dashboard folder:
