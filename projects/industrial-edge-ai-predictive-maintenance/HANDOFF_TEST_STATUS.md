@@ -1,6 +1,12 @@
 # Mac gateway handoff verification — 26 November 2026
 
 
+## Office/daytime and home/night setup clarification
+
+Owner clarification, 26 November 2026: the owner is at the office Windows PC and does not have the MacBook available. Fresh MacBook preflight, current ESP32 connection and physical measurements remain **PENDING**. Earlier reported upload/text-test success stays prior owner evidence; no new hardware result was obtained.
+
+Added START_HERE.md, separate OFFICE_WINDOWS.md and TONIGHT_MAC.md guides, guarded first-clone commands and a read-only home_preflight.command. The report does not open serial, execute Git/Apple's Python stub, install packages, create environments, change configuration or promote acceptance. Three targeted tests passed locally using Git Bash, simulated host metadata and an isolated actual Python version probe; they cover wrong-host refusal, missing Python and unchanged project/private files. Windows documentation command blocks passed PowerShell parsing; Mac documentation shell blocks and the helper passed Bash syntax checks. These checks are not a Monterey or ESP32 test. No running office server or private runtime was changed for this documentation/preflight handoff.
+
 ## Timed raw USB recording addition
 
 Added a 10–600 second bounded recording action with exact serial-read bytes, offset/classification/sample index, measured host monotonic timing, explicit duration/manual/error/limit reasons, durable private files, checksums and offline parser replay verification. Recorder source digest is recorded; firmware identity, hardware authenticity, calibration and physical acceptance remain unverified. Demo mode cannot create a USB capture. The raw package is distinct from the earlier derived rolling-session package; failed/incomplete storage is never downloadable as a finalized capture.

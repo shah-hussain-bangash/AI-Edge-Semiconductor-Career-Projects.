@@ -18,19 +18,9 @@ Inspected release base `597f8ca87c4813238c0653cb26e0784b6194e359`. Use this rele
 
 ## Choose the computer first
 
-A prompt starting with `PS C:\Users\...` is Windows PowerShell. The `.command` launchers below now refuse Windows/WSL and Linux before changing an environment. Run them in **macOS Terminal on the home MacBook**. Calling `bash` on Windows does not connect to the Mac. GitHub stores source, not a running portal or a connection to home USB.
+This guide is for **macOS Terminal on the home MacBook**. If your prompt begins `PS C:\...`, use [OFFICE_WINDOWS.md](OFFICE_WINDOWS.md). Calling `bash` on Windows does not connect to the Mac.
 
-For native office Windows setup, starting from an existing clean checkout's project folder:
-
-```powershell
-pymanager exec -V:3.13 home-mode/manage.py setup
-.\home.ps1 -Action Check
-.\home.ps1 -Action Demo
-```
-
-If a Python 3.12–3.14 `python` command is already installed, `.\home.ps1 -Action Setup` is also available. The launcher accepts `-PythonPath` for an explicit installed executable; it does not install a global Python runtime. `Check`/`Ports` only enumerate ports; they never open a board. `Demo` uses simulated data. If a home server is already responding, the launcher prints its URL without changing its reader or killing a process. A Windows board can be selected explicitly with `-Action Start -Mode esp32-only -SerialPort COM3` **only if COM3 was confirmed for a board physically attached to that Windows PC**. No port is guessed. A separate PowerShell window opens the page with `Start-Process "http://127.0.0.1:8878/app"`. `-Action Update` refuses dirty source and fast-forwards only.
-
-Windows `.ps1` scripts use the machine's existing execution policy. If that blocks a locally reviewed script, the equivalent Python commands remain available; no global policy setting is changed by this project. Do not clone inside another project. If creating a new Windows checkout, choose a short, new folder and use `git -c core.longpaths=true clone --branch release/mac-bench-20261126 --single-branch https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects..git edgeops-office`. Existing folders are preserved.
+Handoff status on 26 November 2026: the owner is at work; fresh MacBook/ESP32 verification remains **PENDING**. Start tonight with [TONIGHT_MAC.md](TONIGHT_MAC.md). Once cloned, `bash home_preflight.command` prints a read-only host/port report without opening a port, installing software or changing configuration. Report exit 0 is not hardware acceptance.
 
 ## Requirements and first setup
 
@@ -41,11 +31,19 @@ Home runtime has one external dependency: **`pyserial==3.5`**. Everything else u
 In Mac Terminal, in a directory where `edgeops-home` does not already exist:
 
 ```bash
+(
+set -e
+cd "$HOME"
+if [ -e edgeops-home ]; then
+  printf '%s\n' 'edgeops-home already exists. Preserve it and follow the existing-clone instructions below.'
+  exit 1
+fi
 git clone --branch release/mac-bench-20261126 --single-branch https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects..git edgeops-home
 cd edgeops-home/projects/industrial-edge-ai-predictive-maintenance
-bash home_setup.command --check
+bash home_preflight.command
 bash home_setup.command
 open -a "Visual Studio Code" .
+)
 ```
 
 If Git asks for Apple Command Line Tools, complete that installation and retry. If you already cloned this branch, do not clone over it: stop running services, enter the existing project folder, review `git status`, and use `git pull --ff-only origin release/mac-bench-20261126` only when clean, followed by `bash home_setup.command`. Never discard local work to make these instructions succeed. Setup refuses an existing unmanaged `.venv-home` rather than replacing it.

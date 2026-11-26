@@ -1,5 +1,8 @@
 # EDGEOPS home MacBook handoff
 
+
+**Local USB bring-up:** use [TONIGHT_MAC.md](TONIGHT_MAC.md). This older guide describes the advanced HTTPS gateway path for a future portal; hosting remains deferred. MacBook/ESP32 verification is pending.
+
 **Start with [HOME_MAC.md](HOME_MAC.md) for the new lightweight local USB dashboard.** It needs only pySerial, supports your existing ESP32 text test, and has no portal credentials. The older instructions below describe the separate HTTPS gateway/full-portal path; hosting is still deferred.
 
 

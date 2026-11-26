@@ -1,6 +1,9 @@
 # EDGEOPS — Industrial Edge AI Predictive Maintenance & Autonomous Operations
 
 
+**Choose your computer:** [start here](START_HERE.md) · [office Windows](OFFICE_WINDOWS.md) · [tonight on the Mac](TONIGHT_MAC.md). Fresh MacBook/ESP32 verification remains pending.
+
+
 **Home Mac USB mode:** [setup, launch and safe update instructions](HOME_MAC.md). Lightweight local dashboard, ESP32-only test and source-labelled sensor history; no Docker or home training. Online hosting and ESP32 Wi-Fi remain pending.
 
 > **MacBook / arriving hardware handoff — 26 November 2026:** [Start here](MACBOOK_START_HERE.md). The release branch includes the current dashboard, lightweight USB-to-configurable-HTTPS gateway, scoped bench-reading endpoint, secret-free configuration examples and a 16-item arrival guide. Hosting is deferred; exact-part checks and real Mac/ESP32 acceptance remain pending.
