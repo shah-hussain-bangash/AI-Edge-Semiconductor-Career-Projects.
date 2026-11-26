@@ -51,3 +51,5 @@ On Windows PowerShell:
 An optional `--output NEW.json` saves privately to a new filename outside the capture folder; existing files are refused. Keep the capture's original 32-character folder name: it is checked against the manifest identity. A recording is not accepted if its host-monotonic event times move backwards. Copies of old incomplete/corrupt recordings are preserved for investigation rather than silently repaired.
 
 See [local implementation status](LOCAL_READINESS.md), [recovery operations](LOCAL_RECOVERY.md) and the full [implementation and acceptance plan](production-design/04-IMPLEMENTATION-AND-ACCEPTANCE.md). Documentation coverage and software CI never close physical acceptance by themselves.
+
+Sensor-read software correction: [checked register reads and their limitations](phase-01-hardware/docs/CHECKED_SENSOR_READS.md). This is a later sensor-firmware upload, not a replacement required for the first ESP32-only communication test.

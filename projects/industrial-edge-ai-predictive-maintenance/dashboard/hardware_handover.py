@@ -38,6 +38,9 @@ No substitutions or additional hardware are authorized by this pack.
 4. Firmware source and PlatformIO configuration are included for the existing
    ESP32 target. Dependency installation, compilation and upload are separate
    steps; this download does not establish a successful build or exact-board fit.
+   Version three includes firmware/include/checked_sensors.h and fake-bus tests.
+   Keep the header with the source; docs/CHECKED_SENSOR_READS.md explains the
+   guarded reads and unchanged nominal preset assumptions.
    See phase-01-hardware/docs/FIRMWARE_BUILD.md for compile-only instructions.
 5. To run offline software checks after installing test dependencies, use the
    commands in the handoff guide from phase-01-hardware. No hardware is needed.
@@ -112,7 +115,7 @@ def build_pack(root):
         files['START-HERE.md'] = START.encode()
         files['physical-plan.json'] = (json.dumps(plan, indent=2) + '\n').encode()
         if sum(map(len, files.values())) > MAX_TOTAL: raise ValueError('Oversized pack')
-        manifest = {'format': 'edgeops-arrival-pack-v2', 'created_at': datetime.now(timezone.utc).isoformat(),
+        manifest = {'format': 'edgeops-arrival-pack-v3', 'created_at': datetime.now(timezone.utc).isoformat(),
                     'ordered_count_user_reported': 30, 'received_count_verified': 0,
                     'order_verified': False, 'hardware_connected': False, 'calibration_verified': False,
                     'production_ready': False, 'substitution_allowed': False, 'additional_hardware_allowed': False,

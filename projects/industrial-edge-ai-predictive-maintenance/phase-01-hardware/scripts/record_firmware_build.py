@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 
-SOURCES = ('firmware/platformio.ini', 'firmware/src/main.cpp', 'requirements-build.txt')
+SOURCES = ('firmware/platformio.ini', 'firmware/src/main.cpp', 'firmware/include/checked_sensors.h', 'requirements-build.txt')
 ARTIFACTS = tuple('firmware/.pio/build/esp32dev/' + name for name in
                   ('firmware.bin', 'firmware.elf', 'bootloader.bin', 'partitions.bin'))
 

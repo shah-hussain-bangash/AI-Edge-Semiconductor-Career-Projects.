@@ -45,9 +45,9 @@ class ArrivalVerifierTests(unittest.TestCase):
         for key in ('signature_verified','source_authenticity_verified','physical_acceptance_verified','hardware_connected','equipment_authorized','production_ready'):self.assertIs(report[key],False)
         self.assertEqual(self.files['dashboard/verify_arrival_pack.py'],(ROOT/'verify_arrival_pack.py').read_bytes())
 
-    def test_v2_contains_current_summary_tool_tests_and_pending_checklist(self):
-        self.assertEqual(verifier.verify_bytes(self.raw)['pack_format'],'edgeops-arrival-pack-v2')
-        for name in ('scripts/summarize_capture.py','tests/test_capture_summary.py','validation/FIRST-HARDWARE-ACCEPTANCE.md'):
+    def test_v3_contains_summary_checked_reads_and_pending_checklist(self):
+        self.assertEqual(verifier.verify_bytes(self.raw)['pack_format'],'edgeops-arrival-pack-v3')
+        for name in ('scripts/summarize_capture.py','tests/test_capture_summary.py','validation/FIRST-HARDWARE-ACCEPTANCE.md','firmware/include/checked_sensors.h','tests/test_checked_sensor_reads.py','tests/fixtures/checked_sensor_reads.cpp','docs/CHECKED_SENSOR_READS.md'):
             with self.subTest(name=name):
                 self.assertEqual(self.files['phase-01-hardware/'+name],(ROOT.parent/'phase-01-hardware'/name).read_bytes())
         self.assertIn(b'Physical status: PENDING',self.files['phase-01-hardware/validation/FIRST-HARDWARE-ACCEPTANCE.md'])
@@ -61,6 +61,23 @@ class ArrivalVerifierTests(unittest.TestCase):
         with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
             for name,data in files.items():archive.writestr(name,data)
         return output.getvalue()
+
+    def test_v2_inventory_remains_supported_and_v3_cannot_omit_header(self):
+        files={name:data for name,data in self.files.items() if name in verifier.V2_EXPECTED_FILES}
+        manifest=json.loads(files['manifest.json']);manifest['format']='edgeops-arrival-pack-v2'
+        manifest['files']={name:record for name,record in manifest['files'].items() if name in verifier.V2_EXPECTED_FILES}
+        files['manifest.json']=json.dumps(manifest).encode()
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
+            for name,data in files.items():archive.writestr(name,data)
+        self.assertEqual(verifier.verify_bytes(output.getvalue())['pack_format'],'edgeops-arrival-pack-v2')
+        files=dict(self.files);omitted='phase-01-hardware/firmware/include/checked_sensors.h'
+        del files[omitted];manifest=json.loads(files['manifest.json']);del manifest['files'][omitted]
+        files['manifest.json']=json.dumps(manifest).encode()
+        output=io.BytesIO()
+        with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
+            for name,data in files.items():archive.writestr(name,data)
+        with self.assertRaises(verifier.PackError):verifier.verify_bytes(output.getvalue())
 
     def test_legacy_v1_inventory_remains_supported_without_new_authority(self):
         report=verifier.verify_bytes(self.legacy_pack())

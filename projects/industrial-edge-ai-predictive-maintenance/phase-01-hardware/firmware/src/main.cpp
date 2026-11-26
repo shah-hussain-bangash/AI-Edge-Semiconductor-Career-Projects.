@@ -7,6 +7,7 @@
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
 #include <math.h>
+#include "checked_sensors.h"
 
 constexpr uint8_t SDA_PIN = 21;
 constexpr uint8_t SCL_PIN = 22;
@@ -24,11 +25,14 @@ bool currentPresent = false;
 uint32_t seq = 0;
 uint32_t lastReport = 0;
 
+edgeops::WireBus<TwoWire> checkedWire(Wire);
+
 void setup() {
   Serial.begin(115200);
   delay(1200);
   Wire.begin(SDA_PIN, SCL_PIN);
   Wire.setClock(100000);
+  Wire.setTimeOut(50);
   accelPresent = accelerometer.begin();
   if (accelPresent) accelerometer.setRange(ADXL345_RANGE_16_G);
   currentPresent = currentMonitor.begin();
@@ -49,12 +53,7 @@ void loop() {
   float ax = NAN, ay = NAN, az = NAN;
   bool accelValid = false;
   if (accelPresent) {
-    sensors_event_t event;
-    accelerometer.getEvent(&event);
-    ax = event.acceleration.x;
-    ay = event.acceleration.y;
-    az = event.acceleration.z;
-    accelValid = isfinite(ax) && isfinite(ay) && isfinite(az);
+    accelValid = edgeops::acceleration(checkedWire, ax, ay, az);
   }
 
   temperatureProbe.requestTemperatures();
@@ -65,9 +64,7 @@ void loop() {
   float voltage = NAN, current = NAN;
   bool currentValid = false;
   if (currentPresent) {
-    voltage = currentMonitor.getBusVoltage_V();
-    current = currentMonitor.getCurrent_mA();
-    currentValid = isfinite(voltage) && isfinite(current);
+    currentValid = edgeops::currentVoltage(checkedWire, voltage, current);
   }
 
   JsonDocument doc;

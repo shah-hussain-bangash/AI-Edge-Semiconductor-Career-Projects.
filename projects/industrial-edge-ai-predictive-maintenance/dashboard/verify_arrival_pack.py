@@ -27,15 +27,19 @@ LEGACY_HARDWARE_FILES=(
     'docs/physical-connection-pack/all-30-connection-matrix.csv',
     'docs/physical-connection-pack/sensor-only-reference.svg',
 )
-HARDWARE_FILES=LEGACY_HARDWARE_FILES+('scripts/summarize_capture.py','tests/test_capture_summary.py',
+V2_HARDWARE_FILES=LEGACY_HARDWARE_FILES+('scripts/summarize_capture.py','tests/test_capture_summary.py',
                                       'validation/FIRST-HARDWARE-ACCEPTANCE.md')
+HARDWARE_FILES=V2_HARDWARE_FILES+('firmware/include/checked_sensors.h','tests/test_checked_sensor_reads.py',
+    'tests/fixtures/checked_sensor_reads.cpp','docs/CHECKED_SENSOR_READS.md')
 CONTRACT_FILES=('telemetry-v2.schema.json','tests/test_telemetry_v2_contract.py',
                 'examples/telemetry-v2.synthetic-valid.json','examples/telemetry-v2.synthetic-partial.json')
 SOURCE_FILES=tuple('phase-01-hardware/'+name for name in HARDWARE_FILES)+tuple(
     'enterprise-architecture/contracts/'+name for name in CONTRACT_FILES)+('dashboard/verify_arrival_pack.py',)
 EXPECTED_FILES=frozenset(SOURCE_FILES)|{'receipt-worksheet.csv','physical-plan.json','START-HERE.md','manifest.json'}
 LEGACY_EXPECTED_FILES=EXPECTED_FILES-{'phase-01-hardware/'+name for name in HARDWARE_FILES if name not in LEGACY_HARDWARE_FILES}
-FORMAT_FILES={'edgeops-arrival-pack-v1':LEGACY_EXPECTED_FILES,'edgeops-arrival-pack-v2':EXPECTED_FILES}
+V2_EXPECTED_FILES=EXPECTED_FILES-{'phase-01-hardware/'+name for name in HARDWARE_FILES if name not in V2_HARDWARE_FILES}
+FORMAT_FILES={'edgeops-arrival-pack-v1':LEGACY_EXPECTED_FILES,'edgeops-arrival-pack-v2':V2_EXPECTED_FILES,
+              'edgeops-arrival-pack-v3':EXPECTED_FILES}
 MAX_ARCHIVE=8*1024*1024
 MAX_FILE=512*1024
 MAX_TOTAL=2*1024*1024
