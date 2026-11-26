@@ -29,7 +29,7 @@ The preparation/readiness register remains an evidence register. These new capab
 
 Production readiness now includes a **Local capability checks** panel covering all 14 software areas. It reads the current local database and configuration presence, shows the next review for each area, and links to the related workspace. Use the filter to find configuration, missing records, review work or optional account protection. Labels describe local next steps; they are not acceptance grades or an implementation percentage.
 
-Refresh after making changes and check the observation timestamp. Fixture runs and gateway-declared measurement runs remain separate; the latter remain unverified. Models and approved guidance are counted only with their existing integrity and authority checks. The panel never contacts an email provider, tests a physical device, builds a release or runs a worker.
+Refresh after making changes and check the observation timestamp. Fixture runs and gateway-declared measurement runs remain separate; the latter remain unverified. Model artifacts are integrity-checked; current scoring releases and approved guidance use their existing authority checks. Study counts also include retained candidates and retired versions. The panel never contacts an email provider, tests a physical device, builds a release or runs a worker.
 
 Case/work/evidence counts follow the signed-in account's existing visibility. Authenticator status is for the current account only. Detailed service, recovery and retention observations are restricted to administrators/auditors. Export includes these same account-scoped observations, without passwords, private paths, provider settings, source text or control secrets. Treat the JSON as local operational information.
 
