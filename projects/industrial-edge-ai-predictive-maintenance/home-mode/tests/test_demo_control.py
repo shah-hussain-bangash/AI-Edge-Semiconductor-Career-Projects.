@@ -27,7 +27,7 @@ class DemoControlTests(unittest.TestCase):
         with socket.socket() as sock:sock.bind(('127.0.0.1',0));self.port=sock.getsockname()[1]
         # Bypass Windows venv redirectors so failed-test cleanup owns one real PID.
         python=getattr(sys,'_base_executable',sys.executable) if os.name=='nt' else sys.executable
-        args=[python,str(ROOT/'home-mode/home_server.py'),'--data-dir',str(self.directory),'--web-port',str(self.port),'--mode',mode]
+        args=[python,str(ROOT/'home-mode/tests/run_control_server.py'),'--data-dir',str(self.directory),'--web-port',str(self.port),'--mode',mode]
         if mode=='demo':args.append('--connect')
         self.process=subprocess.Popen(args,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1'))
         deadline=time.monotonic()+15
