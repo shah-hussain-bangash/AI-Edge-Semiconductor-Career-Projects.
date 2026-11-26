@@ -286,6 +286,7 @@ def detail(db, row, actor):
         entry['attached_observation']=by_revision.get(entry['revision'])
         history.append(entry)
     return {'incident': presented, 'history': history, 'can_review_severity':presented['can_add_update'],
+            'correlation_source':correlation_context(db,row['id']),
             'attached_observations':attachments,
             'can_attach_observation':presented['can_add_update'] and len(attachments)<MAX_ATTACHED_OBSERVATIONS,
             'attached_observation_limit':MAX_ATTACHED_OBSERVATIONS,
@@ -295,6 +296,16 @@ def detail(db, row, actor):
             **BOUNDARY}
 
 
+def correlation_context(db,incident_id):
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='correlation_handoffs'").fetchone():return None
+    row=db.execute('''SELECT h.case_id,h.case_revision,h.snapshot_json,c.revision current_revision
+        FROM correlation_handoffs h JOIN correlation_cases c ON c.id=h.case_id WHERE h.incident_id=?''',(incident_id,)).fetchone()
+    if not row:return None
+    return {'case_id':row['case_id'],'captured_case_revision':row['case_revision'],
+            'current_case_revision':row['current_revision'],'changed_since_handoff':row['case_revision']!=row['current_revision'],
+            'captured_context':json.loads(row['snapshot_json']),'source_type':'synthetic'}
+
+
 def event(db, row, actor, action, note, evidence, audit):
     snapshot = present(row, actor, assignment(db,row['id']), followup(db,row),current_severity(db,row['id'])); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
     db.execute('INSERT INTO synthetic_incident_events VALUES(?,?,?,?,?,?,?,?,?)',
@@ -302,33 +313,42 @@ def event(db, row, actor, action, note, evidence, audit):
                 row['updated_at'], json.dumps(snapshot, sort_keys=True)))
     audit(db, actor['email'], 'synthetic_incident_' + action,
           json.dumps({'incident_id': row['id'], 'revision': row['revision'], 'scope': BOUNDARY['scope']}))
+    import local_notifications
+    local_notifications.enqueue(db, row, current_severity(db,row['id']), action)
+
+
+def create_from_observation_in_transaction(db,actor,body,audit):
+    """Caller holds an authorized write transaction; preserves existing capture/retry behavior."""
+    require_role(actor,WRITE_ROLES)
+    digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_key'}),sort_keys=True).encode()).hexdigest()
+    prior=db.execute('SELECT * FROM synthetic_incidents WHERE creator_id=? AND request_key=?',(actor['id'],body.request_key)).fetchone()
+    if prior:
+        if prior['creation_hash']!=digest or not observation_source(db,prior['id']):
+            raise HTTPException(409,'Creation key already has different contents; inspect saved incidents before starting another')
+        return {**detail(db,prior,actor),'created':False}
+    if db.execute('SELECT 1 FROM incident_observation_sources WHERE creator_id=? AND event_key=?',(actor['id'],body.event_key)).fetchone():
+        raise HTTPException(409,'You already created an incident from this observation; open it in Alerts and add an investigation update')
+    snapshot=capture_observation(db,body.event_key,body.content_hash)
+    sample=snapshot['observation']
+    if db.execute('SELECT count(*) FROM synthetic_incidents').fetchone()[0]>=MAX_INCIDENTS:
+        raise HTTPException(409,'Local exercise capacity reached; no records are automatically deleted')
+    identifier=secrets.token_hex(16);time=snapshot['captured_at'];evidence='Committed synthetic observation '+body.event_key
+    db.execute('''INSERT INTO synthetic_incidents VALUES(?,?,?,?,?,?,?,?,?,'open',1,?,?,?)''',
+               (identifier,actor['id'],actor['email'],body.request_key,digest,sample['asset_id'],body.title,body.observation,body.severity,evidence,time,time))
+    db.execute('INSERT INTO incident_observation_sources VALUES(?,?,?,?)',(identifier,body.event_key,actor['id'],json.dumps(snapshot,sort_keys=True)))
+    row=visible(db,identifier,actor);event(db,row,actor,'create',body.observation,evidence,audit)
+    audit(db,actor['email'],'synthetic_incident_observation_linked',json.dumps({'incident_id':identifier,'event_key':body.event_key}))
+    return {**detail(db,row,actor),'created':True}
+
 
 
 def install_routes(app, database, require_user, require_csrf, audit):
     @app.post('/api/incidents/from-observation')
     def from_observation(body: ObservationIncident, request: Request):
         current=require_user(request);require_csrf(request,current)
-        digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_key'}),sort_keys=True).encode()).hexdigest()
         with database() as db:
             db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES)
-            prior=db.execute('SELECT * FROM synthetic_incidents WHERE creator_id=? AND request_key=?',(actor['id'],body.request_key)).fetchone()
-            if prior:
-                if prior['creation_hash']!=digest or not observation_source(db,prior['id']):
-                    raise HTTPException(409,'Creation key already has different contents; inspect saved incidents before starting another')
-                return {**detail(db,prior,actor),'created':False}
-            if db.execute('SELECT 1 FROM incident_observation_sources WHERE creator_id=? AND event_key=?',(actor['id'],body.event_key)).fetchone():
-                raise HTTPException(409,'You already created an incident from this observation; open it in Alerts and add an investigation update')
-            snapshot=capture_observation(db,body.event_key,body.content_hash)
-            sample=snapshot['observation']
-            if db.execute('SELECT count(*) FROM synthetic_incidents').fetchone()[0]>=MAX_INCIDENTS:
-                raise HTTPException(409,'Local exercise capacity reached; no records are automatically deleted')
-            identifier=secrets.token_hex(16);time=snapshot['captured_at'];evidence='Committed synthetic observation '+body.event_key
-            db.execute('''INSERT INTO synthetic_incidents VALUES(?,?,?,?,?,?,?,?,?,'open',1,?,?,?)''',
-                       (identifier,actor['id'],actor['email'],body.request_key,digest,sample['asset_id'],body.title,body.observation,body.severity,evidence,time,time))
-            db.execute('INSERT INTO incident_observation_sources VALUES(?,?,?,?)',(identifier,body.event_key,actor['id'],json.dumps(snapshot,sort_keys=True)))
-            row=visible(db,identifier,actor);event(db,row,actor,'create',body.observation,evidence,audit)
-            audit(db,actor['email'],'synthetic_incident_observation_linked',json.dumps({'incident_id':identifier,'event_key':body.event_key}))
-            return {**detail(db,row,actor),'created':True}
+            return create_from_observation_in_transaction(db,actor,body,audit)
 
     @app.post('/api/incidents/{incident_id}/severity')
     def review_severity(incident_id: str, body: ReviewSeverity, request: Request):
@@ -481,6 +501,8 @@ def install_routes(app, database, require_user, require_csrf, audit):
             snapshot = present(incident, actor, assignment(db,incident_id), followup(db,incident),current_severity(db,incident_id)); snapshot.pop('actions');snapshot.pop('can_assign');snapshot.pop('can_set_follow_up');snapshot.pop('can_add_update');snapshot['follow_up'].pop('status');snapshot['follow_up'].pop('evaluated_at')
             snapshot['source_observation']=observation_source(db,incident_id)
             snapshot['attached_observations']=observation_attachments(db,incident_id)
+            context=correlation_context(db,incident_id)
+            if context:snapshot['correlation_source']=context
             db.execute('INSERT INTO incident_plan_links VALUES(?,?,?,?,?,?,?)',
                 (identifier, incident_id, actor['id'], incident['revision'], digest, json.dumps(snapshot, sort_keys=True), now))
             row = planning.visible_plan(db, identifier, actor)

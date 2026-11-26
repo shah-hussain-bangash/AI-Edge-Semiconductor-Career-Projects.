@@ -1,0 +1,73 @@
+name: EDGEOPS Mac gateway handoff
+on:
+  push:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-mac-gateway.yml'
+  pull_request:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-mac-gateway.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bench-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONWARNINGS: 'ignore::DeprecationWarning'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check lightweight gateway setup and shell syntax without hardware access
+        run: |
+          python mac-gateway/setup.py --check
+          for file in *.command; do bash -n "$file"; done
+      - name: Install software-check dependencies
+        run: python -m pip install -r dashboard/requirements.txt -r mac-gateway/requirements.txt -r phase-01-hardware/tests/requirements.txt
+      - name: Scoped bench ingestion, durable gateway and recent integration regression checks
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/dashboard
+        env:
+          PYTHONPATH: tests
+        run: python -m unittest test_bench_ingress test_service_credentials test_service_runner test_correlation test_local_notifications test_notification_worker test_followup_reminders test_recovery test_server
+      - name: Hardware-side offline software contracts, not physical acceptance
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/phase-01-hardware
+        run: python -m unittest discover -s tests -p 'test_*.py'
+  portal-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/dashboard
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHON_BINARY: python
+      EDGEOPS_MOSQUITTO_EXE: /usr/sbin/mosquitto
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated software-rehearsal dependencies
+        run: |
+          python -m pip install -r requirements.txt -r requirements-ml.txt -r requirements-mqtt-test.txt -r ../mac-gateway/requirements.txt
+          npm install --prefix .local/browser-tests playwright
+          .local/browser-tests/node_modules/.bin/playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+      - name: Fixture gateway and portal browser rehearsal, no physical USB device
+        run: NODE_PATH="$PWD/.local/browser-tests/node_modules" node tests/browser_mac_bench.cjs

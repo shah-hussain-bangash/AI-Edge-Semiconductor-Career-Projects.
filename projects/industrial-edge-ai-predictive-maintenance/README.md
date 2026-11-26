@@ -1,5 +1,7 @@
 # EDGEOPS — Industrial Edge AI Predictive Maintenance & Autonomous Operations
 
+> **MacBook / arriving hardware handoff — 26 November 2026:** [Start here](MACBOOK_START_HERE.md). The release branch includes the current dashboard, lightweight USB-to-configurable-HTTPS gateway, scoped bench-reading endpoint, secret-free configuration examples and a 16-item arrival guide. Hosting is deferred; exact-part checks and real Mac/ESP32 acceptance remain pending.
+
 > **Consolidated production design — 19 November 2026:** Start with the [complete production system design baseline](production-design/README.md). It reconciles all 48 existing project text documents, maps all 30 planned hardware categories, and specifies the target contracts, services, workflows and acceptance path. The current local dashboard is an authenticated development prototype; hardware commissioning and production acceptance are not established. Older status statements below describe earlier source snapshots.
 
 > **Engineering portfolio project | Architecture and implementation roadmap | Demonstration UI**  

@@ -1,0 +1,3 @@
+-r requirements-mqtt.txt
+# Disposable PKI generation for opt-in native-broker tests.
+cryptography==47.0.0

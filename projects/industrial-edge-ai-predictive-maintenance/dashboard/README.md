@@ -4,6 +4,10 @@ Status: authenticated local development platform. Hardware will be connected lat
 
 The dashboard provides 18 workspaces plus sign-in. Working local services include authenticated sessions, CSRF, audit, a 30-category planning catalog, a synthetic telemetry ledger, verified offline experiments/comparisons, independent report review, saved maintenance planning and the full 53-criterion readiness evidence register. Equipment cards/charts and incident examples remain synthetic; profile previews never change account permissions.
 
+## MacBook and arriving hardware
+
+See [the MacBook handoff](../MACBOOK_START_HERE.md) and [16-item arrival guide](../HARDWARE_ARRIVAL_16.md). Devices → USB bench readings is a separate unverified physical-reading path. Synthetic ledger/model/incident workflows keep their existing provenance. Hosting is not deployed by this handoff.
+
 ## Current documentation
 
 - [Production design and staged implementation](../production-design/README.md)
@@ -11,6 +15,11 @@ The dashboard provides 18 workspaces plus sign-in. Working local services includ
 - [Fixed 30-product physical build view](PHYSICAL_BUILD_VIEW.md)
 - [Synthetic acquisition bindings and observation preflight](ACQUISITION_FOUNDATION.md)
 - [Durable synthetic delivery, receipts and worker](DURABLE_DELIVERY.md)
+- [Scoped service credentials and bearer-only synthetic delivery](SERVICE_IDENTITY.md)
+- [Continuous synthetic runner and authenticated activity reports](SERVICE_RUNNER.md)
+- [mTLS MQTT intake, durable ACK boundary and central delivery](MQTT_INGRESS.md)
+- [Automatic synthetic threshold cases and governed incident handoff](INCIDENT_CORRELATION.md)
+- [Durable local notification outbox and personal incident inbox](LOCAL_NOTIFICATIONS.md)
 - [Persisted telemetry, source quality and age semantics](PERSISTED_TELEMETRY.md)
 - [Production gap audit and next implementation sequence](SYSTEM_AUDIT.md)
 - [Backup, verification and restoration runbook](RECOVERY.md)

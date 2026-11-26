@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import correlation
 from typing import Literal
 
 from fastapi import HTTPException,Request,Response,Query
@@ -35,29 +36,35 @@ def matching_binding(db,body):
         raise HTTPException(403,'No active exact synthetic binding at this revision')
 
 
+def commit_in_transaction(db,audit,actor_label,body):
+    """Caller must hold BEGIN IMMEDIATE and authorize its principal in that transaction."""
+    envelope=body.model_dump(mode='json');key,digest=identity(envelope)
+    previous=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(key,)).fetchone()
+    if previous:observations.present(previous,datetime.now(timezone.utc),60)
+    if previous and previous['content_hash']!=digest:
+        audit(db,actor_label,'synthetic_ingest_conflict',key)
+        return False,None,True
+    if previous:row=previous;created=False
+    else:
+        if db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]>=10000:
+            raise HTTPException(429,'Local observation capacity reached')
+        now=datetime.now(timezone.utc).isoformat();receipt=secrets.token_hex(16)
+        db.execute('INSERT INTO acquisition_observations VALUES(?,?,?,?,?,?,?,?)',
+                   (key,digest,body.observation.device_id,body.binding_revision,json.dumps(envelope,sort_keys=True),receipt,now,actor_label))
+        audit(db,actor_label,'synthetic_central_commit',key)
+        correlation.evaluate(db,audit,actor_label,body,key,now)
+        row=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(key,)).fetchone();created=True
+    return created,{**BOUNDARY,'tier':'central-committed','event_key':key,'content_hash':digest,
+                    'receipt_id':row['receipt_id'],'committed_at':row['committed_at']},False
+
+
 def commit_observation(database,audit,current,body):
-    envelope=body.model_dump(mode='json');key,digest=identity(envelope);conflict=False
     with database() as db:
         db.execute('BEGIN IMMEDIATE');actor=fresh_actor(db,current);require_role(actor,('admin','operator'))
         matching_binding(db,body)
-        previous=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(key,)).fetchone()
-        if previous:
-            # A matching hash column alone cannot establish that the stored sample survived intact.
-            observations.present(previous,datetime.now(timezone.utc),60)
-        if previous and previous['content_hash']!=digest:
-            audit(db,actor['email'],'synthetic_ingest_conflict',key);conflict=True
-        elif previous:row=previous;created=False
-        else:
-            if db.execute('SELECT COUNT(*) FROM acquisition_observations').fetchone()[0]>=10000:
-                raise HTTPException(429,'Local observation capacity reached')
-            now=datetime.now(timezone.utc).isoformat();receipt=secrets.token_hex(16)
-            db.execute('INSERT INTO acquisition_observations VALUES(?,?,?,?,?,?,?,?)',
-                       (key,digest,body.observation.device_id,body.binding_revision,json.dumps(envelope,sort_keys=True),receipt,now,actor['email']))
-            audit(db,actor['email'],'synthetic_central_commit',key)
-            row=db.execute('SELECT * FROM acquisition_observations WHERE event_key=?',(key,)).fetchone();created=True
+        created,receipt,conflict=commit_in_transaction(db,audit,actor['email'],body)
     if conflict:raise HTTPException(409,'Same source identity has different content; original preserved')
-    return created,{**BOUNDARY,'tier':'central-committed','event_key':key,'content_hash':digest,
-                    'receipt_id':row['receipt_id'],'committed_at':row['committed_at']}
+    return created,receipt
 
 
 def install_routes(app,database,require_user,require_csrf,audit,default_spool_path):

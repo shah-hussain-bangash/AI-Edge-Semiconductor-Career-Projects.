@@ -1,0 +1,12 @@
+# Private home configuration, readings, sessions, passwords and local runtimes.
+.local/
+.venv-gateway/
+.venv-portal/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+dashboard/tests/*_run.cjs

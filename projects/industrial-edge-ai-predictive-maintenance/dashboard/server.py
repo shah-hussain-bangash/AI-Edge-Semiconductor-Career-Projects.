@@ -28,6 +28,14 @@ import telemetry_store
 import maintenance_requests
 import maintenance_exercises
 import team_accounts
+import service_credentials
+import runner_status
+import mqtt_status
+import correlation
+import local_notifications
+import notification_worker
+import followup_reminders
+import bench_ingress
 import production_readiness
 from pathlib import Path
 
@@ -48,7 +56,7 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError):
@@ -137,6 +145,14 @@ def init_db():
         production_readiness.init_schema(db)
         acquisition_registry.init_schema(db)
         delivery_service.init_schema(db)
+        service_credentials.init_schema(db)
+        runner_status.init_schema(db)
+        mqtt_status.init_schema(db)
+        correlation.init_schema(db)
+        local_notifications.init_schema(db)
+        notification_worker.init_schema(db)
+        followup_reminders.init_schema(db)
+        bench_ingress.init_schema(db)
         db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_epoch(),))
         number = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if number == 0 and BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD:
@@ -152,9 +168,17 @@ def record_audit(db: sqlite3.Connection, actor: str, action: str, detail: str):
                (datetime.now(timezone.utc).isoformat(), actor, action, detail[:240]))
 
 
+notification_delivery_worker = notification_worker.Worker(database, record_audit)
+
 @app.on_event("startup")
 def startup():
     init_db()
+    notification_delivery_worker.start()
+
+
+@app.on_event("shutdown")
+def shutdown_notification_worker():
+    notification_delivery_worker.stop()
 
 
 def auth_context(request: Request) -> dict | None:
@@ -555,3 +579,15 @@ observation_queries.install_routes(app, database, require_user)
 physical_build.install_routes(app, require_user, ROOT)
 
 team_accounts.install_routes(app, database, require_user, require_csrf, password_hash, password_matches, record_audit)
+
+service_credentials.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+
+runner_status.install_routes(app, database, require_user, record_audit)
+
+mqtt_status.install_routes(app, database, require_user, record_audit)
+
+correlation.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+local_notifications.install_routes(app, database, require_user, require_csrf, record_audit)
+notification_worker.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+followup_reminders.install_routes(app, database, require_user, require_csrf, record_audit)
+bench_ingress.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)

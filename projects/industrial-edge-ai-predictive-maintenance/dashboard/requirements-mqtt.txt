@@ -1,0 +1,2 @@
+# Optional MQTT ingress runtime. Core dashboard startup does not import Paho.
+paho-mqtt==2.1.0

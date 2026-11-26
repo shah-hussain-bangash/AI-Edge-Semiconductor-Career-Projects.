@@ -256,6 +256,32 @@ def restore_backup(directory, output):
             with db:
                 revoked = db.execute('SELECT COUNT(*) FROM sessions').fetchone()[0]
                 db.execute('DELETE FROM sessions')
+                service_revoked = 0
+                bench_revoked = 0
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='bench_credentials'").fetchone():
+                    bench_revoked = db.execute('UPDATE bench_credentials SET revoked_at=?,revision=revision+1 WHERE revoked_at IS NULL',(int(datetime.now(timezone.utc).timestamp()),)).rowcount
+                correlation_disabled = 0
+                notification_routes_disabled = 0
+                notification_worker_disabled = 0
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='local_notification_worker_config'").fetchone():
+                    notification_worker_disabled = db.execute('UPDATE local_notification_worker_config SET enabled=0,revision=revision+1 WHERE enabled=1').rowcount
+                    db.execute('UPDATE local_notification_worker_status SET lease_until=0')
+                notifications_suppressed = 0
+                reminder_preferences_disabled = 0
+                reminders_cancelled = 0
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='followup_reminder_preferences'").fetchone():
+                    reminder_preferences_disabled = db.execute('UPDATE followup_reminder_preferences SET enabled=0,revision=revision+1 WHERE enabled=1').rowcount
+                    reminders_cancelled = db.execute("UPDATE followup_reminders SET state='cancelled' WHERE state='delivered'").rowcount
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='local_notification_preferences'").fetchone():
+                    notification_routes_disabled = db.execute('UPDATE local_notification_preferences SET enabled=0,revision=revision+1 WHERE enabled=1').rowcount
+                    notifications_suppressed = db.execute("UPDATE local_notification_outbox SET state='suppressed' WHERE state='pending'").rowcount
+                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_credentials'").fetchone():
+                    service_revoked = db.execute('''UPDATE service_credentials SET revoked_at=?,revision=revision+1
+                        WHERE revoked_at IS NULL''', (int(datetime.now(timezone.utc).timestamp()),)).rowcount
+                if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='correlation_policies'").fetchone():
+                    correlation_disabled = db.execute('''UPDATE correlation_policies SET disabled=1,revision=revision+1,
+                        disabled_at=?,disable_reason='Restored snapshot; create a newly authorized replacement before automatic evaluation.'
+                        WHERE disabled=0''',(datetime.now(timezone.utc).isoformat(),)).rowcount
                 db.execute('INSERT INTO audit(time_utc,actor,action,detail) VALUES(?,?,?,?)',
                            (datetime.now(timezone.utc).isoformat(), 'local-recovery-tool',
                             'recovery_restore', 'Restored verified snapshot; existing browser sessions revoked'))
@@ -269,7 +295,12 @@ def restore_backup(directory, output):
                 raise ValueError('Restored record reconciliation failed')
         report = {'format': 'edgeops-restore-report-v1', 'verified': True,
                   'restored_at': datetime.now(timezone.utc).isoformat(),
-                  'sessions_revoked': revoked, 'table_counts': counts,
+                  'sessions_revoked': revoked, 'service_credentials_revoked': service_revoked,
+                  'correlation_policies_disabled': correlation_disabled, 'table_counts': counts,
+                  'notification_routes_disabled': notification_routes_disabled, 'pending_notifications_suppressed': notifications_suppressed,
+                  'notification_worker_disabled': notification_worker_disabled,
+                  'reminder_preferences_disabled': reminder_preferences_disabled,'followup_reminders_cancelled':reminders_cancelled,
+                  'bench_credentials_revoked':bench_revoked,
                   'production_ready': False, 'source_manifest_sha256': digest(root / 'manifest.json')}
         (stage / 'restore-report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         os.chmod(stage / 'restore-report.json', 0o600)

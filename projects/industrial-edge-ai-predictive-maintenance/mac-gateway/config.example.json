@@ -1,0 +1,5 @@
+{
+  "portal_url": "https://YOUR-FUTURE-PORTAL.example",
+  "token": "REPLACE_LOCALLY_WITH_A_SCOPED_BENCH_CREDENTIAL",
+  "expected_device_id": "motor-001"
+}
