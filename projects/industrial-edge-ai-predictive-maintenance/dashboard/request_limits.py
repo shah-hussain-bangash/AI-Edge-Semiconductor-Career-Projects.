@@ -28,11 +28,14 @@ class RequestBodyLimit:
             await JSONResponse({'detail': detail}, status_code=status,
                                headers=SECURITY_HEADERS)(scope, receive, send)
 
+        limit = self.max_bytes
+        if scope['method']=='POST' and re.fullmatch(r'/api/operational/evidence/(?:case|order)/[a-f0-9]{32}',scope.get('path','')):
+            limit = 2*1024*1024
         lengths = [v for k, v in scope.get('headers', []) if k.lower() == b'content-length']
         if lengths and (len(lengths) != 1 or len(lengths[0]) > 16
                         or not re.fullmatch(rb'[0-9]+', lengths[0])):
             return await reject(400, 'Invalid Content-Length')
-        if lengths and int(lengths[0]) > self.max_bytes:
+        if lengths and int(lengths[0]) > limit:
             return await reject(413, 'Request too large')
         body = bytearray()
         while True:
@@ -40,7 +43,7 @@ class RequestBodyLimit:
             if message['type'] == 'http.disconnect':
                 return
             chunk = message.get('body', b'')
-            if len(body) + len(chunk) > self.max_bytes:
+            if len(body) + len(chunk) > limit:
                 return await reject(413, 'Request too large')
             body.extend(chunk)
             if not message.get('more_body', False):

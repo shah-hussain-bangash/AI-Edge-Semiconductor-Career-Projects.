@@ -1,0 +1,72 @@
+name: EDGEOPS local operational platform
+on:
+  push:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-operational-platform.yml'
+  pull_request:
+    paths:
+      - 'projects/industrial-edge-ai-predictive-maintenance/**'
+      - '.github/workflows/edgeops-operational-platform.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel, windows-latest]
+        python: ['3.12', '3.14']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONWARNINGS: 'ignore::DeprecationWarning'
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Check out exact public source into an ordinary cross-platform path
+        working-directory: ${{ runner.temp }}
+        shell: python
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          import os, subprocess
+          subprocess.run(['git','-c','core.longpaths=true','clone','--no-checkout','https://github.com/'+os.environ['SOURCE_REPOSITORY']+'.git','edgeops-operations'],check=True)
+          subprocess.run(['git','-C','edgeops-operations','fetch','origin',os.environ['SOURCE_COMMIT']],check=True)
+          subprocess.run(['git','-C','edgeops-operations','-c','core.longpaths=true','checkout','--detach','FETCH_HEAD'],check=True)
+      - name: Install pinned runtime and serial fixture dependency
+        working-directory: ${{ runner.temp }}/edgeops-operations/projects/industrial-edge-ai-predictive-maintenance/dashboard
+        run: python -m pip install -r requirements.txt -r ../mac-gateway/requirements.txt
+      - name: Workflow, authorization, security, evidence and recovery contracts
+        working-directory: ${{ runner.temp }}/edgeops-operations/projects/industrial-edge-ai-predictive-maintenance/dashboard
+        env:
+          PYTHONPATH: tests
+        run: python -m unittest test_operational_workflow test_approved_guidance test_operational_notifications test_operational_models test_account_mfa test_protected_recovery test_platform_operations test_release_bundle test_operational_evidence test_bench_ingress test_recovery -v
+  browser-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: projects/industrial-edge-ai-predictive-maintenance/dashboard
+    env:
+      PYTHON_BINARY: python
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned software checks
+        run: |
+          python -m pip install -r requirements.txt
+          npm install --prefix .local/operational-browser playwright@1.62.1
+          .local/operational-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Actual forms, independent accounts, source isolation and responsive display
+        run: NODE_PATH="$PWD/.local/operational-browser/node_modules" node tests/browser_operational.cjs

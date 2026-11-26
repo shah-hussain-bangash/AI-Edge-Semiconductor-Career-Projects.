@@ -31,12 +31,12 @@ document.addEventListener("DOMContentLoaded",()=>{
    if(!address||!password){error.textContent="Enter your email and password.";return}
    submit.disabled=true;
    try{
-     const response=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email:address,password})});
+     const response=await fetch("/api/auth/login",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify({email:address,password,otp_code:document.getElementById("otp-code").value.trim()})});
      if(response.ok){
        try{if(remember.checked)localStorage.setItem("edgeops_remembered_email",address);else localStorage.removeItem("edgeops_remembered_email")}catch{}
        window.location.assign("/app");return;
      }
-     error.textContent=response.status===429?"Too many attempts. Try again later.":response.status===401?"Invalid email or password.":"Unable to sign in. Check local server configuration.";
+     error.textContent=response.status===429?"Too many attempts. Try again later.":response.status===401?"Invalid email, password or verification code.":"Unable to sign in. Check local server configuration.";
    }catch{error.textContent="Cannot reach the EDGEOPS local server. Confirm Uvicorn is running."}
    finally{submit.disabled=false}
  });

@@ -1,0 +1,7 @@
+#operational-assets p,#operational-rules p,#operational-cases p,#operational-orders p,#approved-guidance-panel p,#guidance-search-panel p,#baseline-models-panel p,#workflow-inbox-panel p,#account-protection-panel p,#operational-overview-panel p{overflow-wrap:anywhere}
+#registered-telemetry-chart svg{display:block;width:100%;height:auto;max-height:260px;background:#fff;border:1px solid #cad7e7;border-radius:8px}
+body[data-observation-view="registered"] #page-overview>:not(#operational-overview-panel),body[data-observation-view="registered"] #page-assets>:not(#operational-assets),body[data-observation-view="registered"] #page-telemetry>:not(#operational-telemetry-panel),body[data-observation-view="registered"] #page-alerts>:not(#operational-cases):not(#evidence-case),body[data-observation-view="registered"] #page-maintenance>:not(#operational-orders):not(#evidence-order),body[data-observation-view="registered"] #page-models>:not(#baseline-models-panel),body[data-observation-view="registered"] #page-knowledge>:not(#approved-guidance-panel),body[data-observation-view="registered"] #page-insights>:not(#guidance-search-panel),body[data-observation-view="registered"] #page-devices>:not(#operational-rules):not(#bench-panel){display:none!important}
+
+#platform-operations-panel p,#platform-retention-detail{overflow-wrap:anywhere}#platform-controls a{overflow-wrap:anywhere}
+
+#evidence-case p,#evidence-order p{overflow-wrap:anywhere}

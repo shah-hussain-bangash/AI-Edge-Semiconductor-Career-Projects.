@@ -11,6 +11,8 @@ The dashboard provides 18 workspaces plus sign-in. Working local services includ
 
 See [the MacBook handoff](../MACBOOK_START_HERE.md) and [16-item arrival guide](../HARDWARE_ARRIVAL_16.md). Devices → USB bench readings is a separate unverified physical-reading path. Synthetic ledger/model/incident workflows keep their existing provenance. Hosting is not deployed by this handoff.
 
+The [local operational platform guide](LOCAL_OPERATIONAL_PLATFORM.md) documents the new registered-data workflows, independent work review, private evidence, optional MFA/email, baseline scoring and protected operations. Use `?view=registered` for those saved records. No external integrations are enabled by installation.
+
 ## Current documentation
 
 - [Production design and staged implementation](../production-design/README.md)
@@ -36,7 +38,7 @@ The superseded accumulated setup guide is preserved in [history](history/README-
 
 The existing installation uses the user's Windows checkout and http://127.0.0.1:8877/app. If it is already running, refresh that page; do not start a second server or replace the existing database/password.
 
-For a new checkout, use Python 3.12 or newer and create a local virtual environment from this dashboard folder:
+For a new checkout, use Python 3.12–3.14 and create a local virtual environment from this dashboard folder:
 
 ```powershell
 py -m venv .venv

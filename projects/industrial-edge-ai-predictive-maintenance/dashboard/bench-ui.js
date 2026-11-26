@@ -1,7 +1,7 @@
 "use strict";
 document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.createElement('article');panel.id='bench-panel';panel.className='panel prep-panel';
- panel.innerHTML=`<h2>USB bench readings</h2><p>Gateway-declared sensor readings, kept separate from synthetic telemetry. Sensor identity, calibration, motor compatibility and production acceptance are unverified. No motor commands or automatic incidents are created.</p>
+ panel.innerHTML=`<h2>USB bench readings</h2><p>Gateway-declared sensor readings, kept separate from synthetic telemetry. Sensor identity, calibration, motor compatibility and production acceptance are unverified. No motor commands are sent. Explicit operational policies can create threshold-review cases; those are not fault diagnoses.</p>
  <label for="bench-run">Capture run</label><select id="bench-run"><option value="">Latest run</option></select>
  <button id="bench-refresh" class="action-outline" type="button">Refresh bench readings</button>
  <label><input id="bench-auto" type="checkbox"> Refresh this view every 5 seconds while visible</label>

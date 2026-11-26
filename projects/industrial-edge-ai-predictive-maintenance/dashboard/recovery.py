@@ -261,6 +261,22 @@ def restore_backup(directory, output):
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='bench_credentials'").fetchone():
                     bench_revoked = db.execute('UPDATE bench_credentials SET revoked_at=?,revision=revision+1 WHERE revoked_at IS NULL',(int(datetime.now(timezone.utc).timestamp()),)).rowcount
                 correlation_disabled = 0
+                platform_backup_jobs_cancelled = 0
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='platform_backup_policy'").fetchone():
+                    db.execute('UPDATE platform_backup_policy SET enabled=0,revision=revision+1 WHERE enabled=1')
+                    platform_backup_jobs_cancelled = db.execute("UPDATE platform_backup_jobs SET state='cancelled',lease_until=NULL,last_error='restored-snapshot-requires-new-job' WHERE state IN ('pending','running')").rowcount
+                    db.execute("UPDATE platform_worker_status SET last_pass=0,last_error='restored-snapshot-worker-not-current'")
+                operational_rules_disabled = 0
+                operational_models_retired = 0
+                operational_email_disabled = 0
+                operational_emails_cancelled = 0
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='operational_rules'").fetchone():
+                    operational_rules_disabled = db.execute('UPDATE operational_rules SET enabled=0,revision=revision+1 WHERE enabled=1').rowcount
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='operational_models'").fetchone():
+                    operational_models_retired = db.execute("UPDATE operational_models SET state='retired',revision=revision+1 WHERE state='active'").rowcount
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='operational_email_configuration'").fetchone():
+                    operational_email_disabled = db.execute('UPDATE operational_email_configuration SET enabled=0,revision=revision+1 WHERE enabled=1').rowcount
+                    operational_emails_cancelled = db.execute("UPDATE operational_notifications SET email_state='cancelled',lease_id=NULL,lease_until=NULL,last_error='restored-snapshot-requires-reconciliation' WHERE email_state='pending'").rowcount
                 notification_routes_disabled = 0
                 notification_worker_disabled = 0
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='local_notification_worker_config'").fetchone():
@@ -301,6 +317,8 @@ def restore_backup(directory, output):
                   'notification_worker_disabled': notification_worker_disabled,
                   'reminder_preferences_disabled': reminder_preferences_disabled,'followup_reminders_cancelled':reminders_cancelled,
                   'bench_credentials_revoked':bench_revoked,
+                  'operational_rules_disabled':operational_rules_disabled,'operational_models_retired':operational_models_retired,
+                  'platform_backup_jobs_cancelled':platform_backup_jobs_cancelled,'operational_email_disabled':operational_email_disabled,'operational_emails_cancelled':operational_emails_cancelled,
                   'production_ready': False, 'source_manifest_sha256': digest(root / 'manifest.json')}
         (stage / 'restore-report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
         os.chmod(stage / 'restore-report.json', 0o600)

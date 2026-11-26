@@ -165,6 +165,10 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                     audit(db,'bench:'+credential['id'],'bench_run_started',body.run_id)
                 db.execute('INSERT INTO bench_samples VALUES(?,?,?,?,?)',(body.run_id,body.frame_index,content_hash,payload,now))
                 db.execute('UPDATE bench_runs SET last_received_at=? WHERE id=?',(now,body.run_id))
+                import operational_workflow
+                operational_workflow.consume(db,body,content_hash,now,audit)
+                import operational_models
+                operational_models.consume(db,body,content_hash,now)
             response.status_code=200 if previous else 201
             return {**BOUNDARY,'run_id':body.run_id,'frame_index':body.frame_index,'content_hash':content_hash,'stored':True}
 

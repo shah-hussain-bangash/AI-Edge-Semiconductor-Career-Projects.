@@ -179,7 +179,7 @@ class NavigationBrowserAcceptance(unittest.TestCase):
             page.locator("#email").fill(self.email)
             page.locator("#password").fill("not-the-real-test-password")
             page.locator("#submit").click()
-            page.locator("#form-error").get_by_text("Invalid email or password.").wait_for()
+            page.locator("#form-error").get_by_text("Invalid email, password or verification code.").wait_for()
             self.assertIn("/signin", page.url)
             page.goto(self.base + "/api/me")
             self.assertIn("Authentication required", page.locator("body").inner_text())

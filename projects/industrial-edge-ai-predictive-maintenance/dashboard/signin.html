@@ -37,7 +37,7 @@
      <input type="email" id="email" name="email" maxlength="254" autocomplete="username" inputmode="email" placeholder="Enter your work email" required>
      <label for="password">♙ &nbsp; Password</label>
      <div class="password-wrap"><input id="password" name="password" type="password" maxlength="256" autocomplete="current-password" placeholder="Enter your password" required><button id="toggle-password" type="button" aria-label="Show password">Show</button></div>
-     <div class="login-options"><label class="remember"><input id="remember-email" type="checkbox"> Remember email on this device</label><button id="forgot-password" type="button" class="text-button">Forgot password?</button></div>
+     <label for="otp-code">Authenticator or recovery code, if enabled</label><input id="otp-code" name="otp-code" type="text" maxlength="32" autocomplete="one-time-code" placeholder="Optional for accounts with protection enabled"><div class="login-options"><label class="remember"><input id="remember-email" type="checkbox"> Remember email on this device</label><button id="forgot-password" type="button" class="text-button">Forgot password?</button></div>
      <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
      <button id="submit" class="primary-login" type="submit"><span>➜</span> Sign In</button>
    </form>

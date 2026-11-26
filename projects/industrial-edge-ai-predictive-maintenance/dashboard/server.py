@@ -36,6 +36,13 @@ import local_notifications
 import notification_worker
 import followup_reminders
 import bench_ingress
+import operational_workflow
+import operational_evidence
+import approved_guidance
+import operational_notifications
+import operational_models
+import account_mfa
+import platform_operations
 import production_readiness
 from pathlib import Path
 
@@ -56,7 +63,15 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+PUBLIC_ASSETS = {"evidence-files-ui.js", "platform-operations-ui.js", "registered-workspace.js", "operational-workspace.css", "account-protection-ui.js", "baseline-models-ui.js", "workflow-notifications-ui.js", "guidance-ui.js", "operational-ui.js", "bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
+
+@app.middleware("http")
+async def observe_platform_requests(request: Request, call_next):
+    started=time.monotonic();status=500
+    try:
+        response=await call_next(request);status=response.status_code;return response
+    finally:platform_operations.observe(request.url.path,status,max(0,time.monotonic()-started))
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError):
@@ -153,6 +168,13 @@ def init_db():
         notification_worker.init_schema(db)
         followup_reminders.init_schema(db)
         bench_ingress.init_schema(db)
+        operational_workflow.init_schema(db)
+        approved_guidance.init_schema(db)
+        operational_notifications.init_schema(db)
+        operational_models.init_schema(db)
+        account_mfa.init_schema(db)
+        operational_evidence.init_schema(db)
+        platform_operations.init_schema(db)
         db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_epoch(),))
         number = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         if number == 0 and BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD:
@@ -227,6 +249,7 @@ def clear_session(response: Response):
 
 
 class LoginInput(BaseModel):
+    otp_code: str = Field(default="",strict=True,max_length=32)
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=256)
 
@@ -311,6 +334,10 @@ def login(request: Request, body: LoginInput):
                 db.commit()
                 raise HTTPException(401, "Invalid email or password")
             user = latest
+            if not account_mfa.verify_login(db,user["id"],body.otp_code):
+                record_audit(db,"unauthenticated","login_failed","Invalid account credentials or verification code")
+                db.commit()
+                raise HTTPException(401,"Invalid account credentials or verification code")
             token = secrets.token_hex(32)
             csrf = secrets.token_urlsafe(32)
             db.execute("INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at) VALUES(?,?,?,?)",
@@ -591,3 +618,10 @@ local_notifications.install_routes(app, database, require_user, require_csrf, re
 notification_worker.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
 followup_reminders.install_routes(app, database, require_user, require_csrf, record_audit)
 bench_ingress.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+operational_workflow.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+operational_evidence.install_routes(app, database, require_user, require_csrf, record_audit)
+approved_guidance.install_routes(app, database, require_user, require_csrf, record_audit)
+operational_notifications.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+operational_models.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+account_mfa.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
+platform_operations.install_routes(app, database, require_user, require_csrf, password_matches, record_audit)
