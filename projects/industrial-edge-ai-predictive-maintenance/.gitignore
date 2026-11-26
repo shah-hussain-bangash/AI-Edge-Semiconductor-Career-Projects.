@@ -3,6 +3,7 @@
 .venv-gateway/
 .venv-portal/
 .venv-home/
+.venv-operations/
 .vscode/
 .env
 .env.*
