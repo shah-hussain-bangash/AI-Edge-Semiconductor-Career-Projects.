@@ -41,6 +41,14 @@ class ManagerTests(unittest.TestCase):
         return subprocess.run([sys.executable,str(ROOT/'local_dashboard.py'),action,'--database',str(self.database),
             '--runtime-dir',str(self.runtime),*extra],cwd=ROOT,env=self.env,capture_output=True,text=True,timeout=45)
 
+    def diagnostics(self):
+        parts=[]
+        try:parts.append('Control: '+json.dumps(manager.control(self.runtime,'status')))
+        except Exception as error:parts.append('Control: '+type(error).__name__+' '+str(error))
+        for path in self.runtime.glob('server-*.log'):
+            parts.append(path.name+': '+path.read_text(encoding='utf-8',errors='replace')[-4000:])
+        return '\n'.join(parts)
+
     def cleanup(self):
         try:manager.control(self.runtime,'stop')
         except Exception:pass
@@ -51,7 +59,7 @@ class ManagerTests(unittest.TestCase):
 
     def test_background_start_status_duplicate_and_graceful_stop(self):
         port=available_port();started=self.command('start','--background','--port',str(port))
-        self.assertEqual(started.returncode,0,started.stderr);result=json.loads(started.stdout)
+        self.assertEqual(started.returncode,0,started.stderr+'\n'+self.diagnostics());result=json.loads(started.stdout)
         self.assertEqual(result['state'],'ready');self.assertNotIn('token',result)
         record=manager.read_state(self.runtime);self.assertNotIn(record['token'],started.stdout+started.stderr)
         if os.name!='nt':self.assertEqual(manager.state_path(self.runtime).stat().st_mode&0o077,0)
@@ -97,7 +105,8 @@ class ManagerTests(unittest.TestCase):
 
     def test_shutdown_drains_an_existing_write_before_exiting(self):
         port=available_port();marker=self.root/'entered';self.env['EDGEOPS_FIXTURE_MARKER']=str(marker)
-        code='''import os,time,sys
+        code='''import os,time,sys,faulthandler
+faulthandler.dump_traceback_later(10,repeat=True)
 from pathlib import Path
 import server,local_dashboard
 @server.app.get('/fixture-slow-write')
@@ -111,7 +120,9 @@ def slow():
 sys.argv=['local_dashboard.py','start',*sys.argv[1:]]
 local_dashboard.main()
 '''
-        process=subprocess.Popen([sys.executable,'-c',code,'--database',str(self.database),'--runtime-dir',str(self.runtime),'--port',str(port)],cwd=ROOT,env=self.env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,**({'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {}))
+        logfile=self.root/'drain-fixture.log'
+        with logfile.open('wb') as stream:
+            process=subprocess.Popen([sys.executable,'-c',code,'--database',str(self.database),'--runtime-dir',str(self.runtime),'--port',str(port)],cwd=ROOT,env=self.env,stdout=stream,stderr=stream,**({'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {}))
         try:
             deadline=time.monotonic()+20
             while time.monotonic()<deadline:
@@ -119,7 +130,7 @@ local_dashboard.main()
                     if manager.control(self.runtime,'status')['state']=='ready':break
                 except Exception:pass
                 self.assertIsNone(process.poll(),'Fixture server exited');time.sleep(.05)
-            else:self.fail('Fixture startup timed out')
+            else:self.fail('Fixture startup timed out\n'+self.diagnostics()+'\n'+logfile.read_text(encoding='utf-8',errors='replace')[-6000:])
             def request():
                 with HTTP.open('http://127.0.0.1:'+str(port)+'/fixture-slow-write',timeout=10) as response:return response.status,json.load(response)
             with ThreadPoolExecutor(max_workers=1) as pool:
