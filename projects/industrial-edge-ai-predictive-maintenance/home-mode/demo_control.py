@@ -60,7 +60,7 @@ def stop_demo(port=8878,directory=None,wait_seconds=8):
     identity=state.get('instance_id');token=state.get('write_token')
     if not isinstance(identity,str) or not re.fullmatch('[a-f0-9]{32}',identity) or not isinstance(token,str) or not re.fullmatch('[a-f0-9]{64}',token):
         raise ValueError('Unsupported instance identity; no shutdown was sent')
-    try: receipt=request(port,'/api/shutdown',{'instance_id':identity},token)
+    try: receipt=request(port,'/api/shutdown',{'instance_id':identity},token,timeout=8)
     except (OSError,URLError,ValueError): raise ValueError('Graceful stop was refused or not confirmed; no process was force-killed') from None
     if receipt.get('stopping') is not True or receipt.get('instance_id')!=identity: raise ValueError('Unexpected stop receipt; inspect the server before updating')
     deadline=time.monotonic()+wait_seconds

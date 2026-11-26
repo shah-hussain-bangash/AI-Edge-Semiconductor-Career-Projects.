@@ -32,3 +32,12 @@ for shell in ('powershell.exe','pwsh'):
         if process.poll() is None:process.terminate()
         process.communicate(timeout=5)
 print('PowerShell 5.1 and 7 lifecycle checks passed; no physical hardware used.')
+
+backup=ROOT/'.local/ci-home-backup'
+restored=ROOT/'.local/ci-home-restored'
+for action,extra in [('Backup',['-OutputDirectory',str(backup)]),('VerifyBackup',['-BackupDirectory',str(backup)]),('Restore',['-BackupDirectory',str(backup),'-RestoreDirectory',str(restored)])]:
+    command=['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'home.ps1'),'-Action',action,*extra]
+    result=subprocess.run(command,cwd=ROOT,capture_output=True,text=True,timeout=30)
+    if result.returncode:raise RuntimeError('Native data action failed: '+result.stdout+result.stderr)
+    print('Windows PowerShell '+action+' passed')
+if not (restored/'history.sqlite3').is_file() or (restored/'RESTORE_INCOMPLETE').exists():raise RuntimeError('Native restore did not complete')

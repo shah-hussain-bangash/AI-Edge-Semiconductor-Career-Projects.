@@ -114,7 +114,8 @@ class HomeTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(encoding='utf-8'),'preserve')
     def test_update_refuses_dirty_and_wrong_branch(self):
         repo=self.directory/'repo';repo.mkdir()
-        subprocess.run(['git','init','--initial-branch=release/mac-bench-20261126',str(repo)],check=True,capture_output=True)
+        result=subprocess.run(['git','init','--initial-branch=release/mac-bench-20261126',str(repo)],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
         manage.check_clean_update(repo)
         (repo/'user-work.txt').write_text('preserve',encoding='utf-8')
         with self.assertRaisesRegex(ValueError,'Local changes'):manage.check_clean_update(repo)

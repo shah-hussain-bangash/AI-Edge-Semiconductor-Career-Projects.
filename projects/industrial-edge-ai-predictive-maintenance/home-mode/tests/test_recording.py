@@ -127,6 +127,32 @@ class RecordingHttpTests(test_home.HttpTests):
                     manifest=json.loads(archive.read('manifest.json'))
                     self.assertFalse(manifest['hardware_verified']);self.assertEqual(manifest['physical_acceptance'],'pending')
         finally:self.controller.stop();os.close(master);os.close(slave)
+    @unittest.skipIf(os.name=='nt','POSIX SIGTERM and pseudo-terminal fixture')
+    def test_sigterm_finalizes_raw_recording_before_process_exit(self):
+        import pty,signal,socket,subprocess,time
+        import demo_control
+        master,slave=pty.openpty()
+        with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+        directory=self.directory/'signal-data'
+        root=Path(__file__).resolve().parents[2]
+        process=subprocess.Popen([sys.executable,str(root/'home-mode/home_server.py'),'--data-dir',str(directory),'--web-port',str(port)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            wait_for(lambda:demo_control.status(port,directory)['reachable'])
+            state=demo_control.request(port,'/api/status')
+            settings=dict(mode='esp32-only',port=os.ttyname(slave),expected_device_id='motor-001')
+            demo_control.request(port,'/api/record',dict(settings=settings,seconds=600),state['write_token'])
+            wait_for(lambda:demo_control.request(port,'/api/status')['recording'] is not None)
+            os.write(master,b'ESP32 is working!\n')
+            wait_for(lambda:demo_control.request(port,'/api/status')['accepted']==1)
+            identity=demo_control.request(port,'/api/status')['session_id']
+            process.send_signal(signal.SIGTERM);process.wait(timeout=5)
+            self.assertEqual(process.returncode,0)
+            manifest,files=verify(directory/'captures'/identity)
+            self.assertEqual(files['wire.bin'],b'ESP32 is working!\n');self.assertEqual(manifest['stop_reason'],'manual-stop')
+            self.assertEqual(manifest['physical_acceptance'],'pending')
+        finally:
+            if process.poll() is None:process.kill()
+            process.communicate(timeout=5);os.close(master);os.close(slave)
     def test_fake_serial_http_record_stop_and_raw_download(self):
         with self.request('/api/record',dict(settings=self.settings,seconds=600)):pass
         self.fake.items.put(b'ESP32 is working!\n')

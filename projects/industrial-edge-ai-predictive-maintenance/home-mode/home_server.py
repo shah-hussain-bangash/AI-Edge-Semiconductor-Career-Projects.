@@ -12,6 +12,8 @@ import re
 import platform
 import sys
 import threading
+import signal
+import os
 from urllib.parse import parse_qs, urlsplit
 
 from session_export import build_package, summarize
@@ -68,6 +70,27 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system(), 'instance_id': self.server.instance_id, 'instance_identity': self.server.identity, 'shutdown_protocol': 1}); return
             if route.path == '/api/ports':
                 self.send(200, {'ports': serial_ports(), **BOUNDARY}); return
+            if route.path == '/api/captures':
+                from recording_library import listing
+                query=parse_qs(route.query,keep_blank_values=True)
+                if set(query)-{'offset','limit'} or any(len(values)!=1 for values in query.values()):raise ValueError('Invalid recording query')
+                recording=self.server.controller.recording
+                active=recording.session_id if recording and not recording.finished else None
+                self.send(200,listing(self.server.controller.directory,int(query.get('offset',['0'])[0]),int(query.get('limit',['20'])[0]),active));return
+            office_match=re.fullmatch('/api/captures/([a-f0-9]{32})/office[.]zip',route.path)
+            if office_match:
+                from recording_library import office_download
+                if route.query:raise ValueError('Office export takes no query')
+                recording=self.server.controller.recording
+                active=recording.session_id if recording and not recording.finished else None
+                self.send(200,office_download(self.server.controller.directory,office_match.group(1),active),'application/zip',{'Content-Disposition':'attachment; filename="edgeops-office-transfer-'+office_match.group(1)+'.zip"'});return
+            match=re.fullmatch('/api/captures/([a-f0-9]{32})[.]zip',route.path)
+            if match:
+                from recording_library import download
+                if route.query:raise ValueError('Recording download takes no query')
+                recording=self.server.controller.recording
+                active=recording.session_id if recording and not recording.finished else None
+                self.send(200,download(self.server.controller.directory,match.group(1),active),'application/zip',{'Content-Disposition':'attachment; filename="edgeops-capture-'+match.group(1)+'.zip"'});return
             if route.path == '/api/capture.zip':
                 if route.query: raise ValueError('Capture export takes no query parameters')
                 payload = self.server.controller.recording_package()
@@ -122,7 +145,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(body, dict) or set(body) != {'settings','seconds'}: raise ValueError('Use settings and seconds')
                 if type(body['seconds']) is not int: raise ValueError('Use an integer duration')
                 self.server.controller.start(body['settings'], record_seconds=body['seconds'])
-            elif self.path == '/api/connect': self.server.controller.start(body)
+            elif self.path == '/api/connect':
+                retry=False
+                if isinstance(body,dict) and 'auto_reconnect' in body:
+                    body=dict(body);retry=body.pop('auto_reconnect')
+                self.server.controller.start(body,auto_reconnect=retry)
             elif self.path == '/api/disconnect' and body == {}: self.server.controller.stop()
             else: self.send(404, {'error': 'Not found'}); return
             self.send(200, self.server.controller.status())
@@ -135,10 +162,13 @@ def main(argv=None):
     parser.add_argument('--mode', choices=('esp32-only', 'sensors', 'demo'))
     parser.add_argument('--port', help='Serial port, for example /dev/cu.usbserial-0001')
     parser.add_argument('--device-id'); parser.add_argument('--connect', action='store_true')
+    parser.add_argument('--reconnect',action='store_true',help='Opt-in retry of ordinary USB open/read errors; never used for timed recordings')
     parser.add_argument('--web-port', type=int, default=8878)
     parser.add_argument('--data-dir', type=Path, default=ROOT / '.local/home')
     args = parser.parse_args(argv)
+    if args.reconnect and not args.connect:parser.error('--reconnect requires --connect')
     if not 1024 <= args.web_port <= 65535: parser.error('Web port must be between 1024 and 65535')
+    if (args.data_dir/'RESTORE_INCOMPLETE').exists():raise ValueError('This data folder contains an incomplete restore; original data is preserved. Review recovery before launch.')
     with ProcessLock(args.data_dir / 'server.lock'):
         settings = load_settings(args.data_dir)
         for arg, field in ((args.mode, 'mode'), (args.port, 'port'), (args.device_id, 'expected_device_id')):
@@ -146,15 +176,21 @@ def main(argv=None):
         controller = Controller(Store(args.data_dir / 'history.sqlite3'), settings, args.data_dir)
         try: server = HomeServer(args.web_port, controller)
         except OSError: raise ValueError('Web port is in use. Stop your existing home session or choose --web-port 8879; no process was stopped.') from None
+        previous_term=None
+        if os.name!='nt':
+            def stop_signal(_signum,_frame):raise KeyboardInterrupt
+            previous_term=signal.signal(signal.SIGTERM,stop_signal)
         try:
-            if args.connect: controller.start(settings)
+            if args.connect: controller.start(settings,auto_reconnect=args.reconnect)
             print('EDGEOPS HOME: http://127.0.0.1:' + str(server.server_port) + '/app', flush=True)
             print('Keep this Terminal open. Ctrl+C stops the dashboard and closes serial. No Wi-Fi or remote upload is started.', flush=True)
             server.serve_forever(poll_interval=0.25)
         except KeyboardInterrupt: pass
         finally:
             try: controller.stop()
-            finally: server.server_close()
+            finally:
+                server.server_close()
+                if previous_term is not None:signal.signal(signal.SIGTERM,previous_term)
     return 0
 
 

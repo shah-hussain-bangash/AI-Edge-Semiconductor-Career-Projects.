@@ -39,6 +39,14 @@ jobs:
         run: python -m pip install -r home-mode/requirements.txt
       - name: Contract, HTTP and real pySerial pseudo-terminal fixtures, no hardware
         run: python -m unittest discover -s home-mode/tests -v
+      - name: Validate Mac login-service plan without loading it
+        if: runner.os == 'macOS'
+        run: |
+          python home-mode/mac_service.py plan --output .local/service-plan.plist
+          plutil -lint .local/service-plan.plist
+      - name: Disposable per-user login-service lifecycle, no USB acquisition
+        if: runner.os == 'macOS' && matrix.python == '3.12'
+        run: python home-mode/tests/mac_service_smoke.py
   home-windows:
     # The repository name ends with a dot. Use an ordinary Windows folder
     # instead of actions/checkout's nonexistent trailing-dot workspace path.

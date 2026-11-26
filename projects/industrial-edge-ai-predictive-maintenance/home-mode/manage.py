@@ -61,15 +61,34 @@ def update():
     with ProcessLock(ROOT / '.local/home/server.lock'):
         check_clean_update()
         subprocess.run(['git', '-C', str(ROOT), 'pull', '--ff-only', 'origin', 'release/mac-bench-20261126'], check=True)
-    print('Source updated by fast-forward only. Re-run home_setup.command, then launch home mode.')
+    print('Source updated by fast-forward only. Run ' + (r'.\home.ps1 -Action Setup' if os.name=='nt' else 'bash home_setup.command') + ', then launch home mode.')
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update', 'ports', 'status', 'stop-demo'))
+    parser.add_argument('action', choices=('check', 'setup', 'verify', 'update', 'ports', 'status', 'stop-demo', 'backup', 'verify-backup', 'restore'))
     parser.add_argument('--web-port',type=int,default=8878,help='Loopback port for status/stop-demo')
     parser.add_argument('--data-dir',type=Path,help='Expected data directory for status/stop-demo')
+    parser.add_argument('--output',type=Path,help='New private backup directory')
+    parser.add_argument('--backup',type=Path,help='Existing verified backup folder')
+    parser.add_argument('--destination',type=Path,help='New restore directory; never overwritten')
     args = parser.parse_args(argv)
+    if args.action in ('backup','verify-backup','restore'):
+        import home_backup
+        if args.web_port!=8878:parser.error('Backup commands do not select a web port')
+        if args.action=='backup':
+            if args.backup or args.destination:parser.error('backup accepts --data-dir and --output only')
+            result=home_backup.create(args.data_dir or ROOT/'.local/home',args.output)
+        else:
+            if not args.backup or args.output or args.data_dir:parser.error('Use --backup and, for restore, --destination')
+            if args.action=='restore':
+                if not args.destination:parser.error('restore needs a NEW --destination')
+                result=home_backup.restore(args.backup,args.destination)
+            else:
+                if args.destination:parser.error('verify-backup does not use a destination')
+                result=home_backup.verify(args.backup)
+        print(json.dumps(result,sort_keys=True));return
+    if args.output or args.backup or args.destination:parser.error('Backup arguments apply only to backup commands')
     if args.action in ('status','stop-demo'):
         from demo_control import status, stop_demo
         result=(status if args.action=='status' else stop_demo)(args.web_port,args.data_dir)

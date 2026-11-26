@@ -76,7 +76,7 @@ class SessionTests(unittest.TestCase):
     def test_mac_launchers_refuse_other_hosts_before_touching_environment(self):
         fake=self.directory/'uname';fake.write_text('#!/bin/sh\necho Linux\n',encoding='utf-8');fake.chmod(0o700)
         env=dict(os.environ,PATH=str(self.directory)+os.pathsep+os.environ['PATH'])
-        for name in ['home_setup.command','home_start.command','home_update.command']:
+        for name in ['home_setup.command','home_start.command','home_update.command','home_data.command','home_service.command']:
             result=subprocess.run(['bash',str(ROOT/name)],capture_output=True,text=True,env=env)
             self.assertEqual(result.returncode,1);self.assertIn('macOS Terminal',result.stdout);self.assertIn('home.ps1',result.stdout)
 

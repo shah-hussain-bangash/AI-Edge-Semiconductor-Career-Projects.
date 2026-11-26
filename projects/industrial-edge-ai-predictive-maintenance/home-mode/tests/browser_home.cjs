@@ -13,6 +13,9 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
  const port=await freePort(),url='http://127.0.0.1:'+port;
  let child,browser,logs='';
  try{
+  // Seed one explicitly simulated archived recording; no serial device is opened.
+  const seedCode="import sys; from pathlib import Path; sys.path.insert(0,'home-mode'); from home_core import parse_line; from home_recording import Recorder; s=dict(mode='esp32-only',port='COM3',expected_device_id='motor-001'); r=Recorder(Path(sys.argv[1])/'captures','f'*32,s,10); b=b'ESP32 is working!\\n'; r.write(b); r.classify('accepted',parse_line(b,'esp32-only','motor-001')); r.finish('manual-stop')";
+  await new Promise((resolve,reject)=>{const seed=spawn(process.env.PYTHON_BINARY||'python',['-c',seedCode,directory],{cwd:root,stdio:['ignore','ignore','pipe']});let error='';seed.stderr.on('data',b=>error+=b);seed.on('exit',code=>code===0?resolve():reject(Error('Archive fixture failed: '+error)));});
   child=spawn(process.env.PYTHON_BINARY||'python',['home-mode/tests/run_browser_server.py','--data-dir',directory,'--web-port',String(port),'--mode','demo','--connect'],{cwd:root,stdio:['pipe','pipe','pipe']});
   child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);
   await until(async()=>{const r=await fetch(url+'/api/status');return r.ok;});
@@ -23,6 +26,10 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await until(async()=> (await page.locator('#source').innerText())==='SIMULATED / TEST');
   assert.equal(await page.locator('.card').count(),6);
   assert.equal(await page.locator('#record-session').isDisabled(),true,'Demo cannot record USB');
+  await until(async()=> (await page.locator('#library').innerText()).includes('simulated'));
+  assert.equal(await page.locator('#library a').count(),1);
+  const saved=await page.request.get(url+'/api/captures/'+('f'.repeat(32))+'.zip');assert.equal(saved.status(),200);
+  assert.match(saved.headers()['content-type'],/application\/zip/);
   assert.equal(await page.locator('#export-capture').isVisible(),false);
   assert.equal(await page.locator('.card').nth(1).locator('.value').innerText(),'0');
   await page.locator('#refresh-history').click();
@@ -59,8 +66,9 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   assert.deepEqual(await page.locator('.value').allTextContents(),Array(6).fill('Unavailable'));
   assert.equal(await page.locator('#connect').isDisabled(),true);
   assert.equal(await page.locator('#export-session').isVisible(),false,'Outage clears session link');
+  assert.equal(await page.locator('#library a').count(),0,'Outage clears archive links');
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture'],physical_hardware_verified:false}));
+  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture','saved recording library and historical ZIP','archive links clear on outage'],physical_hardware_verified:false}));
  }catch(error){console.error(logs);throw error;}
  finally{
   if(browser)await browser.close();

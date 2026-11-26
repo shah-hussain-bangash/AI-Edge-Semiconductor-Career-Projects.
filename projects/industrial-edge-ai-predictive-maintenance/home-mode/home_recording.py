@@ -184,13 +184,16 @@ def package(directory):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('verify','pack'));parser.add_argument('directory',type=Path)
+    parser.add_argument('action',choices=('verify','pack','office-pack'));parser.add_argument('directory',type=Path)
     parser.add_argument('--output',type=Path);args=parser.parse_args()
     if args.action=='verify':
         manifest,_=verify(args.directory);print(canonical(manifest))
     else:
         if args.output is None: parser.error('pack requires --output with a new filename')
-        raw=package(args.directory)
+        if args.action=='office-pack':
+            from office_handoff import package as office_package
+            raw=office_package(args.directory)
+        else:raw=package(args.directory)
         descriptor=os.open(args.output,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         with os.fdopen(descriptor,'wb') as stream: stream.write(raw)
         print('Raw capture package saved; physical acceptance remains pending.')

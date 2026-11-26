@@ -16,3 +16,4 @@ dashboard/tests/*_run.cjs
 # Derived session downloads are private bench evidence, not source.
 edgeops-session-*.zip
 edgeops-capture*.zip
+edgeops-office-transfer*.zip

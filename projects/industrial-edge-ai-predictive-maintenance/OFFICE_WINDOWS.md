@@ -98,3 +98,5 @@ if ($LASTEXITCODE -eq 0) { .\home.ps1 -Action Demo }
 ```
 
 Use the release **`release/mac-bench-20261126`**. Office source changes should be reviewed/tested and pushed to that branch for the home handoff. Read [test status](HANDOFF_TEST_STATUS.md) for the difference between CI fixtures and physical verification. Online hosting/ESP32 Wi-Fi and all remaining physical acceptance work are pending.
+
+For private backups, new-folder restores and office sensor CSV packages, use [LOCAL_RECOVERY.md](LOCAL_RECOVERY.md). [LOCAL_READINESS.md](LOCAL_READINESS.md) records the still-pending physical/AI acceptance work.

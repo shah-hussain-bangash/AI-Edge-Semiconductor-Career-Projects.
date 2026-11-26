@@ -1,6 +1,14 @@
 # Mac gateway handoff verification — 26 November 2026
 
 
+## Local recovery and handoff completion
+
+Hosting remains deferred by owner choice. Added cold backups/verified new-folder restore, incomplete-restore launch blocking, persisted recording browsing/downloads, explicit monitoring-only retry with backoff, sensor-only office CSV/raw/provenance packages, and an opt-in per-user Mac login service that never automatically opens USB. The shutdown acknowledgment timeout is 8 s; a delayed-response test covers the prior 2 s gap. Private datasets and original source are not overwritten. Backup limits and checksum scope are documented in LOCAL_RECOVERY.md; LOCAL_READINESS.md preserves the unfulfilled physical/AI/production criteria.
+
+Local Windows/Python 3.12: 72 unittest methods discovered, 67 passed and five POSIX-only methods skipped. Coverage includes cold-lock/no-overwrite backup, SQLite-consistent snapshots, checksum/schema/path/corruption checks, incomplete captures and failed restores, historical HTTP downloads, no-demo sensor export, milliamp/quality semantics, opt-in retry/new-attempt IDs, storage-error refusal, cancelled backoff and service-plan safety. Chromium passed source/zero/null/history, current/session/raw exports, archived packages, outage clearing, five viewport widths and contrast checks. Shell/PowerShell syntax and guide relative links were checked. A proxy-environment test now uses a separate subprocess so Windows empty Git environment values are not disturbed in the parent process.
+
+The GitHub workflow runs the full suite on supported Python/Linux/hosted Intel macOS and Windows, validates Mac plists without requiring installation, and exercises native Windows data actions. A disposable Mac CI service lifecycle runs only when a GUI launchd domain exists; otherwise it explicitly reports loading unverified. It never opens serial. The POSIX SIGTERM test uses a pseudo-terminal fixture and checks raw-record finalization, not an ESP32 or a physical power-loss test. No owner's Mac service has been installed, and no hardware acceptance was promoted. Real calibration, motor commissioning, real-data model/operational integration and full production acceptance remain pending; data export does not complete them.
+
 ## Graceful office demo lifecycle preparation
 
 Added read-only Status and graceful demo-only Stop to the Windows launcher, with equivalent standard-library CLI actions. A supported server reports a per-start nonce and a hash binding its checkout/data directory; these are local mismatch guards, not remote authentication. Shutdown requires Host/origin/token/nonce checks and atomically refuses USB/recording sessions or reader starts during shutdown. The client ignores proxies, refuses redirects and waits for the existing lock to release. Legacy/other-checkout/custom-directory mismatches are preserved; there is no PID kill or lock deletion fallback.

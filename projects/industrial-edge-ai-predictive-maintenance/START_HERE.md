@@ -21,3 +21,5 @@ The dashboard URL is **http://127.0.0.1:8878/app on the computer running it**. O
 The home runtime requires supported Python 3.12–3.14 and installs **pyserial==3.5 only**. Setup/configuration must be completed after cloning. No Docker, local training, cloud account or enterprise stack is needed for the local USB bench.
 
 Use the [test status](HANDOFF_TEST_STATUS.md) and actual GitHub Actions runs as software evidence. Physical status cannot be promoted by CI, preflight, a sample count or a successful archive checksum. The original 30-product selection and blocked part reviews remain unchanged.
+
+Local operations: [backup/recovery, recordings and optional startup](LOCAL_RECOVERY.md). Status: [local implementation versus remaining acceptance](LOCAL_READINESS.md). Hosting remains deferred.

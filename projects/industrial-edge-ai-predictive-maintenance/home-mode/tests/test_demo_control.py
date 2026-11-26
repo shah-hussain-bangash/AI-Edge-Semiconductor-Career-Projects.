@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import socket
+import json
 import subprocess
 import sys
 import tempfile
@@ -74,8 +75,10 @@ class DemoControlTests(unittest.TestCase):
             self.assertEqual(request.call_count,1);self.assertEqual(request.call_args.args[1],'/api/status')
         self.assertIsNone(self.process.poll())
     def test_proxy_environment_ignored_and_redirect_not_followed(self):
-        with patch.dict(os.environ,{'HTTP_PROXY':'http://127.0.0.1:1','http_proxy':'http://127.0.0.1:1','NO_PROXY':'','no_proxy':''}):
-            self.assertTrue(demo_control.status(self.port,self.directory)['reachable'])
+        env=dict(os.environ,HTTP_PROXY='http://127.0.0.1:1',http_proxy='http://127.0.0.1:1',NO_PROXY='',no_proxy='')
+        python=getattr(sys,'_base_executable',sys.executable) if os.name=='nt' else sys.executable
+        result=subprocess.run([python,str(ROOT/'home-mode/manage.py'),'status','--web-port',str(self.port),'--data-dir',str(self.directory)],env=env,capture_output=True,text=True,timeout=5)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertTrue(json.loads(result.stdout)['reachable'])
         class Redirect(BaseHTTPRequestHandler):
             def do_GET(self):self.send_response(302);self.send_header('Location','http://192.0.2.1/never-follow');self.end_headers()
             def log_message(self,*_):pass
@@ -97,6 +100,14 @@ class ShutdownHttpTests(test_home.HttpTests):
             self.assertEqual(server.server_address[0],'127.0.0.1')
             self.assertEqual(server.server_name,'localhost');self.assertGreater(server.server_port,0)
         finally:server.server_close()
+    def test_slow_graceful_acknowledgment_is_not_cut_off_at_two_seconds(self):
+        self.controller.start(dict(self.settings,mode='demo'));wait_for(lambda:self.controller.accepted>0)
+        (self.directory/'server.lock').write_bytes(b'0')
+        original=self.controller.prepare_demo_shutdown
+        def delayed():time.sleep(2.2);original()
+        with patch.object(self.controller,'prepare_demo_shutdown',side_effect=delayed):
+            result=demo_control.stop_demo(self.server.server_port,self.directory)
+        self.assertTrue(result['stopped'])
     def test_shutdown_rejects_missing_token_origin_wrong_nonce_and_shape(self):
         body=dict(instance_id=self.server.instance_id)
         for payload,headers,code in [(body,{'X-Edgeops-Home-Token':'bad'},403),(body,{'Origin':'https://other.invalid'},403),({}, {},422),(dict(instance_id='0'*32),{},422)]:

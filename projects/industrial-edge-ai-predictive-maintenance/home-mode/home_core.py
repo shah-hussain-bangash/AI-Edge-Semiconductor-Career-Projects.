@@ -178,7 +178,7 @@ class ProcessLock:
 
 
 class Controller:
-    def __init__(self, store, settings, directory, serial_factory=None, monotonic=time.monotonic):
+    def __init__(self, store, settings, directory, serial_factory=None, monotonic=time.monotonic, retry_base_seconds=2):
         self.store = store; self.settings = validate_settings(settings); self.directory = Path(directory)
         self.serial_factory = serial_factory; self.monotonic = monotonic
         self.lock = threading.RLock(); self.operation = threading.Lock()
@@ -186,6 +186,8 @@ class Controller:
         self.latest = None; self.last_tick = None; self.state = 'disconnected'; self.error = None
         self.accepted = self.rejected = 0; self.session_id = None; self.recording = None; self.record_seconds = None
         self.shutting_down = False
+        if type(retry_base_seconds) not in (int,float) or not 0<retry_base_seconds<=30:raise ValueError('Invalid retry delay')
+        self.retry_base_seconds=retry_base_seconds;self.auto_reconnect=False;self.reconnect_attempts=0;self.retryable_error=False;self.retry_delay=0
 
     def stop(self):
         with self.operation: self._stop()
@@ -199,8 +201,10 @@ class Controller:
                 self.state = 'stopping'; raise ValueError('Serial reader is still stopping; retry after it stops')
             self.state = 'disconnected'; self.thread = None
 
-    def start(self, settings, record_seconds=None):
+    def start(self, settings, record_seconds=None, auto_reconnect=False):
         settings = validate_settings(settings)
+        if type(auto_reconnect) is not bool:raise ValueError('Reconnect must be an explicit boolean')
+        if auto_reconnect and (record_seconds is not None or settings['mode']=='demo'):raise ValueError('Retry is only for ordinary USB monitoring, not recordings or demo')
         if record_seconds is not None:
             if type(record_seconds) is not int or not 10 <= record_seconds <= 600: raise ValueError('Recording duration must be 10–600 seconds')
             if settings['mode'] == 'demo': raise ValueError('Raw recording requires a USB mode')
@@ -214,7 +218,8 @@ class Controller:
                 generation = self.generation; self.session_id = secrets.token_hex(16)
                 self.accepted = self.rejected = 0; self.error = None; self.state = 'connecting'
                 self.recording = None; self.record_seconds = record_seconds
-                self.thread = threading.Thread(target=self._run, args=(generation, self.stop_event, dict(settings), self.session_id), daemon=True, name='edgeops-home-reader')
+                self.auto_reconnect=auto_reconnect;self.reconnect_attempts=0;self.retryable_error=False;self.retry_delay=0
+                self.thread = threading.Thread(target=self._reader_loop, args=(generation, self.stop_event, dict(settings), self.session_id), daemon=True, name='edgeops-home-reader')
                 self.thread.start()
 
     def _accept(self, sample, generation, stop, session_id):
@@ -224,9 +229,25 @@ class Controller:
             self.store.append(sample)
             self.latest = sample; self.last_tick = self.monotonic(); self.accepted += 1; self.state = 'receiving'; self.error = None
 
+    def _reader_loop(self,generation,stop,settings,session_id):
+        while not stop.is_set():
+            self._run(generation,stop,settings,session_id)
+            with self.lock:
+                if stop.is_set() or generation!=self.generation or not self.auto_reconnect or not self.retryable_error:return
+                self.reconnect_attempts+=1
+                self.retry_delay=min(30,self.retry_base_seconds*(2**min(self.reconnect_attempts-1,5)))
+                self.state='retry-wait';self.latest=None;self.last_tick=None
+                delay=self.retry_delay
+            if stop.wait(delay):return
+            with self.lock:
+                if stop.is_set() or generation!=self.generation:return
+                # An attempt ID is not a verified ESP32 boot/session identity.
+                session_id=secrets.token_hex(16);self.session_id=session_id
+                self.accepted=self.rejected=0;self.retryable_error=False;self.state='connecting'
+
     def _run(self, generation, stop, settings, session_id):
         from home_recording import Recorder, CaptureLimit
-        stream = None; recording = None; stop_reason = 'manual-stop'
+        stream = None; recording = None; stop_reason = 'manual-stop';phase='setup'
         try:
             if settings['mode'] == 'demo':
                 index = 0
@@ -242,18 +263,22 @@ class Controller:
             if factory is None:
                 import serial
                 factory = serial.Serial
+            phase='serial-open'
             stream = factory(settings['port'], 115200, timeout=0.5, **({'exclusive': True} if os.name != 'nt' else {}))
             with self.lock:
                 if generation == self.generation and not stop.is_set():
                     self.state = 'port-open'
                     if self.record_seconds is not None:
+                        phase='recording'
                         recording = Recorder(self.directory / 'captures', session_id, settings, self.record_seconds, self.monotonic)
                         self.recording = recording
             pending = b''; discarding = False
             while not stop.is_set():
                 if recording and recording.expired(): stop_reason = 'duration-elapsed'; break
+                phase='serial-read'
                 raw = stream.readline(4097)
                 if not raw: continue
+                phase='recording'
                 if recording: recording.write(raw)
                 pending += raw
                 if len(pending) > 4096: pending = b''; discarding = True
@@ -268,14 +293,16 @@ class Controller:
                         self.rejected += 1; self.error = 'unusable-frame-check-firmware-mode-or-device-id'
                     continue
                 if recording: recording.classify('accepted' if sample else 'diagnostic', sample)
+                phase='history'
                 if sample: self._accept(sample, generation, stop, session_id)
         except CaptureLimit as error:
             stop_reason = str(error)
-        except Exception:
+        except Exception as error:
             stop_reason = 'serial-or-storage-error'
             with self.lock:
                 if generation == self.generation and not stop.is_set():
                     self.state = 'error'; self.error = 'serial-or-local-storage-unavailable'; self.latest = None; self.last_tick = None
+                    self.retryable_error=phase in ('serial-open','serial-read') and isinstance(error,OSError)
         finally:
             if stream:
                 try: stream.close()
@@ -330,7 +357,8 @@ class Controller:
                 live_values=self.latest['values'] if fresh else {c[0]: None for c in CHANNELS},
                 channels=[dict(key=c[0],label=c[1],unit=c[2]) for c in CHANNELS],
                 device_utc=None, device_boot_id=None,
-                recording=self.recording.status() if self.recording else None, **BOUNDARY)
+                recording=self.recording.status() if self.recording else None,
+                reconnect=dict(enabled=self.auto_reconnect,attempts=self.reconnect_attempts,waiting=self.state=='retry-wait',delay_seconds=self.retry_delay), **BOUNDARY)
 
 
 def serial_ports():

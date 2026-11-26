@@ -89,7 +89,9 @@ bash home_start.command --mode sensors --port /dev/cu.usbserial-0001 --device-id
 
 The expected device ID must match the firmware. Text-test messages are rejected in sensor mode. Per-sensor validity flags determine availability: a valid numeric **0 stays 0**, an invalid channel stays **Unavailable**, and INA219 milliamps are converted to amps once. All readings remain **USB SENSOR DATA · UNVERIFIED** until physically checked. The firmware's validity flag alone is not calibration or provenance proof.
 
-After 5 seconds without a usable frame, current values clear. On a detected serial/storage error or reader stop they clear immediately. Retained history remains separate. Reconnect explicitly after cable/port problems; there is no automatic reconnect loop. This mode does not generate health predictions or train a model.
+After 5 seconds without a usable frame, current values clear. On a detected serial/storage error or reader stop they clear immediately. Retained history remains separate. Reconnect explicitly after cable/port problems by default. Optional monitoring retry is described in LOCAL_RECOVERY.md; timed recordings never reconnect automatically. This mode does not generate health predictions or train a model.
+
+For backups, restored folders, saved recordings, optional reconnect and login startup, see [LOCAL_RECOVERY.md](LOCAL_RECOVERY.md). [LOCAL_READINESS.md](LOCAL_READINESS.md) distinguishes implemented preparation from pending physical/AI acceptance.
 
 ## Record a timed USB test
 
@@ -107,7 +109,7 @@ Each run is bounded to **16 MiB raw data and 10,000 nonempty read chunks**. Inde
 
 The verifier checks file hashes/sizes, reconciles byte ranges/counts and repeats parser classification from the saved wire data. This establishes software consistency, **not authenticity, calibration or production acceptance**. Firmware commit/binary digest remain unknown until separately recorded; the recorder source hash is not the firmware identity. A successful 600-second recording always leaves `physical_acceptance=pending`. H1 still needs exact part/firmware/configuration provenance, first-window counts and timing review, reference measurements and independent acceptance. A hash is not a signature or trusted clock.
 
-Finalized folders remain on disk after a restart. The dashboard exposes only its latest in-memory recording. For offline re-verification or a new ZIP after restart, use the environment's Python to run `home-mode/home_recording.py verify FOLDER` or `home-mode/home_recording.py pack FOLDER --output NEW.zip`, replacing FOLDER/NEW.zip with your actual private paths. Existing output files are refused. Do not run a second serial reader to package an existing recording.
+Finalized folders remain on disk after a restart. The latest in-memory recording has its quick export, and Saved recordings lists finalized folders from previous runs. For offline re-verification or a new ZIP after restart, use the environment's Python to run `home-mode/home_recording.py verify FOLDER` or `home-mode/home_recording.py pack FOLDER --output NEW.zip`, replacing FOLDER/NEW.zip with your actual private paths. Existing output files are refused. Do not run a second serial reader to package an existing recording.
 
 ## Start, stop and future office updates
 

@@ -1,7 +1,7 @@
 # Native Windows entry point. No Git clone, firmware upload or equipment control.
 [CmdletBinding()]
 param(
-    [ValidateSet('Setup','Check','Ports','Start','Demo','Update','Status','Stop')]
+    [ValidateSet('Setup','Check','Ports','Start','Demo','Update','Status','Stop','Backup','Restore','VerifyBackup')]
     [string]$Action = 'Start',
     [ValidateSet('esp32-only','sensors')]
     [string]$Mode = 'esp32-only',
@@ -9,7 +9,10 @@ param(
     [string]$DeviceId = 'motor-001',
     [ValidateRange(1024,65535)]
     [int]$WebPort = 8878,
-    [string]$PythonPath = 'python'
+    [string]$PythonPath = 'python',
+    [string]$OutputDirectory = '',
+    [string]$BackupDirectory = '',
+    [string]$RestoreDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') {
@@ -32,6 +35,22 @@ try {
     }
     & $homePython home-mode/manage.py verify
     if ($LASTEXITCODE -ne 0) { throw 'Environment verification failed. Stop home mode, then run Setup.' }
+    if ($Action -in @('Backup','Restore','VerifyBackup')) {
+        if ($Action -eq 'Backup') {
+            $dataArgs = @('home-mode/manage.py','backup')
+            if ($OutputDirectory) { $dataArgs += @('--output',$OutputDirectory) }
+        } else {
+            if (-not $BackupDirectory) { throw 'Select an existing private backup folder with -BackupDirectory.' }
+            $dataArgs = @('home-mode/manage.py',$(if ($Action -eq 'Restore') {'restore'} else {'verify-backup'}),'--backup',$BackupDirectory)
+            if ($Action -eq 'Restore') {
+                if (-not $RestoreDirectory) { throw 'Restore needs a NEW -RestoreDirectory; existing folders are never overwritten.' }
+                $dataArgs += @('--destination',$RestoreDirectory)
+            }
+        }
+        & $homePython @dataArgs
+        if ($LASTEXITCODE -ne 0) { throw 'Backup/recovery stopped. Original data was not replaced; review any incomplete new folder.' }
+        return
+    }
     if ($Action -eq 'Status' -or $Action -eq 'Stop') {
         $controlAction = if ($Action -eq 'Status') { 'status' } else { 'stop-demo' }
         & $homePython home-mode/manage.py $controlAction --web-port $WebPort
