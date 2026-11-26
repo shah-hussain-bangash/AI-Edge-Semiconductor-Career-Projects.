@@ -14,6 +14,7 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request,build_opener,ProxyHandler
 import local_dashboard as manager
@@ -106,6 +107,13 @@ class ManagerTests(unittest.TestCase):
             self.assertEqual(manager.control(self.runtime,'status')['state'],'ready')
             self.assertEqual(manager.control(self.runtime,'stop')['state'],'stopping');self.assertTrue(server.should_exit)
         finally:controller.shutdown();thread.join(3);controller.server_close();manager.state_path(self.runtime).unlink(missing_ok=True)
+
+    def test_fixed_loopback_controls_start_without_reverse_dns(self):
+        state=dict(format=manager.FORMAT,token=secrets.token_hex(32),instance=secrets.token_hex(16),port=8877)
+        with patch('socket.getfqdn',side_effect=AssertionError('Resolver is unavailable in this fixture')):
+            controller=manager.control_server(SimpleNamespace(started=False,should_exit=False),state)
+            try:self.assertEqual(controller.server_address[0],'127.0.0.1')
+            finally:controller.server_close()
 
     def test_shutdown_drains_an_existing_write_before_exiting(self):
         port=available_port();marker=self.root/'entered';self.env['EDGEOPS_FIXTURE_MARKER']=str(marker)

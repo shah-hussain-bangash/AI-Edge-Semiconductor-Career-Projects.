@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import secrets
 import socket
+import socketserver
 import subprocess
 import sys
 import threading
@@ -129,6 +130,11 @@ def control_server(server,state):
     class LocalControl(ThreadingHTTPServer):
         daemon_threads=True
         slots=threading.BoundedSemaphore(8)
+        def server_bind(self):
+            # HTTPServer normally performs reverse DNS here. Fixed IPv4 loopback
+            # controls must also start when a Mac's resolver is slow/offline.
+            socketserver.TCPServer.server_bind(self)
+            self.server_name='127.0.0.1';self.server_port=self.server_address[1]
         def process_request(self,request,address):
             if not self.slots.acquire(blocking=False):return self.shutdown_request(request)
             try:super().process_request(request,address)
