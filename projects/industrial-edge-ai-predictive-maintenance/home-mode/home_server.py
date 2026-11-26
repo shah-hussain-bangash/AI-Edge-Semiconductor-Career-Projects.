@@ -76,7 +76,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, report(self.server.controller)); return
             guides = {'/guide/mac': 'TONIGHT_MAC.md', '/guide/windows': 'OFFICE_WINDOWS.md',
                       '/guide/wiring': 'phase-01-hardware/docs/WIRING_AND_SAFETY.md',
-                      '/guide/recovery': 'LOCAL_RECOVERY.md'}
+                      '/guide/recovery': 'LOCAL_RECOVERY.md', '/guide/phases': 'NEXT_PHASES.md'}
             if route.path in guides:
                 if route.query: raise ValueError('Guides take no query')
                 self.send(200, (ROOT / guides[route.path]).read_bytes(), 'text/plain; charset=utf-8'); return
@@ -88,6 +88,13 @@ class Handler(BaseHTTPRequestHandler):
                 active=recording.session_id if recording and not recording.finished else None
                 self.send(200,listing(self.server.controller.directory,int(query.get('offset',['0'])[0]),int(query.get('limit',['20'])[0]),active));return
             office_match=re.fullmatch('/api/captures/([a-f0-9]{32})/office[.]zip',route.path)
+            review_match=re.fullmatch('/api/captures/([a-f0-9]{32})/review[.]json',route.path)
+            if review_match:
+                from recording_library import baseline_report
+                if route.query:raise ValueError('Baseline review takes no query')
+                recording=self.server.controller.recording
+                active=recording.session_id if recording and not recording.finished else None
+                self.send(200,baseline_report(self.server.controller.directory,review_match.group(1),active));return
             if office_match:
                 from recording_library import office_download
                 if route.query:raise ValueError('Office export takes no query')

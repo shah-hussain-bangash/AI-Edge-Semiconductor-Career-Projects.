@@ -71,7 +71,7 @@ class DiagnosticTests(unittest.TestCase):
             with urlopen(base+'/api/diagnostics') as response:
                 data = json.load(response)
                 self.assertEqual(data['reader']['state'], 'disconnected')
-            for route in ('mac', 'windows', 'wiring', 'recovery'):
+            for route in ('mac', 'windows', 'wiring', 'recovery', 'phases'):
                 with urlopen(base+'/guide/'+route) as response:
                     self.assertEqual(response.headers.get_content_type(), 'text/plain')
                     self.assertGreater(len(response.read()), 100)

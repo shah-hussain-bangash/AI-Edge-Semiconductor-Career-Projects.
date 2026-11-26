@@ -2,3 +2,5 @@
 
 .retry-option{display:flex;flex-direction:row;align-items:flex-start;margin:16px 0;line-height:1.6}.retry-option input{width:20px;min-height:20px;height:20px;flex:0 0 20px;margin:2px 5px 0 0}
 .start-steps,#connection-checks{padding-left:22px;line-height:1.75;color:#38506b}.start-steps li,#connection-checks li{margin:8px 0;overflow-wrap:anywhere}
+
+#baseline-report{white-space:pre-line;overflow-wrap:anywhere}.table-wrap button{margin-top:10px}

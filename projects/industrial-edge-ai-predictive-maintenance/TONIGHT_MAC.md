@@ -74,3 +74,5 @@ Ctrl+C in the original server Terminal stops both server and reader. The dashboa
 Paste the **actual** `uname -s`, macOS version and port-list output; supported Python/preflight result; and any exact setup/reader error. If the communication test runs, report mode, accepted/rejected counts and the six-channel unavailable state. Keep raw archives private until reviewed; firmware diagnostic text can contain sensitive information. Do not send Wi-Fi passwords, portal tokens or API keys.
 
 Still pending: exact sensor/probe/driver identification, ADXL345 soldering, reviewed wiring/ratings, reference measurements, firmware provenance, motor commissioning, real-data AI validation, Wi-Fi and online hosting. Do not connect all modules or energize the motor as part of this checklist.
+
+Continue with [the guided phase sequence and recording quality review](NEXT_PHASES.md). The next owner action is the actual Mac OS/port output, followed by ESP32-only USB communication. Hosting stays deferred.

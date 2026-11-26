@@ -130,6 +130,8 @@ def verify(directory):
     if manifest['format']!='edgeops-raw-usb-v1' or manifest['physical_acceptance']!='pending' or any(manifest.get(k) is not False for k in ('production_ready','hardware_verified','calibration_verified','equipment_authorized')):
         raise ValueError('Unsupported capture labels')
     settings=validate_settings(manifest['settings'])
+    if not isinstance(manifest.get('session_id'),str) or not re.fullmatch('[a-f0-9]{32}',manifest['session_id']) or directory.name!=manifest['session_id']:
+        raise ValueError('Capture folder and session identity do not match')
     source='simulated' if settings['mode']=='esp32-only' else 'serial-unverified'
     if settings['mode']=='demo' or manifest['source']!=source: raise ValueError('Unexpected source classification')
     if set(manifest['files'])!={'wire.bin','frames.jsonl'}: raise ValueError('Unexpected file names')
@@ -148,14 +150,15 @@ def verify(directory):
         raw=path.read_bytes(); meta=manifest['files'][name]
         if len(raw)!=meta['bytes'] or hashlib.sha256(raw).hexdigest()!=meta['sha256']: raise ValueError('Capture hash mismatch')
         payloads[name]=raw
-    counts=dict(accepted=0,rejected=0,diagnostic=0,partial=0);offset=0
+    counts=dict(accepted=0,rejected=0,diagnostic=0,partial=0);offset=0;previous_tick=0
     for line in payloads['frames.jsonl'].splitlines():
         if len(line)>4096: raise ValueError('Frame index exceeds bounds')
         event=strict_json(line)
         if type(event['offset']) is not int or event['offset']!=offset or type(event['bytes']) is not int or event['bytes']<1 or event['kind'] not in counts:
             raise ValueError('Frame index does not reconcile')
         tick=event['elapsed_seconds']
-        if type(tick) not in (int,float) or not math.isfinite(tick) or not 0<=tick<=elapsed: raise ValueError('Frame clock outside recording bounds')
+        if type(tick) not in (int,float) or not math.isfinite(tick) or not previous_tick<=tick<=elapsed: raise ValueError('Frame clock outside recording bounds or moving backwards')
+        previous_tick=tick
         if counts['partial']: raise ValueError('Partial bytes must be the final event')
         piece=payloads['wire.bin'][offset:offset+event['bytes']]
         if len(piece)!=event['bytes']: raise ValueError('Index references bytes beyond capture')
@@ -184,9 +187,18 @@ def package(directory):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=('verify','pack','office-pack'));parser.add_argument('directory',type=Path)
+    parser.add_argument('action',choices=('verify','review','pack','office-pack'));parser.add_argument('directory',type=Path)
     parser.add_argument('--output',type=Path);args=parser.parse_args()
-    if args.action=='verify':
+    if args.action=='review':
+        from baseline_review import review
+        result=review(args.directory)
+        if args.output is None:print(canonical(result))
+        else:
+            if args.output.resolve().is_relative_to(args.directory.resolve()):raise ValueError('Review output must be outside the capture folder')
+            descriptor=os.open(args.output,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+            with os.fdopen(descriptor,'wb') as stream:stream.write((canonical(result)+'\n').encode('utf-8'))
+            print('Saved descriptive review; physical acceptance remains pending.')
+    elif args.action=='verify':
         manifest,_=verify(args.directory);print(canonical(manifest))
     else:
         if args.output is None: parser.error('pack requires --output with a new filename')

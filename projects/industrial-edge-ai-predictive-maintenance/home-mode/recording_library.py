@@ -50,3 +50,9 @@ def office_download(directory,identity,active_id=None):
     if identity==active_id:raise ValueError('Active recording must finish before office export')
     from office_handoff import package as office_package
     return office_package(folder_for(directory,identity))
+
+
+def baseline_report(directory,identity,active_id=None):
+    if identity==active_id:raise ValueError('Active recording must finish before baseline review')
+    from baseline_review import review
+    return review(folder_for(directory,identity))

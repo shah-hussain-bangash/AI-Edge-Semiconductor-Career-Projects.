@@ -37,6 +37,13 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   assert.equal(await page.locator('#record-session').isDisabled(),true,'Demo cannot record USB');
   await until(async()=> (await page.locator('#library').innerText()).includes('simulated'));
   assert.equal(await page.locator('#library a').count(),1);
+  await page.getByRole('button',{name:'Review baseline quality',exact:true}).click();
+  await until(async()=> (await page.locator('#baseline-report').innerText()).includes('Physical acceptance: pending'));
+  assert.match(await page.locator('#baseline-report').innerText(),/communication-test-only-no-sensor-baseline/);
+  assert.equal(await page.locator('#export-baseline').isVisible(),true);
+  const baseline=await (await page.request.get(url+'/api/captures/'+('f'.repeat(32))+'/review.json')).json();
+  assert.equal(baseline.window.sensor_groups.adxl345.declared_valid,0);
+  assert.equal(baseline.outcome,'review-required');
   const saved=await page.request.get(url+'/api/captures/'+('f'.repeat(32))+'.zip');assert.equal(saved.status(),200);
   assert.match(saved.headers()['content-type'],/application\/zip/);
   assert.equal(await page.locator('#export-capture').isVisible(),false);
@@ -77,9 +84,11 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   assert.equal(await page.locator('#export-session').isVisible(),false,'Outage clears session link');
   assert.equal(await page.locator('#library a').count(),0,'Outage clears archive links');
   assert.equal(await page.locator('#export-diagnostics').isVisible(),false,'Outage clears diagnostic link');
+  assert.equal(await page.locator('#export-baseline').isVisible(),false,'Outage clears baseline link');
+  assert.match(await page.locator('#baseline-report').innerText(),/Previous report cleared/);
   assert.equal(await page.locator('#connection-checks li').count(),0,'Outage clears connection checklist');
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture','saved recording library and historical ZIP','archive links clear on outage','demo cannot pass USB checklist or sensor diagnostics','allowlisted Mac guide available offline','outage clears troubleshooting link and checklist'],physical_hardware_verified:false}));
+  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture','saved recording library and historical ZIP','archive links clear on outage','demo cannot pass USB checklist or sensor diagnostics','allowlisted Mac guide available offline','outage clears troubleshooting link and checklist','raw baseline review never approves communication-only data','outage clears baseline report and link'],physical_hardware_verified:false}));
  }catch(error){console.error(logs);throw error;}
  finally{
   if(browser)await browser.close();

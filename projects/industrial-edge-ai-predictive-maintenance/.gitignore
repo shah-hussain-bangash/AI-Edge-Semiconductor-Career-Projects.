@@ -20,3 +20,4 @@ edgeops-office-transfer*.zip
 
 # Private troubleshooting snapshots include host and selected USB port details.
 edgeops-home-diagnostics*.json
+edgeops-baseline-review*.json

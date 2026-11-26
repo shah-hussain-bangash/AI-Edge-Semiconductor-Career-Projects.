@@ -23,3 +23,5 @@ The home runtime requires supported Python 3.12–3.14 and installs **pyserial==
 Use the [test status](HANDOFF_TEST_STATUS.md) and actual GitHub Actions runs as software evidence. Physical status cannot be promoted by CI, preflight, a sample count or a successful archive checksum. The original 30-product selection and blocked part reviews remain unchanged.
 
 Local operations: [backup/recovery, recordings and optional startup](LOCAL_RECOVERY.md). Status: [local implementation versus remaining acceptance](LOCAL_READINESS.md). Hosting remains deferred.
+
+Continue with [the guided phase sequence and recording quality review](NEXT_PHASES.md). The next owner action is the actual Mac OS/port output, followed by ESP32-only USB communication. Hosting stays deferred.
