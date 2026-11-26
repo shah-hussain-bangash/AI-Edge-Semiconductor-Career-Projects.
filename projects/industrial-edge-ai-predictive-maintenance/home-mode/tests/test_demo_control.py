@@ -21,20 +21,29 @@ from test_home import wait_for
 class DemoControlTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.directory=Path(self.tmp.name);self.process=None
+        self.addCleanup(self.tmp.cleanup);self.addCleanup(self.cleanup_process)
         self.launch()
     def launch(self,mode='demo'):
         with socket.socket() as sock:sock.bind(('127.0.0.1',0));self.port=sock.getsockname()[1]
         # Bypass Windows venv redirectors so failed-test cleanup owns one real PID.
-        python=getattr(sys,'_base_executable',sys.executable)
+        python=getattr(sys,'_base_executable',sys.executable) if os.name=='nt' else sys.executable
         args=[python,str(ROOT/'home-mode/home_server.py'),'--data-dir',str(self.directory),'--web-port',str(self.port),'--mode',mode]
         if mode=='demo':args.append('--connect')
         self.process=subprocess.Popen(args,cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1'))
-        wait_for(lambda:demo_control.status(self.port,self.directory)['reachable'])
-    def tearDown(self):
+        deadline=time.monotonic()+15
+        while time.monotonic()<deadline:
+            if self.process.poll() is not None:
+                out,err=self.process.communicate()
+                self.fail('Fixture exited before readiness: '+out+err)
+            if demo_control.status(self.port,self.directory)['reachable']:return
+            time.sleep(.1)
+        self.cleanup_process()
+        self.fail('Fixture startup timed out: '+self.fixture_output)
+    def cleanup_process(self):
         if self.process is not None:
             if self.process.poll() is None:self.process.terminate()
-            self.process.communicate(timeout=5)
-        self.tmp.cleanup()
+            out,err=self.process.communicate(timeout=5)
+            self.fixture_output=out+err
     def test_status_is_read_only_redacts_tokens_and_stop_releases_lock(self):
         state=demo_control.status(self.port,self.directory)
         self.assertTrue(state['safe_demo_stop_available']);self.assertNotIn('write_token',state);self.assertNotIn('instance_id',state)
