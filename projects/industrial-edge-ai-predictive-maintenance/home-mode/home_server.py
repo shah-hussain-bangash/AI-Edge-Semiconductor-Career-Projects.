@@ -58,6 +58,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system()}); return
             if route.path == '/api/ports':
                 self.send(200, {'ports': serial_ports(), **BOUNDARY}); return
+            if route.path == '/api/capture.zip':
+                if route.query: raise ValueError('Capture export takes no query parameters')
+                payload = self.server.controller.recording_package()
+                self.send(200, payload, 'application/zip', {'Content-Disposition': 'attachment; filename="edgeops-capture.zip"'})
+                return
             if route.path in ('/api/session', '/api/session.zip'):
                 if route.query: raise ValueError('Session exports take no query parameters')
                 snapshot = self.server.controller.session_snapshot()
@@ -96,7 +101,10 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', '-1'))
             if not 0 <= length <= 4096: self.send(413, {'error': 'Request exceeds 4 KiB'}); return
             body = strict_json(self.rfile.read(length).decode('utf-8'))
-            if self.path == '/api/connect': self.server.controller.start(body)
+            if self.path == '/api/record':
+                if not isinstance(body, dict) or set(body) != {'settings','seconds'}: raise ValueError('Use settings and seconds')
+                self.server.controller.start(body['settings'], record_seconds=body['seconds'])
+            elif self.path == '/api/connect': self.server.controller.start(body)
             elif self.path == '/api/disconnect' and body == {}: self.server.controller.stop()
             else: self.send(404, {'error': 'Not found'}); return
             self.send(200, self.server.controller.status())

@@ -1,6 +1,14 @@
 # Mac gateway handoff verification — 26 November 2026
 
 
+## Timed raw USB recording addition
+
+Added a 10–600 second bounded recording action with exact serial-read bytes, offset/classification/sample index, measured host monotonic timing, explicit duration/manual/error/limit reasons, durable private files, checksums and offline parser replay verification. Recorder source digest is recorded; firmware identity, hardware authenticity, calibration and physical acceptance remain unverified. Demo mode cannot create a USB capture. The raw package is distinct from the earlier derived rolling-session package; failed/incomplete storage is never downloadable as a finalized capture.
+
+Local Windows/Python 3.12: 35 methods discovered, 32 passed and three POSIX-only methods skipped. New tests cover fragmented input, diagnostics, invalid UTF-8, trailing partial bytes, a virtual 600-second deadline (no physical timed test), unplug, byte/chunk limits, storage failure, no-overwrite behavior, corruption/reclassification refusal, raw sensor JSON zero/null/amp semantics, oversized-line resynchronization, strict HTTP/auth/origin boundaries, stop/download lifecycle and fake serial recordings. Hosted Linux/Intel macOS additionally run a real pySerial pseudo-terminal recording over HTTP. Browser checks include demo recording refusal, failed USB-open behavior and the prior viewport/contrast/source/export checks. No received board, actual sensor, real ten-minute recording or home MacBook was used.
+
+The actual commit's GitHub Actions results determine CI outcomes; workflow configuration alone is not evidence. H1 physical rows remain pending regardless of a successful software recording/package check.
+
 ## Bench bring-up implementation addition
 
 Added native Windows `home.ps1` (Setup/Check/Ports/Start/Demo/Update), Mac-only launcher guards, dashboard host guidance and consistent current/most-recent session snapshot exports. No user live server, private database, hardware or hosting was changed. Session packages preserve quality/source flags, include file hashes, report rolling-retention loss and leave physical acceptance pending. They do not include raw wire bytes or malformed frames and cannot satisfy H1 by themselves.

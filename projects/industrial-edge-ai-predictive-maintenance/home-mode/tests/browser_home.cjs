@@ -22,6 +22,8 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await page.goto(url+'/app');
   await until(async()=> (await page.locator('#source').innerText())==='SIMULATED / TEST');
   assert.equal(await page.locator('.card').count(),6);
+  assert.equal(await page.locator('#record-session').isDisabled(),true,'Demo cannot record USB');
+  assert.equal(await page.locator('#export-capture').isVisible(),false);
   assert.equal(await page.locator('.card').nth(1).locator('.value').innerText(),'0');
   await page.locator('#refresh-history').click();
   await until(async()=> (await page.locator('#history').innerText()).includes('simulated / demo'));
@@ -46,17 +48,19 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await page.locator('#mode').selectOption('esp32-only');
   // Deliberately missing fixture device; never choose any enumerated real port.
   await page.locator('#port').fill(process.platform==='win32'?'COM999':'/dev/cu.edgeops_missing_fixture');
-  await page.locator('#connect').click();
+  assert.equal(await page.locator('#record-session').isDisabled(),false);
+  await page.locator('#record-session').click();
   await until(async()=> (await page.locator('#session-state').innerText()).includes('error'));
   assert.deepEqual(await page.locator('.value').allTextContents(),Array(6).fill('Unavailable'));
   assert.match(await page.locator('#mode-help').innerText(),/simulated/);
+  assert.equal(await page.locator('#export-capture').isVisible(),false,'Port failure never fabricates raw capture');
   await page.route('**/api/status',route=>route.abort());
   await until(async()=> (await page.locator('#source').innerText())==='LOCAL SERVICE UNAVAILABLE');
   assert.deepEqual(await page.locator('.value').allTextContents(),Array(6).fill('Unavailable'));
   assert.equal(await page.locator('#connect').isDisabled(),true);
   assert.equal(await page.locator('#export-session').isVisible(),false,'Outage clears session link');
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states'],physical_hardware_verified:false}));
+  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture'],physical_hardware_verified:false}));
  }catch(error){console.error(logs);throw error;}
  finally{
   if(browser)await browser.close();

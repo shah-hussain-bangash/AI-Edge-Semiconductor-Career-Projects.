@@ -176,7 +176,7 @@ class Controller:
         self.lock = threading.RLock(); self.operation = threading.Lock()
         self.stop_event = threading.Event(); self.thread = None; self.generation = 0
         self.latest = None; self.last_tick = None; self.state = 'disconnected'; self.error = None
-        self.accepted = self.rejected = 0; self.session_id = None
+        self.accepted = self.rejected = 0; self.session_id = None; self.recording = None; self.record_seconds = None
 
     def stop(self):
         with self.operation: self._stop()
@@ -190,8 +190,11 @@ class Controller:
                 self.state = 'stopping'; raise ValueError('Serial reader is still stopping; retry after it stops')
             self.state = 'disconnected'; self.thread = None
 
-    def start(self, settings):
+    def start(self, settings, record_seconds=None):
         settings = validate_settings(settings)
+        if record_seconds is not None:
+            if type(record_seconds) is not int or not 10 <= record_seconds <= 600: raise ValueError('Recording duration must be 10–600 seconds')
+            if settings['mode'] == 'demo': raise ValueError('Raw recording requires a USB mode')
         if settings['mode'] != 'demo' and not settings['port']: raise ValueError('Select a serial port first')
         with self.operation:
             self._stop()
@@ -200,6 +203,7 @@ class Controller:
                 self.settings = settings; self.stop_event = threading.Event(); self.generation += 1
                 generation = self.generation; self.session_id = secrets.token_hex(16)
                 self.accepted = self.rejected = 0; self.error = None; self.state = 'connecting'
+                self.recording = None; self.record_seconds = record_seconds
                 self.thread = threading.Thread(target=self._run, args=(generation, self.stop_event, dict(settings), self.session_id), daemon=True, name='edgeops-home-reader')
                 self.thread.start()
 
@@ -211,7 +215,8 @@ class Controller:
             self.latest = sample; self.last_tick = self.monotonic(); self.accepted += 1; self.state = 'receiving'; self.error = None
 
     def _run(self, generation, stop, settings, session_id):
-        stream = None
+        from home_recording import Recorder, CaptureLimit
+        stream = None; recording = None; stop_reason = 'manual-stop'
         try:
             if settings['mode'] == 'demo':
                 index = 0
@@ -229,11 +234,17 @@ class Controller:
                 factory = serial.Serial
             stream = factory(settings['port'], 115200, timeout=0.5, **({'exclusive': True} if os.name != 'nt' else {}))
             with self.lock:
-                if generation == self.generation and not stop.is_set(): self.state = 'port-open'
+                if generation == self.generation and not stop.is_set():
+                    self.state = 'port-open'
+                    if self.record_seconds is not None:
+                        recording = Recorder(self.directory / 'captures', session_id, settings, self.record_seconds, self.monotonic)
+                        self.recording = recording
             pending = b''; discarding = False
             while not stop.is_set():
+                if recording and recording.expired(): stop_reason = 'duration-elapsed'; break
                 raw = stream.readline(4097)
                 if not raw: continue
+                if recording: recording.write(raw)
                 pending += raw
                 if len(pending) > 4096: pending = b''; discarding = True
                 if not raw.endswith(b'\n'): continue
@@ -242,11 +253,16 @@ class Controller:
                     if discarding: discarding = False; raise ValueError('line-too-long')
                     sample = parse_line(line, settings['mode'], settings['expected_device_id'])
                 except (ValueError, UnicodeError, RecursionError):
+                    if recording: recording.classify('rejected')
                     with self.lock:
                         self.rejected += 1; self.error = 'unusable-frame-check-firmware-mode-or-device-id'
                     continue
+                if recording: recording.classify('accepted' if sample else 'diagnostic', sample)
                 if sample: self._accept(sample, generation, stop, session_id)
+        except CaptureLimit as error:
+            stop_reason = str(error)
         except Exception:
+            stop_reason = 'serial-or-storage-error'
             with self.lock:
                 if generation == self.generation and not stop.is_set():
                     self.state = 'error'; self.error = 'serial-or-local-storage-unavailable'; self.latest = None; self.last_tick = None
@@ -254,6 +270,23 @@ class Controller:
             if stream:
                 try: stream.close()
                 except Exception: pass
+            if recording:
+                try: recording.finish(stop_reason)
+                except Exception:
+                    with self.lock:
+                        self.state = 'error'; self.error = 'recording-storage-failed-incomplete-files-preserved'
+                with self.lock:
+                    if generation == self.generation:
+                        if self.state != 'error': self.state = 'disconnected'
+                        self.latest = None; self.last_tick = None
+
+    def recording_package(self):
+        from home_recording import package
+        with self.lock:
+            recording = self.recording
+            if recording is None or not recording.finished: raise ValueError('No finalized recording is available')
+            directory = recording.directory
+        return package(directory)
 
     def session_snapshot(self):
         # Copy a consistent boundary while acquisition is fenced; ZIP compression
@@ -273,7 +306,8 @@ class Controller:
                 age_seconds=age, fresh=fresh, last_sample=self.latest,
                 live_values=self.latest['values'] if fresh else {c[0]: None for c in CHANNELS},
                 channels=[dict(key=c[0],label=c[1],unit=c[2]) for c in CHANNELS],
-                device_utc=None, device_boot_id=None, **BOUNDARY)
+                device_utc=None, device_boot_id=None,
+                recording=self.recording.status() if self.recording else None, **BOUNDARY)
 
 
 def serial_ports():
