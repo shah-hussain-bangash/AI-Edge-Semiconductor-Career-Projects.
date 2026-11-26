@@ -153,7 +153,10 @@ Back up the private `.local` folder on the Mac while the gateway is stopped. Use
 dashboard backup/verify/restore tooling for the portal; it now includes bench records and revokes
 restored bench credentials. Protect backups because they contain private identities and data.
 
-Keep the same valid credential when retrying an existing run. Expiry/revocation can leave a run
+Keep the same valid credential when retrying an existing run. While readings are pending, the gateway refuses changes to their portal,
+credential or declared device; configuration replacement is checked before overwriting the private
+configuration. A drained queue may be configured for a new destination. The spool stores only the
+credential fingerprint, never the raw token. Expiry/revocation can leave a run
 requiring administrator reconciliation before rotating credentials; the gateway does not silently
 reassign prior data to a new token, device or source. A restart creates a new gateway run ID, not
 a verified device boot ID. Deduplication covers HTTP retries of an identical gateway frame, not

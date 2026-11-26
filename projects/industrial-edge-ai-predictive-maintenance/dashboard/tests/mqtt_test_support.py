@@ -4,6 +4,7 @@ import ipaddress
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import sys
 import importlib.util
@@ -86,7 +87,14 @@ class LocalBroker:
             config='user '+pwd.getpwuid(os.getuid()).pw_name+'\n'+config
         (self.root/'mosquitto.conf').write_text(config,encoding='utf-8')
         self.log=open(self.root/'broker.log','w',encoding='utf-8')
-        self.process=subprocess.Popen([available_broker(),'-c',str(self.root/'mosquitto.conf')],
+        executable=available_broker()
+        if sys.platform.startswith('linux'):
+            # Use a disposable executable rather than a system-service package entrypoint:
+            # distribution profiles may restrict that entrypoint to /etc/mosquitto configs.
+            # No system service, profile, permissions or production broker is changed.
+            portable=self.root/'mosquitto-fixture'
+            shutil.copyfile(executable,portable);portable.chmod(0o700);executable=str(portable)
+        self.process=subprocess.Popen([executable,'-c',str(self.root/'mosquitto.conf')],
             stdout=self.log,stderr=self.log,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
         for _ in range(50):
             if self.process.poll() is not None:

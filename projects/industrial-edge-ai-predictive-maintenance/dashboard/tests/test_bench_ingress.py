@@ -144,5 +144,18 @@ class GatewayTests(unittest.TestCase):
     def test_dry_cli_does_not_open_serial(self):
         with self.assertRaises(SystemExit):gateway.main(['--port','not-a-real-port'])
 
+    def test_pending_readings_cannot_be_retargeted_by_configuration_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            spool=gateway.Spool(Path(directory)/'spool.sqlite3')
+            config=dict(portal_url='https://original.example',token='edgeops_bench_'+'1'*64,expected_device_id='motor-001')
+            try:
+                spool.bind(config);spool.add(gateway.sample(frame(),'1'*32,0,'software-fixture'))
+                for changed in ({**config,'portal_url':'https://other.example'},{**config,'token':'edgeops_bench_'+'2'*64},{**config,'expected_device_id':'other-device'}):
+                    with self.assertRaises(ValueError):spool.bind(changed)
+                spool.bind(config)
+                self.assertEqual(spool.db.execute('SELECT count(*) FROM pending').fetchone()[0],1)
+                self.assertNotIn(config['token'],str(spool.db.execute('SELECT * FROM destination').fetchall()))
+            finally:spool.close()
+
 
 if __name__=='__main__':unittest.main()

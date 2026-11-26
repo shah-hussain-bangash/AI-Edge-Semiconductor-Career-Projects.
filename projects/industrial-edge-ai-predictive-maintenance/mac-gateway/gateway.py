@@ -50,6 +50,10 @@ def configure():
     if path.exists() and input('Replace existing private gateway configuration? Type REPLACE: ')!='REPLACE':return
     data=validate_config(dict(portal_url=input('Portal root URL (HTTPS, or http://127.0.0.1:8877 for local testing): ').strip(),
         token=getpass('Scoped bench token (hidden): ').strip(),expected_device_id=input('Firmware device ID [motor-001]: ').strip() or 'motor-001'))
+    if (PRIVATE/'gateway-spool.sqlite3').exists():
+        spool=Spool(PRIVATE/'gateway-spool.sqlite3')
+        try:spool.bind(data)
+        finally:spool.close()
     fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
     with os.fdopen(fd,'w',encoding='utf-8') as stream:json.dump(data,stream,indent=2)
     if os.name!='nt':os.chmod(path,0o600)
@@ -76,7 +80,18 @@ class Spool:
         self.db.execute('''CREATE TABLE IF NOT EXISTS pending(id INTEGER PRIMARY KEY,
             run_id TEXT NOT NULL,frame_index INTEGER NOT NULL,payload TEXT NOT NULL,hash TEXT NOT NULL,
             UNIQUE(run_id,frame_index))''');self.db.commit()
+        self.db.execute('''CREATE TABLE IF NOT EXISTS destination(singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+            portal_url TEXT NOT NULL,token_fingerprint TEXT NOT NULL,device_id TEXT NOT NULL)''');self.db.commit()
         if os.name!='nt':os.chmod(self.path,0o600)
+
+    def bind(self,config):
+        context=(config['portal_url'],hashlib.sha256(config['token'].encode()).hexdigest(),config['expected_device_id'])
+        with self.db:
+            previous=self.db.execute('SELECT portal_url,token_fingerprint,device_id FROM destination WHERE singleton=1').fetchone()
+            if previous!=context and self.db.execute('SELECT count(*) FROM pending').fetchone()[0]:
+                raise ValueError('Pending readings belong to another portal, credential or device. Retry the original configuration or reconcile the retained spool before changing it.')
+            self.db.execute('''INSERT INTO destination VALUES(1,?,?,?) ON CONFLICT(singleton) DO UPDATE SET
+                portal_url=excluded.portal_url,token_fingerprint=excluded.token_fingerprint,device_id=excluded.device_id''',context)
 
     def add(self,body):
         previous=self.db.execute('SELECT hash FROM pending WHERE run_id=? AND frame_index=?',(body['run_id'],body['frame_index'])).fetchone()
@@ -140,6 +155,7 @@ def main(argv=None):
     import httpx
     delivered=accepted=rejected=0;failure='ok';run=secrets.token_hex(16)
     try:
+        spool.bind(config)
         with httpx.Client(base_url=config['portal_url'],headers={'authorization':'Bearer '+config['token']},timeout=5,trust_env=False,follow_redirects=False) as client:
             count,failure=spool.drain(client);delivered+=count
             if failure!='ok':print('Pending delivery stopped: '+failure+'. Data retained; check the portal/configuration and use --retry-only.');return 2
