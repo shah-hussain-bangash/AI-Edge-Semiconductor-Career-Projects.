@@ -79,6 +79,11 @@ class LocalBroker:
             'cafile '+(self.pki/'ca.crt').as_posix()+'\n'
             'certfile '+(self.pki/'server.crt').as_posix()+'\n'
             'keyfile '+(self.pki/'server.key').as_posix()+'\nacl_file '+acl.as_posix()+'\n')
+        if os.name!='nt':
+            import pwd
+            # Test-only broker: keep private fixture keys readable by the fixture owner.
+            # Mosquitto otherwise drops root to a different account inside some CI runners.
+            config='user '+pwd.getpwuid(os.getuid()).pw_name+'\n'+config
         (self.root/'mosquitto.conf').write_text(config,encoding='utf-8')
         self.log=open(self.root/'broker.log','w',encoding='utf-8')
         self.process=subprocess.Popen([available_broker(),'-c',str(self.root/'mosquitto.conf')],

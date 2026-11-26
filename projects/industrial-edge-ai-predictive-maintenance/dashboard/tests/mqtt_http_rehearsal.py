@@ -60,11 +60,21 @@ def rehearse(server):
                 finally:
                     stop.set()
                     if publisher:publisher.disconnect();publisher.loop_stop()
+        except Exception as error:
+            # Broker logs contain only disposable client IDs/topics and TLS diagnostics,
+            # never the HTTP bearer token or MQTT payload bodies.
+            print('MQTT fixture failure category: '+type(error).__name__,file=sys.stderr)
+            print((broker.root/'broker.log').read_text(encoding='utf-8')[-1500:],file=sys.stderr)
+            raise
         finally:broker.close()
 
 
 if __name__=='__main__':
     try:print(json.dumps(rehearse(sys.argv[1])))
-    except Exception:
+    except Exception as error:
+        safe_reasons={'MQTT bridge did not become ready','Durable MQTT edge acceptance missing',
+            'MQTT acknowledgement boundary mismatch','Central receipt reconciliation failed'}
+        if str(error) in safe_reasons or str(error).startswith('Disposable broker failed:'):
+            print(str(error),file=sys.stderr)
         print('Disposable MQTT rehearsal failed; no credentials or payloads logged.',file=sys.stderr)
         raise SystemExit(1)
