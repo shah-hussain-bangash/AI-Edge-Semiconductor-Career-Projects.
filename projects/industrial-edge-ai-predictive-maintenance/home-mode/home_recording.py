@@ -34,6 +34,7 @@ class Recorder:
         self.files = {}; self.hashes = {}; self.counts = dict(accepted=0,rejected=0,diagnostic=0,partial=0)
         self.total = self.chunks = self.line_start = 0; self.withheld = 0
         self.finished = False; self.broken = False; self.reason = None; self.started_at = utc_now()
+        self.last_receipt = self.started_at; self.last_elapsed = 0.
         self.max_bytes = max_bytes; self.max_chunks = max_chunks
         try:
             for name in ('wire.bin', 'frames.jsonl'):
@@ -61,13 +62,14 @@ class Recorder:
                 self.withheld += len(raw); raise CaptureLimit('byte-limit')
             if self.chunks >= self.max_chunks:
                 self.withheld += len(raw); raise CaptureLimit('chunk-limit')
+            self.last_receipt = utc_now(); self.last_elapsed = self.elapsed()
             self._write('wire.bin', raw); self.total += len(raw); self.chunks += 1
 
     def classify(self, kind, sample=None):
         with self.lock:
             if kind not in self.counts: raise ValueError('Unsupported frame classification')
             event = dict(offset=self.line_start, bytes=self.total-self.line_start, kind=kind,
-                         received_at=utc_now(), elapsed_seconds=self.elapsed(), sample=sample)
+                         received_at=self.last_receipt, elapsed_seconds=self.last_elapsed, sample=sample)
             raw = (canonical(event) + '\n').encode('utf-8')
             if len(raw) > 4096: raise CaptureLimit('index-event-limit')
             self._write('frames.jsonl',raw)

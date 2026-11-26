@@ -103,6 +103,7 @@ class Handler(BaseHTTPRequestHandler):
             body = strict_json(self.rfile.read(length).decode('utf-8'))
             if self.path == '/api/record':
                 if not isinstance(body, dict) or set(body) != {'settings','seconds'}: raise ValueError('Use settings and seconds')
+                if type(body['seconds']) is not int: raise ValueError('Use an integer duration')
                 self.server.controller.start(body['settings'], record_seconds=body['seconds'])
             elif self.path == '/api/connect': self.server.controller.start(body)
             elif self.path == '/api/disconnect' and body == {}: self.server.controller.stop()

@@ -101,7 +101,7 @@ class RecordingTests(unittest.TestCase):
 
 class RecordingHttpTests(test_home.HttpTests):
     def test_recording_requires_origin_token_usb_mode_and_strict_shape(self):
-        for body in [dict(settings=dict(self.settings,mode='demo'),seconds=600),dict(settings=self.settings,seconds=True),dict(settings=self.settings,seconds=600,extra='no')]:
+        for body in [dict(settings=dict(self.settings,mode='demo'),seconds=600),dict(settings=self.settings,seconds=True),dict(settings=self.settings,seconds=None),dict(settings=self.settings,seconds=600,extra='no')]:
             with self.assertRaises(HTTPError) as error:self.request('/api/record',body)
             self.assertEqual(error.exception.code,422)
         with self.assertRaises(HTTPError) as error:self.request('/api/record',dict(settings=self.settings,seconds=600),headers={'Origin':'https://other.invalid'})
