@@ -1,6 +1,8 @@
-# Industrial Edge AI — 30-product specifications and Temu sourcing table
+# Industrial Edge AI — 30 core products + 10 assembly tool and accessory categories
 
-Prepared: 19 November 2026 (Dubai). Covers **all P1–P30** from the approved numbering, including optional interfaces and spares.
+Prepared: 19 November 2026 (Dubai). Updated: 26 November 2026 (Dubai).
+
+Retains **all P1–P30** from the original numbering, including optional interfaces and spares. **P31–P40** add assembly tools and accessories identified during hands-on setup. These are 40 procurement categories, not 40 mandatory separate purchases: kits may cover several rows, and optional items remain optional. The received enclosure is listed separately; do not buy a duplicate.
 
 ## Link and verification status
 
@@ -57,7 +59,41 @@ Prepared: 19 November 2026 (Dubai). Covers **all P1–P30** from the approved nu
 7. **P22:** follow the final driver reference circuit. A single diode across a reversible H-bridge motor is not the default protection arrangement.
 8. **P26–P29:** optional; buy only for an identified requirement. P30 spares can be satisfied by existing extra quantities.
 
-## Extra enclosure outside P1–P30
+## Additional assembly tools and accessories — P31–P40
+
+These additions address the loose sensor/module headers and final enclosure assembly. The ADXL345 photo shows an unsoldered header: pushing ordinary pins into the holes is not a reliable electrical connection. A repair shop can solder the headers instead of purchasing a soldering setup. Also inspect the INA219 and motor-driver headers before wiring.
+
+**Procurement status:** required specifications and search phrases only. No new product listing, seller quality, voltage variant, price or purchase is verified. The ILIBILIB HX5 UK-plug kit discussed in screenshots remains a candidate: its voltage description was inconsistent and needs confirmation from the exact variant's rating label. Its pictured bundle did not show solder wire.
+
+| ID | Product / category | Quantity | Requirements and purpose | Search phrase | Priority / duplication check |
+|---|---|---|---|---|---|
+| P31 | Temperature-controlled electronics soldering iron, stand and tip cleaner | 1 set | Adjustable regulated temperature, replaceable fine or small chisel tip, secure heat-resistant stand, brass cleaner or suitable sponge. For a mains-powered unit, confirm 220–240V AC or an explicitly supported input range covering local mains, with UK/UAE Type G plug; a plug shape alone does not verify voltage. | temperature controlled electronics soldering iron kit 220 240V UK plug stand | Needed for DIY soldering; use a repair shop instead if preferred. Count bundled stand/cleaner once. |
+| P32 | Electronics solder and flux | 1 small spool + compatible flux if needed | Approximately 0.6–0.8mm electronics solder with rosin/no-clean flux core, identified alloy and manufacturer instructions; electronics-compatible flux. No plumbing solder or acid flux. Verify whether P31 actually includes consumables. | electronics solder wire 0.6mm 0.8mm rosin flux core | Needed for DIY soldering; do not assume kit photos include solder. |
+| P33 | Heat-resistant soldering mat | 1 | Purpose-made heat-resistant work mat on a firm bench, sized for tools and board. Keep hot work away from laptop, paper, bedding and packaging. Ordinary cardboard is not a soldering surface. | silicone heat resistant soldering work mat | Needed for DIY soldering; check kit contents. |
+| P34 | PCB holder / helping hands | 1 | Stable base, secure adjustable grip on board edges, access to header pads without crushing components. Holds sensor while soldering; optional magnifier. | PCB soldering holder helping hands stable base | Needed to secure the work for DIY soldering; kit may include it. |
+| P35 | Safety glasses | 1 pair | Proper clear protective eyewear for solder splash and clipped wire ends; comfortable fit. | clear protective safety glasses electronics soldering | Needed during soldering and wire cutting; reuse suitable glasses already owned. |
+| P36 | Solder-fume extraction / ventilation provision | 1 suitable arrangement | Capture fumes near the joint and follow solder/flux safety instructions. Ensure good ventilation and keep face out of the plume. A small unverified filter fan is not proof of adequate extraction. | electronics soldering fume extractor | Arrange before DIY soldering; use an equipped workspace or repair shop if unavailable. |
+| P37 | Small assembly and wire-preparation tools | 1 set as needed | Screwdrivers fitting actual terminals, wire stripper matched to wire sizes, flush cutters, and ferrule crimper matched to ferrules/terminals. Avoid nicking conductors; verify terminations. | precision screwdrivers wire stripper flush cutter ferrule crimper | Check existing tools first. Ferrules/crimper overlap P23: buy only missing tools, not another duplicate kit. |
+| P38 | PCB spacers, screws and nuts | 1 matched assortment | Insulating standoffs or suitably isolated mounting hardware, correct hole diameters, thread and length, with underside clearance. Fit actual boards and enclosure posts; do not assume M2.5 or M3 fits every board. | PCB nylon standoff screw nut assortment | Needed for final enclosure assembly; verify dimensions before ordering. |
+| P39 | Cable glands / edge grommets | As required by final cable layout | Match cable outside diameter, enclosure wall thickness and hole size. Provide strain relief and protect insulation at openings. Use appropriate glands where cable restraint is needed; a grommet alone may not provide it. | electronics enclosure cable gland rubber grommet assortment | Needed where final cable entries require protection; sizes pending enclosure layout. |
+| P40 | Cable ties, tie mounts and wire labels | 1 small assortment | Suitable sizes for low-voltage wiring, secure routing away from rotating parts, strain-free connectors and legible polarity/signal labels. Do not overtighten. | cable ties mounts wire identification labels | Needed for final wiring organisation; use existing supplies if suitable. |
+
+**Scope and cost:** P31–P36 are the soldering-workstation additions; P37–P40 support assembly and enclosure wiring. Several items can be bundled or already owned. No new total is quoted without verified package contents and prices. The older P1–P30 budget excludes these additions. No additional GPU, Jetson or AI accelerator is required to start the current ESP32/portal milestone.
+
+### Checks against the hardware received
+
+- **P2/P14 verified in the home test:** the received ESP32 has USB-C and a CP2102 USB-to-UART bridge. The grey USB-A-to-USB-C cable supported a successful firmware upload and repeated serial output at 115200 baud. The Mac port was `/dev/cu.usbserial-0001`. This verifies the USB test, not sensor acquisition or Wi-Fi-to-portal integration.
+- **P3 assembly pending:** the ADXL345 header was inserted but not soldered in the supplied photos. Solder and inspect before reliable jumper-wire testing. Keep all power disconnected while assembling.
+- **P19 switch:** received package states **DC 5V, 2A**. Suitability for the 12V motor branch is not established. Obtain an explicit DC rating for the actual load/startup conditions or select a properly documented replacement.
+- **P18 fuses:** received pack contains 10–40A fuses. None is approved merely because it fits the holder. Select protection from verified motor, driver, wire and connector requirements; buy matching fuses separately if needed.
+- **P6/P7/P21/P22:** motor startup/stall current, adapter output/polarity, driver-module capability and manufacturer-required decoupling/suppression still need verification together. Do not infer circuit suitability from generic packaging.
+- **P20/P25:** confirm the motor bracket, rigid base and rotating-parts guard are present and fit before motor operation.
+- **Enclosure already received:** the package states BLF 200 × 120 × 75mm. Keep it; usable internal dimensions, mounting and cable routing remain to be checked. It is not a soldering mat or a rotating-shaft guard.
+- Keep motor current off breadboards and Dupont jumpers. Do not connect the 12V adapter to ESP32 USB, 3.3V or GPIO pins.
+
+For practical technique, see [Adafruit: soldering headers](https://learn.adafruit.com/how-to-solder-headers/overview) and [making a good solder joint](https://learn.adafruit.com/adafruit-guide-excellent-soldering/making-a-good-solder-joint).
+
+## Extra enclosure outside P1–P40
 
 The previously selected **200 × 120 × 75mm ABS electronics enclosure** is additional to these 30 categories. Its usable internal space, mounting posts, connector clearance, ventilation, cable glands and equipment layout still require checking. Outer dimensions do not prove the complete assembly fits.
 
