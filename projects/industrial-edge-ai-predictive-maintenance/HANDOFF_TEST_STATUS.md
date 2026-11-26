@@ -80,3 +80,10 @@ Actions results. Hosted modern Intel macOS cannot validate the owner's older Mac
 `production_ready`, verified hardware/calibration and equipment authorization remain false. Bench
 readings do not enter synthetic model/incident pipelines or automatically drive equipment. Original
 30-product choices remain unchanged; unconfirmed/incompatible components stay blocked for review.
+
+
+## Tonight connection assistance, 26 November 2026
+
+Added an on-page connection checklist, fixed local Mac/Windows/wiring/recovery guide links and a read-only `/api/diagnostics` snapshot/download. The checklist uses current reader state, distinguishes demo from USB input and clears on service failure. Diagnostics exclude anti-forgery tokens, raw samples, local database paths and arbitrary exception text. They include selected port, host/runtime versions, free disk space and reader/group availability; review privately before sharing. Space above the 256 MiB advisory threshold is not a guarantee that future recordings will fit. The default downloaded report name is ignored by Git.
+
+Local Windows Python 3.12 software run: **75 discovered, 70 passed, 5 POSIX-only skips**. Browser checks passed at 320, 390, 768, 1024 and 1440 px, including contrast, diagnostic download boundary, demo-vs-USB guidance, local guide availability and outage clearing. New checks cover text communication, stale data, demo refusal as USB evidence, partial valid sensor groups, missing dependency/disk information, HTTP guide allowlisting and report privacy. No physical serial board was used; owner MacBook/Monterey and hardware acceptance remain pending. Cross-platform CI results are tracked on the release commit; no owner-Mac result is inferred from hosted Intel Mac tests.

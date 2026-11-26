@@ -70,6 +70,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system(), 'instance_id': self.server.instance_id, 'instance_identity': self.server.identity, 'shutdown_protocol': 1}); return
             if route.path == '/api/ports':
                 self.send(200, {'ports': serial_ports(), **BOUNDARY}); return
+            if route.path == '/api/diagnostics':
+                from bench_diagnostics import report
+                if route.query: raise ValueError('Diagnostics take no query')
+                self.send(200, report(self.server.controller)); return
+            guides = {'/guide/mac': 'TONIGHT_MAC.md', '/guide/windows': 'OFFICE_WINDOWS.md',
+                      '/guide/wiring': 'phase-01-hardware/docs/WIRING_AND_SAFETY.md',
+                      '/guide/recovery': 'LOCAL_RECOVERY.md'}
+            if route.path in guides:
+                if route.query: raise ValueError('Guides take no query')
+                self.send(200, (ROOT / guides[route.path]).read_bytes(), 'text/plain; charset=utf-8'); return
             if route.path == '/api/captures':
                 from recording_library import listing
                 query=parse_qs(route.query,keep_blank_values=True)

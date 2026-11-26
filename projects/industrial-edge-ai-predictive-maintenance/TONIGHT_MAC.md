@@ -59,6 +59,8 @@ Keep that Terminal open. In a second Terminal:
 open http://127.0.0.1:8878/app
 ```
 
+The page now includes **Connect your home hardware**, a live connection checklist, local setup/wiring/recovery guides and **Check setup snapshot**. The downloadable troubleshooting report contains software versions, free disk space, selected port, reader counts and sensor-group availability. It excludes passwords, anti-forgery tokens, raw samples and local database paths. Review the report before sharing; port names and host details are still personal machine information. It never certifies wiring or hardware.
+
 Choose **ESP32-only communication test**, enter the confirmed current port and click **Start selected session**. Expected communication evidence: accepted count increases, source is **SIMULATED / TEST**, and all six sensor values remain **Unavailable**. No real sensor readings are fabricated. If no frames are accepted, stop and review port/baud/firmware rather than changing wiring or powering the motor.
 
 ## 4. Optional timed recording after communication works

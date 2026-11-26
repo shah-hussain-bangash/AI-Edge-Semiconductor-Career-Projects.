@@ -25,6 +25,15 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await page.goto(url+'/app');
   await until(async()=> (await page.locator('#source').innerText())==='SIMULATED / TEST');
   assert.equal(await page.locator('.card').count(),6);
+  assert.match(await page.locator('#connection-checks').innerText(),/Software demo selected: no USB communication/);
+  await page.locator('#refresh-diagnostics').click();
+  await until(async()=> (await page.locator('#diagnostics-status').innerText()).includes('Physical acceptance remains pending'));
+  assert.equal(await page.locator('#export-diagnostics').isVisible(),true);
+  const diagnostic=await (await page.request.get(url+'/api/diagnostics')).json();
+  assert.equal(diagnostic.reader.communication,'not-demonstrated');
+  assert.deepEqual(Object.values(diagnostic.reader.sensor_groups),Array(3).fill('unavailable'));
+  assert.equal(diagnostic.hardware_verified,false);assert.equal(diagnostic.write_token,undefined);
+  const guide=await page.request.get(url+'/guide/mac');assert.equal(guide.status(),200);assert.match(await guide.text(),/macOS Terminal/);
   assert.equal(await page.locator('#record-session').isDisabled(),true,'Demo cannot record USB');
   await until(async()=> (await page.locator('#library').innerText()).includes('simulated'));
   assert.equal(await page.locator('#library a').count(),1);
@@ -67,8 +76,10 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   assert.equal(await page.locator('#connect').isDisabled(),true);
   assert.equal(await page.locator('#export-session').isVisible(),false,'Outage clears session link');
   assert.equal(await page.locator('#library a').count(),0,'Outage clears archive links');
+  assert.equal(await page.locator('#export-diagnostics').isVisible(),false,'Outage clears diagnostic link');
+  assert.equal(await page.locator('#connection-checks li').count(),0,'Outage clears connection checklist');
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture','saved recording library and historical ZIP','archive links clear on outage'],physical_hardware_verified:false}));
+  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states','demo raw-recording refusal','USB recording port failure does not fabricate capture','saved recording library and historical ZIP','archive links clear on outage','demo cannot pass USB checklist or sensor diagnostics','allowlisted Mac guide available offline','outage clears troubleshooting link and checklist'],physical_hardware_verified:false}));
  }catch(error){console.error(logs);throw error;}
  finally{
   if(browser)await browser.close();
