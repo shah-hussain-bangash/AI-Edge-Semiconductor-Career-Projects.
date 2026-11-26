@@ -296,8 +296,5 @@
 
 .dashboard-page.pro-workspace main .experience-attention-jump{display:none}
 #overview-attention{scroll-margin-top:96px}
-.dashboard-page.pro-workspace .overview-secondary>*{min-width:0;max-width:100%}
-.dashboard-page.pro-workspace .critical-assets{min-width:0;max-width:100%;overflow:hidden}
-.dashboard-page.pro-workspace .critical-assets>.table-wrap{display:block;min-width:0;width:100%;max-width:100%;overflow-x:auto}
 #overview-attention-title:focus-visible{outline:2px solid #245bdc;outline-offset:4px;border-radius:3px}
 @media(max-width:800px){.dashboard-page.pro-workspace main .experience-attention-jump{display:inline-flex;align-items:center;min-height:44px;background:#edf4ff;color:#174a7d;border-color:#8fb6e9}}
