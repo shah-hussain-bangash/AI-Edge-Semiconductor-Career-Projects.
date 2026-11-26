@@ -79,7 +79,9 @@ class DemoControlTests(unittest.TestCase):
         class Redirect(BaseHTTPRequestHandler):
             def do_GET(self):self.send_response(302);self.send_header('Location','http://192.0.2.1/never-follow');self.end_headers()
             def log_message(self,*_):pass
-        server=HTTPServer(('127.0.0.1',0),Redirect);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        with patch('socket.getfqdn',return_value='localhost'):
+            server=HTTPServer(('127.0.0.1',0),Redirect)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         try:
             with self.assertRaises(HTTPError) as error:demo_control.request(server.server_port,'/api/status')
             self.assertEqual(error.exception.code,302)
@@ -87,6 +89,14 @@ class DemoControlTests(unittest.TestCase):
 
 
 class ShutdownHttpTests(test_home.HttpTests):
+    def test_loopback_startup_does_not_resolve_hostnames(self):
+        from home_server import HomeServer
+        with patch('socket.getfqdn',side_effect=AssertionError('Reverse DNS must not run')):
+            server=HomeServer(0,self.controller)
+        try:
+            self.assertEqual(server.server_address[0],'127.0.0.1')
+            self.assertEqual(server.server_name,'localhost');self.assertGreater(server.server_port,0)
+        finally:server.server_close()
     def test_shutdown_rejects_missing_token_origin_wrong_nonce_and_shape(self):
         body=dict(instance_id=self.server.instance_id)
         for payload,headers,code in [(body,{'X-Edgeops-Home-Token':'bad'},403),(body,{'Origin':'https://other.invalid'},403),({}, {},422),(dict(instance_id='0'*32),{},422)]:

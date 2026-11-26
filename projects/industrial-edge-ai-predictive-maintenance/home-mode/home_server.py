@@ -3,6 +3,7 @@ import argparse
 import csv
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 import io
 import json
 from pathlib import Path
@@ -30,6 +31,13 @@ class HomeServer(ThreadingHTTPServer):
         self.controller = controller; self.write_token = secrets.token_hex(32)
         self.instance_id = secrets.token_hex(16); self.identity = instance_identity(controller.directory)
         super().__init__(('127.0.0.1', port), Handler)
+
+    def server_bind(self):
+        # HTTPServer normally performs getfqdn() here. A fixed loopback service
+        # must not wait for reverse DNS (observed hanging on hosted Intel macOS).
+        TCPServer.server_bind(self)
+        self.server_name = 'localhost'
+        self.server_port = self.server_address[1]
 
 
 class Handler(BaseHTTPRequestHandler):
