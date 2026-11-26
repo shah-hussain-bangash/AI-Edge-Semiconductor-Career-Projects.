@@ -1,6 +1,12 @@
 # Mac gateway handoff verification — 26 November 2026
 
 
+## Bench bring-up implementation addition
+
+Added native Windows `home.ps1` (Setup/Check/Ports/Start/Demo/Update), Mac-only launcher guards, dashboard host guidance and consistent current/most-recent session snapshot exports. No user live server, private database, hardware or hosting was changed. Session packages preserve quality/source flags, include file hashes, report rolling-retention loss and leave physical acceptance pending. They do not include raw wire bytes or malformed frames and cannot satisfy H1 by themselves.
+
+Local Windows Python 3.12: 23 methods discovered, 21 passed and two POSIX-only methods skipped. New cases cover a 650-record package, hash/byte verification, zero/null/amp/quality preservation, retention loss/session separation, sequence gaps/duplicates/resets, stopped-session export, corruption refusal and HTTP lifecycle/query limits. Native PowerShell syntax and Check passed; port enumeration opened no device. Chromium simulation passed session summary/ZIP/host messaging plus the earlier six-card, source/history, stop/error/outage, five-width and contrast checks. The final GitHub home workflow repeats the suite on Python 3.12–3.14 on Linux and hosted Intel macOS, plus native Windows checks. Consult the actual run for its observed result; neither CI nor a package certifies physical hardware.
+
 ## Lightweight home mode addition — 26 November 2026
 
 Source inspection used release base `597f8ca87c4813238c0653cb26e0784b6194e359`. The existing scoped USB gateway/bench portal path was already partly integrated; direct local USB display without portal credentials was missing. [HOME_MAC.md](HOME_MAC.md) describes the added standalone mode.

@@ -12,3 +12,6 @@ __pycache__/
 *.log
 .DS_Store
 dashboard/tests/*_run.cjs
+
+# Derived session downloads are private bench evidence, not source.
+edgeops-session-*.zip

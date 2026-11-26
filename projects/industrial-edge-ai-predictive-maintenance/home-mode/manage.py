@@ -17,7 +17,7 @@ MARKER = VENV / '.edgeops-home-environment.json'
 
 def verify(python=None):
     python = python or VENV / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
-    if not MARKER.is_file(): raise ValueError('This is not a managed home environment. Run home_setup.command first.')
+    if not MARKER.is_file(): raise ValueError('This is not a managed home environment. Run ' + (r'.\home.ps1 -Action Setup' if os.name == 'nt' else 'bash home_setup.command') + ' first.')
     metadata = json.loads(MARKER.read_text(encoding='utf-8'))
     if metadata != {'format': 'edgeops-home-environment-v1'}: raise ValueError('Unexpected environment marker; no files were replaced')
     result = subprocess.run([str(python), '-c',
@@ -45,7 +45,8 @@ def setup():
         verify(python)
     print('Home setup complete: Python standard library + pyserial==3.5 only.')
     print('No serial port opened, firmware uploaded, cloud configured or model training installed.')
-    print('Mac launch: bash home_start.command. Software-only demo: bash home_start.command --mode demo --connect')
+    if os.name == 'nt': print(r'Windows launch: .\home.ps1 -Action Start. Software-only demo: .\home.ps1 -Action Demo')
+    else: print('Mac launch: bash home_start.command. Software-only demo: bash home_start.command --mode demo --connect')
 
 
 def check_clean_update(repo=ROOT):

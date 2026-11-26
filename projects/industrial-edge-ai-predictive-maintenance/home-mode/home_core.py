@@ -255,6 +255,15 @@ class Controller:
                 try: stream.close()
                 except Exception: pass
 
+    def session_snapshot(self):
+        # Copy a consistent boundary while acquisition is fenced; ZIP compression
+        # happens after releasing this lock so the serial thread can keep reading.
+        from session_export import checked_rows
+        with self.lock:
+            return dict(session_id=self.session_id, mode=self.settings['mode'],
+                accepted=self.accepted, rejected=self.rejected, state=self.state, error=self.error,
+                items=checked_rows(self.store, self.session_id))
+
     def status(self):
         with self.lock:
             age = None if self.last_tick is None else max(0.0, self.monotonic() - self.last_tick)

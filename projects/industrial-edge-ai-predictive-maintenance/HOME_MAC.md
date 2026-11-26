@@ -16,6 +16,22 @@ Inspected release base `597f8ca87c4813238c0653cb26e0784b6194e359`. Use this rele
 | Online portal | Separate gateway supports configurable HTTPS delivery and a private durable queue. Hosting, public URL, credential provisioning and real remote operation are **pending**. Home mode does not upload remotely. |
 | Physical hardware | Owner reports successful ESP32 upload and repeated `ESP32 is working!` on `/dev/cu.usbserial-0001`. This change did not independently repeat that test. ADXL345 headers still require soldering; wiring, exact probe/driver identification and calibration remain pending. |
 
+## Choose the computer first
+
+A prompt starting with `PS C:\Users\...` is Windows PowerShell. The `.command` launchers below now refuse Windows/WSL and Linux before changing an environment. Run them in **macOS Terminal on the home MacBook**. Calling `bash` on Windows does not connect to the Mac. GitHub stores source, not a running portal or a connection to home USB.
+
+For native office Windows setup, starting from an existing clean checkout's project folder:
+
+```powershell
+pymanager exec -V:3.13 home-mode/manage.py setup
+.\home.ps1 -Action Check
+.\home.ps1 -Action Demo
+```
+
+If a Python 3.12–3.14 `python` command is already installed, `.\home.ps1 -Action Setup` is also available. The launcher accepts `-PythonPath` for an explicit installed executable; it does not install a global Python runtime. `Check`/`Ports` only enumerate ports; they never open a board. `Demo` uses simulated data. If a home server is already responding, the launcher prints its URL without changing its reader or killing a process. A Windows board can be selected explicitly with `-Action Start -Mode esp32-only -SerialPort COM3` **only if COM3 was confirmed for a board physically attached to that Windows PC**. No port is guessed. A separate PowerShell window opens the page with `Start-Process "http://127.0.0.1:8878/app"`. `-Action Update` refuses dirty source and fast-forwards only.
+
+Windows `.ps1` scripts use the machine's existing execution policy. If that blocks a locally reviewed script, the equivalent Python commands remain available; no global policy setting is changed by this project. Do not clone inside another project. If creating a new Windows checkout, choose a short, new folder and use `git -c core.longpaths=true clone --branch release/mac-bench-20261126 --single-branch https://github.com/shah-hussain-bangash/AI-Edge-Semiconductor-Career-Projects..git edgeops-office`. Existing folders are preserved.
+
 ## Requirements and first setup
 
 Use a current patched **Python 3.12, 3.13 or 3.14** from python.org. For a new installation, the current Python 3.14 macOS universal installer supports macOS 10.15+, including Monterey's OS version: [official Python 3.14.10 release](https://www.python.org/downloads/release/python-31410/). This is an OS requirement check, not verification on your particular Mac. Do not replace Apple's system Python. Open a new Terminal after installation.
@@ -96,7 +112,11 @@ Office model training stays in the separate development/training environment. Ex
 
 Selection settings, process lock and SQLite history are in **`.local/home/`**, ignored by Git. There are no required credentials for home mode. `.venv-home/`, `.vscode/`, existing environment/credential paths and local databases are ignored. Keep future portal tokens, Wi-Fi passwords and API keys in private local configuration/environment files, never source or firmware commits. Existing remote-gateway credentials/queues stay separate and are not read by home mode.
 
-History retains the **most recent 10,000 records** across sessions (about 2.8 hours at 1 Hz). Older rows are removed automatically. The UI shows/exports the last 60; API history/CSV accepts `limit=1` through `200`. Export required records before they roll out. These limits favor a small home installation; this is not an archival or backup service. Hash checks detect retained payload corruption, not malicious tampering. A complete baseline session still needs a separate capture/retention plan.
+History retains the **most recent 10,000 records** across sessions (about 2.8 hours at 1 Hz). Older rows are removed automatically. The UI shows/exports the last 60; API history/CSV accepts `limit=1` through `200`. Export required records before they roll out. These limits favor a small home installation; this is not an archival or backup service. Hash checks detect retained payload corruption, not malicious tampering. Use **Review session summary** and **Download session package** to export all retained accepted records of the current or most recently stopped reader session (up to 10,000), rather than only the recent 60. The ZIP contains `samples.jsonl`, quality-labelled `samples.csv`, and a `manifest.json` with counts, source classification, SHA-256/byte counts, available-channel counts and sequence discontinuities. Snapshot timestamps distinguish it from a later download taken while acquisition continues.
+
+Stop/disconnect the reader before exporting a stable end-of-session package. Rolling retention may already have removed earlier accepted samples: `all_accepted_records_retained=false` and `missing_accepted_records` report that loss. Sessions do not mix. After restarting the server, start a new reader session; historical rows remain in the database/recent history, but the previous in-memory accepted/rejected counters cannot be reconstructed as complete session evidence. Export before closing the server if you need this package.
+
+This is a **derived-data package**, not the original wire stream: rejected frames and exact raw bytes are not retained. Receipt-time span is not measured run duration, and counters are not proof of physical authenticity. Even 650 simulated records never pass hardware acceptance. Physical status stays `pending`, and production/hardware/calibration/equipment flags remain false. A full H1 baseline still requires the existing raw capture/offline handoff, measured timing boundaries, reviewed references and independent physical checks.
 
 The service listens only on **127.0.0.1:8878**, with same-origin write checks and a per-process anti-forgery token. It is a personal local bench tool, without enterprise authentication or remote-device control. Do not expose/forward the port to a network. No remote upload, credentials, firmware flashing or motor control occurs during setup or launch.
 

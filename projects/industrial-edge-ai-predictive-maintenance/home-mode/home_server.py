@@ -8,9 +8,11 @@ import json
 from pathlib import Path
 import secrets
 import re
+import platform
 import sys
 from urllib.parse import parse_qs, urlsplit
 
+from session_export import build_package, summarize
 from home_core import BOUNDARY, CHANNELS, ROOT, Controller, ProcessLock, Store, load_settings, serial_ports, strict_json
 
 WEB = Path(__file__).resolve().parent / 'web'
@@ -53,9 +55,16 @@ class Handler(BaseHTTPRequestHandler):
         route = urlsplit(self.path)
         try:
             if route.path == '/api/status':
-                self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token}); return
+                self.send(200, {**self.server.controller.status(), 'write_token': self.server.write_token, 'host_platform': platform.system()}); return
             if route.path == '/api/ports':
                 self.send(200, {'ports': serial_ports(), **BOUNDARY}); return
+            if route.path in ('/api/session', '/api/session.zip'):
+                if route.query: raise ValueError('Session exports take no query parameters')
+                snapshot = self.server.controller.session_snapshot()
+                if route.path == '/api/session': self.send(200, summarize(snapshot)); return
+                payload = build_package(snapshot)
+                self.send(200, payload, 'application/zip', {'Content-Disposition': 'attachment; filename="edgeops-session-' + snapshot['session_id'] + '.zip"'})
+                return
             if route.path in ('/api/history', '/api/history.csv'):
                 query = parse_qs(route.query)
                 if set(query) - {'limit'} or len(query.get('limit', ['60'])) != 1: raise ValueError('Unsupported history query')

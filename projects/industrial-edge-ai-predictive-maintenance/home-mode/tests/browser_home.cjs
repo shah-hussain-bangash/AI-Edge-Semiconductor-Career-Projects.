@@ -27,6 +27,12 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await until(async()=> (await page.locator('#history').innerText()).includes('simulated / demo'));
   const csv=await (await page.request.get(url+'/api/history.csv?limit=60')).text();
   assert.match(csv,/simulated,demo,software-demo/);assert.match(csv,/False,False,False/);
+  assert.match(await page.locator('#host-platform').innerText(),/USB hardware must be connected to this computer/);
+  await page.locator('#session-summary').click();
+  await until(async()=> (await page.locator('#session-report').innerText()).includes('Physical acceptance: pending'));
+  assert.equal(await page.locator('#export-session').isVisible(),true);
+  const packageResponse=await page.request.get(url+'/api/session.zip');
+  assert.equal(packageResponse.status(),200);assert.match(packageResponse.headers()['content-type'],/application\/zip/);
   for(const width of [320,390,768,1024,1440]){
    await page.setViewportSize({width,height:1000});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No page overflow at '+width);
@@ -36,6 +42,7 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await until(async()=> (await page.locator('#session-state').innerText()).includes('disconnected'));
   assert.deepEqual(await page.locator('.value').allTextContents(),Array(6).fill('Unavailable'));
   assert.match(await page.locator('#history').innerText(),/simulated/);
+  assert.equal(await page.locator('#export-session').isVisible(),true,'Stopped session remains exportable');
   await page.locator('#mode').selectOption('esp32-only');
   // Deliberately missing fixture device; never choose any enumerated real port.
   await page.locator('#port').fill(process.platform==='win32'?'COM999':'/dev/cu.edgeops_missing_fixture');
@@ -47,8 +54,9 @@ async function until(check){for(let i=0;i<120;i++){try{if(await check())return;}
   await until(async()=> (await page.locator('#source').innerText())==='LOCAL SERVICE UNAVAILABLE');
   assert.deepEqual(await page.locator('.value').allTextContents(),Array(6).fill('Unavailable'));
   assert.equal(await page.locator('#connect').isDisabled(),true);
+  assert.equal(await page.locator('#export-session').isVisible(),false,'Outage clears session link');
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values'],physical_hardware_verified:false}));
+  console.log(JSON.stringify({result:'passed',checks:['demo labelled simulated','six cards and valid zero','source-labelled history and CSV','five widths and solid-surface contrast','stop clears current values','missing serial fixture never fabricates values','status outage clears controls and values','host location guidance','session summary remains pending','ZIP session export and stop/outage states'],physical_hardware_verified:false}));
  }catch(error){console.error(logs);throw error;}
  finally{
   if(browser)await browser.close();

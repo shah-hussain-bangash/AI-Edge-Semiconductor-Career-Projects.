@@ -1,5 +1,9 @@
 #!/bin/bash
 set -euo pipefail
+if [ "$(uname -s)" != "Darwin" ]; then
+  printf '%s\n' 'This launcher is for macOS Terminal on your MacBook.' 'On Windows PowerShell use: .\home.ps1 -Action Demo (or Setup / Start / Check / Update).'
+  exit 1
+fi
 cd "$(dirname "$0")"
 action="setup"
 if [ "${1:-}" = "--check" ]; then action="check"; fi

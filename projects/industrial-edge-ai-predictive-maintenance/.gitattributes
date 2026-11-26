@@ -4,3 +4,6 @@ mac-gateway/*.py text eol=lf
 home-mode/*.py text eol=lf
 home-mode/web/* text eol=lf
 phase-01-hardware/esp32_only/*.ino text eol=lf
+home.ps1 text eol=lf
+home-mode/tests/*.py text eol=lf
+home-mode/tests/*.cjs text eol=lf
