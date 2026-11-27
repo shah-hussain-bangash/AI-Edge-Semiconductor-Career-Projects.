@@ -209,3 +209,73 @@ class OperationalTests(unittest.TestCase):
         asset=self.summary()['assets'][0];self.assertEqual(asset['receipt']['state'],'delayed-receipt')
         self.assertEqual(asset['latest']['values']['temperature_c'],0);self.assertEqual(asset['source_type'],'software-fixture')
         self.assertFalse(asset['receipt']['acquisition_time_verified'])
+
+    def resolved_case(self,index=10):
+        self.rule();self.assertEqual(self.ingest(index,temp_c=40).status_code,201)
+        case=self.summary()['cases'][0]
+        case=self.action('cases',case,'acknowledge').json()['record']
+        reply=self.action('cases',case,'resolve',evidence_refs='Reviewed fixture record; physical work remains unverified.')
+        self.assertEqual(reply.status_code,200,reply.text);return reply.json()['record']
+
+    def test_newer_match_reopens_review_and_preserves_original_resolution(self):
+        case=self.resolved_case();route='/api/operational/case/'+case['id']+'/history'
+        previous=self.http.get(route).json()['events'];resolution=next(event for event in previous if event['action']=='resolve')
+        self.assertEqual(resolution['captured_state'],'resolved');self.assertEqual(resolution['captured_last_frame'],10)
+        self.assertEqual(self.ingest(11,temp_c=60).status_code,201)
+        reopened=self.summary()['cases'][0]
+        self.assertEqual(reopened['id'],case['id']);self.assertEqual(reopened['state'],'open');self.assertEqual(reopened['revision'],case['revision']+1)
+        events=self.http.get(route).json()['events'];self.assertEqual(events[0]['action'],'threshold_reobserved');self.assertEqual(events[0]['captured_value'],60)
+        self.assertEqual(next(event for event in events if event['action']=='resolve'),resolution)
+        notices=self.http.get('/api/operational/notifications').json()['items']
+        recurrence=[item for item in notices if 'review reopened' in item['subject']]
+        self.assertEqual(len(recurrence),1);self.assertEqual(recurrence[0]['email_state'],'local-only-fixture')
+
+    def test_concurrent_newer_matches_and_retries_reopen_only_once(self):
+        case=self.resolved_case()
+        with ThreadPoolExecutor(max_workers=2) as pool:codes=list(pool.map(lambda index:self.ingest(index,temp_c=50).status_code,(11,12)))
+        self.assertEqual(codes,[201,201]);self.assertEqual(self.ingest(11,temp_c=50).status_code,200)
+        reopened=self.summary()['cases'][0]
+        self.assertEqual((reopened['revision'],reopened['matched_records'],reopened['last_frame']),(case['revision']+1,3,12))
+        events=self.http.get('/api/operational/case/'+case['id']+'/history').json()['events']
+        self.assertEqual(sum(event['action']=='threshold_reobserved' for event in events),1)
+
+    def test_late_nonmatching_invalid_delayed_and_disabled_inputs_do_not_reopen(self):
+        case=self.resolved_case()
+        self.assertEqual(self.ingest(5,temp_c=50).status_code,201)
+        self.assertEqual(self.ingest(11,temp_c=0).status_code,201)
+        self.assertEqual(self.ingest(12,temp_c=50,ds18b20_valid=False,valid=False).status_code,201)
+        self.timestamp=(datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat();self.assertEqual(self.ingest(13,temp_c=50).status_code,201)
+        self.timestamp=(datetime.now(timezone.utc)+timedelta(seconds=30)).isoformat();self.assertEqual(self.ingest(14,temp_c=50).status_code,201)
+        self.timestamp=datetime.now(timezone.utc).isoformat()
+        rule=self.summary()['rules'][0]
+        self.assertEqual(self.post('/api/operational/rules/'+rule['id']+'/disable',dict(expected_revision=rule['revision'],**self.authorization)).status_code,200)
+        self.assertEqual(self.ingest(15,temp_c=50).status_code,201)
+        row=self.summary()['cases'][0];self.assertEqual((row['state'],row['revision'],row['matched_records']),('resolved',case['revision'],2))
+
+    def test_reopened_source_blocks_start_of_an_old_approved_work_record(self):
+        self.rule();self.ingest(temp_c=40);case=self.summary()['cases'][0]
+        order=self.order(case).json()['record'];context_hash=order['case_snapshot_sha256']
+        order=self.action('orders',order,'submit').json()['record'];self.login('reviewer');order=self.action('orders',order,'approve').json()['record']
+        self.login('admin');case=self.action('cases',case,'acknowledge').json()['record'];self.action('cases',case,'resolve',evidence_refs='Fixture resolution only')
+        self.ingest(1,temp_c=50);self.login('operator')
+        response=self.action('orders',order,'start');self.assertEqual(response.status_code,409,response.text);self.assertIn('Source case changed',response.text)
+        current=self.summary()['orders'][0];self.assertEqual(current['state'],'approved');self.assertEqual(current['case_snapshot_sha256'],context_hash)
+
+    def test_in_progress_work_can_be_documented_without_closing_reopened_case(self):
+        self.rule();self.ingest(temp_c=40);case=self.summary()['cases'][0]
+        order=self.order(case).json()['record'];context_hash=order['case_snapshot_sha256']
+        order=self.action('orders',order,'submit').json()['record'];self.login('reviewer');order=self.action('orders',order,'approve').json()['record']
+        self.login('operator');order=self.action('orders',order,'start').json()['record']
+        self.login('admin');case=self.action('cases',case,'acknowledge').json()['record'];self.action('cases',case,'resolve',evidence_refs='Fixture resolution only');self.ingest(1,temp_c=50)
+        self.login('operator');reply=self.action('orders',order,'complete',evidence_refs='Existing fixture execution evidence');self.assertEqual(reply.status_code,200,reply.text);order=reply.json()['record']
+        self.login('reviewer');reply=self.action('orders',order,'verify',evidence_refs='Independent fixture closure evidence');self.assertEqual(reply.status_code,200,reply.text)
+        self.assertEqual(reply.json()['record']['case_snapshot_sha256'],context_hash);self.assertEqual(self.summary()['cases'][0]['state'],'open');self.assertFalse(reply.json()['physical_work_verified'])
+
+    def test_reopen_event_failure_rolls_back_reading_and_case_until_retry(self):
+        from unittest.mock import patch
+        case=self.resolved_case()
+        with patch('operational_workflow.event',side_effect=RuntimeError('Fixture event storage unavailable')):
+            with self.assertRaises(RuntimeError):self.ingest(11,temp_c=50)
+        row=self.summary()['cases'][0];self.assertEqual((row['state'],row['revision'],row['matched_records']),('resolved',case['revision'],1))
+        with self.server.database() as db:self.assertEqual(db.execute('SELECT count(*) FROM bench_samples').fetchone()[0],1)
+        self.assertEqual(self.ingest(11,temp_c=50).status_code,201);self.assertEqual(self.summary()['cases'][0]['state'],'open')

@@ -195,6 +195,7 @@ def consume(db,body,content_hash,received_at,audit):
                 event(db,'case',case,None,'threshold_observed','Observed threshold crossing requires human review; no fault diagnosis or equipment action.',audit)
             else:
                 case_id=case['id']
+                reopen=case['state']=='resolved' and body.frame_index>case['last_frame']
                 # Network arrival order is not host frame order. Preserve the
                 # extrema instead of replacing the newest capture with a retry
                 # or delayed, lower-index frame from the same run/bucket.
@@ -202,6 +203,11 @@ def consume(db,body,content_hash,received_at,audit):
                 first=min(captures,key=lambda capture:capture[0]);last=max(captures,key=lambda capture:capture[0])
                 db.execute('UPDATE operational_cases SET matched_records=matched_records+1,first_frame=?,first_snapshot=?,last_frame=?,last_snapshot=?,updated_at=? WHERE id=?',
                            (first[0],first[1],last[0],last[1],received_at,case_id))
+                if reopen:
+                    db.execute("UPDATE operational_cases SET state='open',revision=revision+1 WHERE id=?",(case_id,))
+                    reopened=db.execute('SELECT * FROM operational_cases WHERE id=?',(case_id,)).fetchone()
+                    event(db,'case',reopened,None,'threshold_reobserved',
+                        'Newer matching host frame '+str(body.frame_index)+' arrived after recorded resolution. Review again; the earlier decision is retained and no physical recurrence is certified.',audit)
             decision='threshold-observed'
         db.execute('INSERT INTO operational_evaluations VALUES(?,?,?,?,?,?)',(policy['id'],body.run_id,body.frame_index,content_hash,decision,case_id))
 
@@ -360,6 +366,8 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 if body.action=='approve' and (case['revision']!=row['case_revision'] or case['state']=='resolved'):raise HTTPException(409,'Source case changed; prepare a new draft from its current revision')
             if body.action in ('start','complete') and actor['id']!=row['technician_id']:raise HTTPException(403,'Only the assigned technician records execution')
             if body.action=='start':
+                case=db.execute('SELECT * FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
+                if not case or case['revision']!=row['case_revision'] or case['state']=='resolved':raise HTTPException(409,'Source case changed after approval; prepare a new independently reviewed draft')
                 approver=db.execute('SELECT * FROM users WHERE id=?',(row['approver_id'],)).fetchone()
                 if not approver or approver['disabled'] or approver['role']!='admin' or row['approver_revision']!=local_notifications.account_revision(db,approver['id']):raise HTTPException(409,'Approval authority changed; prepare a new independently reviewed draft')
             if body.action in ('complete','verify') and not body.evidence_refs.strip():raise HTTPException(422,'Completion/review requires evidence references')
@@ -377,5 +385,14 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
         with database() as db:
             db.execute('BEGIN');actor=actor_for(db,request)
             row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
-            events=[dict(event) for event in db.execute('SELECT id,revision,action,note,time_utc FROM operational_events WHERE kind=? AND record_id=? ORDER BY id DESC LIMIT 200',(kind,identity))]
+            events=[]
+            for saved in db.execute('SELECT id,revision,action,note,time_utc,snapshot_json FROM operational_events WHERE kind=? AND record_id=? ORDER BY id DESC LIMIT 200',(kind,identity)):
+                entry={key:saved[key] for key in ('id','revision','action','note','time_utc')}
+                if kind=='case':
+                    try:
+                        captured=json.loads(saved['snapshot_json']);observation=json.loads(captured['last_snapshot'])
+                        entry.update(captured_state=captured['state'],captured_last_frame=captured['last_frame'],
+                            captured_channel=observation['channel'],captured_value=observation['value'],captured_source_type=captured['source_type'])
+                    except (KeyError,TypeError,ValueError):raise HTTPException(503,'Saved review context unavailable; no history is inferred') from None
+                events.append(entry)
             return dict(record=present_order(row) if kind=='order' else dict(row),events=events,**BOUNDARY)

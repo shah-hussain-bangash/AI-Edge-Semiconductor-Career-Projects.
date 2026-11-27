@@ -85,7 +85,8 @@ def enqueue(db,event_id,kind,row,action):
     for user_id in recipients-{None}:
         if not eligible(db,user_id,kind,row['id']):continue
         if db.execute('SELECT count(*) FROM operational_notifications').fetchone()[0]>=20000:raise HTTPException(429,'Notification retention capacity reached')
-        subject='EDGEOPS '+kind+' '+action+' — '+row['source_type']
+        label='review reopened after a newer observation' if action=='threshold_reobserved' else action
+        subject='EDGEOPS '+kind+' '+label+' — '+row['source_type']
         email_state='pending' if row['source_type']=='measured-unverified' else 'local-only-fixture'
         db.execute('INSERT INTO operational_notifications VALUES(?,?,?,?,?,?,?,NULL,?,0,0,NULL,NULL,?,NULL,NULL)',
                    (secrets.token_hex(16),event_id,user_id,kind,row['id'],row['source_type'],subject,email_state,datetime.now(timezone.utc).isoformat()))
