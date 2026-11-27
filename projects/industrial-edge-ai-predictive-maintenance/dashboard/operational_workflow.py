@@ -425,6 +425,43 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             row=db.execute('SELECT * FROM operational_orders WHERE id=?',(identity,)).fetchone();event(db,'order',row,actor,body.action,body.note,audit)
             return dict(record=present_order(row),**BOUNDARY)
 
+    @app.get('/api/operational/{kind}/records')
+    def search_records(kind:Literal['case','order'],request:Request,response:Response,
+                       q:str=Query(default='',max_length=100),state:str=Query(default='',max_length=32),
+                       source_type:Literal['measured-unverified','software-fixture']|None=None,
+                       limit:int=Query(default=50,ge=1,le=100),before_created:str|None=Query(default=None,max_length=64),
+                       before_id:str|None=Query(default=None,pattern=r'^[a-f0-9]{32}$')):
+        response.headers['Cache-Control']='no-store'
+        allowed=('open','acknowledged','resolved') if kind=='case' else ('draft','submitted','approved','in-progress','verification-pending','closed','rejected','cancelled')
+        if state and state not in allowed:raise HTTPException(422,'Choose a valid state for this record type')
+        if (before_created is None)!=(before_id is None):raise HTTPException(422,'Both record cursor fields are required')
+        if before_created is not None:
+            try:
+                stamp=datetime.fromisoformat(before_created)
+                if stamp.tzinfo is None or stamp.utcoffset().total_seconds()!=0:raise ValueError()
+            except ValueError:raise HTTPException(422,'Invalid record cursor; start a new search') from None
+        with database() as db:
+            db.execute('BEGIN');actor=actor_for(db,request)
+            table='operational_cases' if kind=='case' else 'operational_orders'
+            relation=' FROM '+table+' r'+(' JOIN operational_assets a ON a.id=r.asset' if kind=='case' else '')
+            where='1=1';params=[]
+            if actor['role']=='operator':
+                where+=' AND '+('r.assignee_id=?' if kind=='case' else '(r.creator_id=? OR r.technician_id=?)')
+                params += [actor['id']] if kind=='case' else [actor['id'],actor['id']]
+            if state:where+=' AND r.state=?';params.append(state)
+            if source_type:where+=' AND r.source_type=?';params.append(source_type)
+            if q.strip():
+                term='%'+q.strip().replace('!','!!').replace('%','!%').replace('_','!_')+'%'
+                where+=" AND (r.id LIKE ? ESCAPE '!' OR "+('a.label' if kind=='case' else 'r.title')+" LIKE ? ESCAPE '!')";params += [term,term]
+            total=db.execute('SELECT count(*)'+relation+' WHERE '+where,params).fetchone()[0]
+            if before_created is not None:
+                where+=' AND (r.created_at<? OR (r.created_at=? AND r.id<?))';params += [before_created,before_created,before_id]
+            label='a.label' if kind=='case' else 'r.title'
+            rows=db.execute('SELECT r.id,r.state,r.revision,r.source_type,r.created_at,r.updated_at,'+label+' AS label'+relation+' WHERE '+where+' ORDER BY r.created_at DESC,r.id DESC LIMIT ?',params+[limit+1]).fetchall()
+            has_more=len(rows)>limit;rows=rows[:limit]
+            return dict(items=[dict(row) for row in rows],matching_total=total,
+                page=dict(limit=limit,has_more=has_more,next_cursor=dict(created_at=rows[-1]['created_at'],id=rows[-1]['id']) if has_more else None),**BOUNDARY)
+
     @app.get('/api/operational/{kind}/{identity}/record')
     def get_record(kind:Literal['case','order'],identity:str,request:Request,response:Response):
         response.headers['Cache-Control']='no-store'

@@ -55,6 +55,47 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def test_saved_case_search_reaches_older_records_and_pages_without_duplicates(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with self.server.database() as db:
+            columns=[x[1] for x in db.execute('PRAGMA table_info(operational_cases)')];original=dict(db.execute('SELECT * FROM operational_cases WHERE id=?',(case['id'],)).fetchone())
+            for index in range(205):
+                copy=dict(original,id=format(index+1,'032x'),bucket=index+1,created_at='2099-01-01T00:00:00+00:00',updated_at='2099-01-01T00:00:00+00:00')
+                db.execute('INSERT INTO operational_cases VALUES('+','.join('?' for _ in columns)+')',tuple(copy[k] for k in columns))
+        self.assertNotIn(case['id'],[r['id'] for r in self.summary()['cases']])
+        found=self.http.get('/api/operational/case/records',params={'q':case['id']});self.assertEqual(found.status_code,200,found.text);self.assertEqual(found.headers['cache-control'],'no-store');self.assertEqual([x['id'] for x in found.json()['items']],[case['id']])
+        seen=[];params={'limit':61}
+        for _ in range(10):
+            data=self.http.get('/api/operational/case/records',params=params).json();seen += [x['id'] for x in data['items']];self.assertEqual(data['matching_total'],206)
+            cursor=data['page']['next_cursor']
+            if cursor is None:break
+            params.update(before_created=cursor['created_at'],before_id=cursor['id'])
+        self.assertEqual(len(seen),206);self.assertEqual(len(set(seen)),206)
+        self.assertEqual(self.http.get('/api/operational/case/records',params={'q':'%'}).json()['items'],[])
+        self.assertEqual(self.http.get('/api/operational/case/records',params={'source_type':'measured-unverified'}).json()['matching_total'],0)
+
+    def test_saved_case_search_rechecks_operator_assignment_before_filtering(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0];path='/api/operational/case/records'
+        self.login('operator');self.assertEqual(self.http.get(path).json()['matching_total'],0)
+        self.login('admin');self.assertEqual(self.post('/api/operational/cases/'+case['id']+'/assign',dict(expected_revision=case['revision'],assignee_id=self.technician,**self.authorization)).status_code,200)
+        self.login('operator');data=self.http.get(path,params={'q':'Isolated fixture motor','state':'open','source_type':'software-fixture'}).json();self.assertEqual(data['matching_total'],1);self.assertNotIn('first_snapshot',data['items'][0])
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=NULL WHERE id=?',(case['id'],))
+        self.assertEqual(self.http.get(path,params={'q':case['id'],'before_created':'2099-01-01T00:00:00+00:00','before_id':'f'*32}).json()['matching_total'],0)
+        self.login('auditor');self.assertEqual(self.http.get(path,params={'q':case['id']}).json()['matching_total'],1)
+
+    def test_saved_work_search_state_source_and_current_assignment(self):
+        case,order=self.prepared_order('approved');self.login('admin');self.assertEqual(self.action('orders',order,'cancel').status_code,200);path='/api/operational/order/records';params={'q':'Inspect fixture','state':'cancelled','source_type':'software-fixture'}
+        self.login('operator');reply=self.http.get(path,params=params);self.assertEqual(reply.status_code,200,reply.text);self.assertEqual([x['id'] for x in reply.json()['items']],[order['id']]);self.assertNotIn('procedure',reply.text);self.assertNotIn('request_hash',reply.text)
+        with self.server.database() as db:db.execute('UPDATE operational_orders SET technician_id=creator_id WHERE id=?',(order['id'],))
+        self.assertEqual(self.http.get(path,params=params).json()['items'],[])
+        self.login('auditor');self.assertEqual(self.http.get(path,params=params).json()['matching_total'],1)
+        self.http.cookies.clear();self.assertEqual(self.http.get(path).status_code,401)
+
+    def test_saved_record_search_rejects_bad_filters_and_cursor_pairs(self):
+        path='/api/operational/case/records'
+        for params in [{'state':'draft'},{'source_type':'unverified'},{'limit':0},{'limit':101},{'q':'x'*101},{'before_created':'2099-01-01T00:00:00+00:00'},{'before_id':'a'*32},{'before_created':'2099-01-01T00:00:00','before_id':'a'*32}]:self.assertEqual(self.http.get(path,params=params).status_code,422)
+        self.assertEqual(self.http.get('/api/operational/order/records',params={'state':'acknowledged'}).status_code,422)
+
     def test_new_work_refuses_unseen_matching_frame_and_accepts_reviewed_frame(self):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
         self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.assertEqual(self.order(case).status_code,409);self.assertEqual(self.summary()['orders'],[])
