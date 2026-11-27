@@ -170,6 +170,20 @@ def start_review(db,row):
     return dict(state=state,message=message,equipment_authorized=False)
 
 
+def review_events(db,kind,identity):
+    entries=[]
+    for saved in db.execute('SELECT id,revision,actor_id,action,note,time_utc,snapshot_json FROM operational_events WHERE kind=? AND record_id=? ORDER BY id DESC LIMIT 200',(kind,identity)):
+        entry={key:saved[key] for key in ('id','revision','actor_id','action','note','time_utc')}
+        if kind=='case':
+            try:
+                captured=json.loads(saved['snapshot_json']);observation=json.loads(captured['last_snapshot'])
+                entry.update(captured_state=captured['state'],captured_last_frame=captured['last_frame'],
+                    captured_channel=observation['channel'],captured_value=observation['value'],captured_source_type=captured['source_type'])
+            except (KeyError,TypeError,ValueError):raise HTTPException(503,'Saved review context unavailable; no history is inferred') from None
+        entries.append(entry)
+    return entries
+
+
 def visible(db,table,identifier,actor):
     row=db.execute('SELECT * FROM '+table+' WHERE id=?',(identifier,)).fetchone()
     if not row:raise HTTPException(404,'Operational review record not found')
@@ -406,14 +420,31 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
         with database() as db:
             db.execute('BEGIN');actor=actor_for(db,request)
             row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
-            events=[]
-            for saved in db.execute('SELECT id,revision,action,note,time_utc,snapshot_json FROM operational_events WHERE kind=? AND record_id=? ORDER BY id DESC LIMIT 200',(kind,identity)):
-                entry={key:saved[key] for key in ('id','revision','action','note','time_utc')}
-                if kind=='case':
-                    try:
-                        captured=json.loads(saved['snapshot_json']);observation=json.loads(captured['last_snapshot'])
-                        entry.update(captured_state=captured['state'],captured_last_frame=captured['last_frame'],
-                            captured_channel=observation['channel'],captured_value=observation['value'],captured_source_type=captured['source_type'])
-                    except (KeyError,TypeError,ValueError):raise HTTPException(503,'Saved review context unavailable; no history is inferred') from None
-                events.append(entry)
+            events=review_events(db,kind,identity)
             return dict(record=present_order(row) if kind=='order' else dict(row),events=events,**BOUNDARY)
+
+    @app.get('/api/operational/{kind}/{identity}/review-export')
+    def review_export(kind:Literal['case','order'],identity:str,request:Request):
+        with database() as db:
+            db.execute('BEGIN');actor=actor_for(db,request)
+            row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
+            record=present_order(row) if kind=='order' else dict(row)
+            if kind=='case':
+                try:
+                    for key in ('first_snapshot','last_snapshot'):record[key]=json.loads(record[key])
+                except (TypeError,ValueError):raise HTTPException(503,'Saved case context unavailable; no report is inferred') from None
+            else:
+                for key in ('request_key','request_hash'):record.pop(key,None)
+            events=review_events(db,kind,identity)
+            total=db.execute('SELECT count(*) FROM operational_events WHERE kind=? AND record_id=?',(kind,identity)).fetchone()[0]
+            import operational_evidence
+            files=[operational_evidence.metadata(file) for file in db.execute('SELECT id,kind,record_id,uploader_id,filename,content_type,sha256,byte_count,created_at,scan_state FROM operational_evidence WHERE kind=? AND record_id=? ORDER BY created_at,id',(kind,identity))]
+            report=dict(format='edgeops-local-review-v1',exported_at=now(),kind=kind,record=record,
+                history=dict(events=events,total=total,returned=len(events),limit=200,complete=total==len(events),order='newest-first'),
+                evidence=dict(files=files,file_payloads_included=False,payload_integrity_verified=False,malware_scanned=False),
+                **BOUNDARY)
+            envelope=dict(report=report,report_sha256=hashlib.sha256(canonical(report).encode()).hexdigest(),
+                hash_encoding='UTF-8 JSON, sorted keys, compact separators, ensure_ascii=true',digitally_signed=False)
+            return Response(canonical(envelope),media_type='application/json',headers={
+                'Content-Disposition':'attachment; filename="edgeops-'+kind+'-'+row['id']+'-review.json"',
+                'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})

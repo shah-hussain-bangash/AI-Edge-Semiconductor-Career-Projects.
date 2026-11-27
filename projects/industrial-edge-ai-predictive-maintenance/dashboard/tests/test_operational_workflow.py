@@ -54,6 +54,51 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def test_review_export_hash_evidence_metadata_and_no_workflow_mutation(self):
+        import hashlib
+        from operational_workflow import canonical
+        self.rule(threshold=-1);self.assertEqual(self.ingest(temp_c=0).status_code,201);case=self.summary()['cases'][0]
+        upload=self.http.post('/api/operational/evidence/case/'+case['id'],params={'filename':'private.txt'},content=b'Private fixture payload',headers={'content-type':'text/plain','x-edgeops-csrf':self.http.cookies.get('edgeops_csrf')})
+        self.assertEqual(upload.status_code,201)
+        before=self.summary()['cases'];inbox=self.http.get('/api/operational/notifications').json()['items']
+        reply=self.http.get('/api/operational/case/'+case['id']+'/review-export');self.assertEqual(reply.status_code,200,reply.text)
+        self.assertIn('attachment;',reply.headers['content-disposition']);self.assertEqual(reply.headers['cache-control'],'no-store')
+        envelope=reply.json();report=envelope['report'];self.assertEqual(envelope['report_sha256'],hashlib.sha256(canonical(report).encode()).hexdigest())
+        self.assertFalse(envelope['digitally_signed']);self.assertFalse(report['production_ready']);self.assertFalse(report['physical_work_verified'])
+        self.assertEqual(report['record']['last_snapshot']['value'],0);self.assertTrue(report['history']['complete'])
+        self.assertEqual(report['evidence']['files'][0]['sha256'],upload.json()['file']['sha256']);self.assertFalse(report['evidence']['file_payloads_included'])
+        self.assertNotIn('Private fixture payload',reply.text);self.assertNotIn(self.token,reply.text);self.assertNotIn(self.password,reply.text)
+        self.assertEqual(self.summary()['cases'],before);self.assertEqual(self.http.get('/api/operational/notifications').json()['items'],inbox)
+
+    def test_review_export_current_access_and_frozen_order_context(self):
+        case,order=self.prepared_order('approved');case_path='/api/operational/case/'+case['id']+'/review-export';order_path='/api/operational/order/'+order['id']+'/review-export'
+        self.login('operator');self.assertEqual(self.http.get(case_path).status_code,404)
+        reply=self.http.get(order_path);self.assertEqual(reply.status_code,200,reply.text)
+        record=reply.json()['report']['record'];self.assertEqual(record['case_snapshot_sha256'],order['case_snapshot_sha256']);self.assertNotIn('request_hash',record)
+        self.login('auditor');self.assertEqual(self.http.get(case_path).status_code,200);self.assertEqual(self.http.get(order_path).status_code,200)
+        self.login('operator')
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=1 WHERE id=?',(self.technician,))
+        self.assertIn(self.http.get(order_path).status_code,(401,403))
+        self.http.cookies.clear();self.assertEqual(self.http.get(order_path).status_code,401)
+
+    def test_review_export_declares_truncated_history_and_refuses_corrupt_context(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0];path='/api/operational/case/'+case['id']+'/review-export'
+        with self.server.database() as db:
+            event=dict(db.execute("SELECT * FROM operational_events WHERE kind='case' AND record_id=?",(case['id'],)).fetchone())
+            for _ in range(201):db.execute('INSERT INTO operational_events(kind,record_id,revision,actor_id,action,note,snapshot_json,time_utc) VALUES(?,?,?,?,?,?,?,?)',tuple(event[k] for k in ('kind','record_id','revision','actor_id','action','note','snapshot_json','time_utc')))
+        report=self.http.get(path).json()['report'];self.assertFalse(report['history']['complete']);self.assertEqual(report['history']['total'],202);self.assertEqual(report['history']['returned'],200)
+        self.assertEqual(len(report['history']['events']),200)
+        with self.server.database() as db:db.execute("UPDATE operational_events SET snapshot_json='{}' WHERE kind='case' AND record_id=?",(case['id'],))
+        self.assertEqual(self.http.get(path).status_code,503)
+
+    def test_review_export_cancelled_order_keeps_context_and_refuses_tampering(self):
+        case,order=self.prepared_order('approved');self.login('admin');self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+        path='/api/operational/order/'+order['id']+'/review-export';report=self.http.get(path).json()['report']
+        self.assertEqual(report['record']['state'],'cancelled');self.assertEqual(report['record']['case_snapshot_sha256'],order['case_snapshot_sha256'])
+        self.assertEqual(report['history']['events'][0]['action'],'cancel');self.assertIsNotNone(report['history']['events'][0]['actor_id'])
+        with self.server.database() as db:db.execute("UPDATE operational_orders SET case_snapshot='{}' WHERE id=?",(order['id'],))
+        self.assertEqual(self.http.get(path).status_code,503)
+
     def test_start_review_reports_current_approval_without_authorizing_equipment(self):
         case,order=self.prepared_order('approved');review=self.summary()['orders'][0]['start_review']
         self.assertEqual(review['state'],'ready');self.assertFalse(review['equipment_authorized'])
