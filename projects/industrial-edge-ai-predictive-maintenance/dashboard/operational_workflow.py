@@ -415,6 +415,20 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             row=db.execute('SELECT * FROM operational_orders WHERE id=?',(identity,)).fetchone();event(db,'order',row,actor,body.action,body.note,audit)
             return dict(record=present_order(row),**BOUNDARY)
 
+    @app.get('/api/operational/{kind}/{identity}/record')
+    def get_record(kind:Literal['case','order'],identity:str,request:Request,response:Response):
+        response.headers['Cache-Control']='no-store'
+        with database() as db:
+            db.execute('BEGIN');actor=actor_for(db,request)
+            row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
+            if kind=='order':record=dict(present_order(row),start_review=start_review(db,row))
+            else:
+                record=dict(row)
+                try:
+                    for key in ('first_snapshot','last_snapshot'):record[key]=json.loads(record[key])
+                except (TypeError,ValueError):raise HTTPException(503,'Saved case context unavailable') from None
+            return dict(record=record,role=actor['role'],user_id=actor['id'],**BOUNDARY)
+
     @app.get('/api/operational/{kind}/{identity}/history')
     def history(kind:Literal['case','order'],identity:str,request:Request):
         with database() as db:

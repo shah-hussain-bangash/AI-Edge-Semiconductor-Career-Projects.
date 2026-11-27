@@ -54,6 +54,43 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def test_exact_lookup_opens_case_outside_recent_summary_without_mutation(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with self.server.database() as db:
+            columns=[x[1] for x in db.execute('PRAGMA table_info(operational_cases)')]
+            original=dict(db.execute('SELECT * FROM operational_cases WHERE id=?',(case['id'],)).fetchone())
+            for index in range(201):
+                copy=dict(original,id=format(index+1,'032x'),bucket=index+1,updated_at='2099-01-01T00:00:00+00:00')
+                db.execute('INSERT INTO operational_cases VALUES('+','.join('?' for _ in columns)+')',tuple(copy[k] for k in columns))
+        self.assertNotIn(case['id'],[r['id'] for r in self.summary()['cases']])
+        inbox=self.http.get('/api/operational/notifications').json()['items']
+        reply=self.http.get('/api/operational/case/'+case['id']+'/record');self.assertEqual(reply.status_code,200,reply.text)
+        self.assertEqual(reply.headers['cache-control'],'no-store');self.assertEqual(reply.json()['record']['revision'],case['revision'])
+        self.assertEqual(reply.json()['record']['last_snapshot']['value'],40)
+        self.assertEqual(self.http.get('/api/operational/notifications').json()['items'],inbox)
+
+    def test_exact_lookup_rechecks_current_access_and_account_status(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        path='/api/operational/case/'+case['id']+'/record'
+        self.login('operator');self.assertEqual(self.http.get(path).status_code,404)
+        self.login('admin');case=self.post('/api/operational/cases/'+case['id']+'/assign',dict(expected_revision=case['revision'],assignee_id=self.technician,**self.authorization)).json()['record']
+        self.login('operator');self.assertEqual(self.http.get(path).status_code,200)
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=NULL WHERE id=?',(case['id'],))
+        self.assertEqual(self.http.get(path).status_code,404)
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=1 WHERE id=?',(self.technician,))
+        self.assertIn(self.http.get(path).status_code,(401,403))
+        self.http.cookies.clear();self.assertEqual(self.http.get(path).status_code,401)
+
+    def test_exact_work_lookup_keeps_frozen_context_and_current_start_review(self):
+        case,order=self.prepared_order('approved');path='/api/operational/order/'+order['id']+'/record'
+        self.login('operator');reply=self.http.get(path);self.assertEqual(reply.status_code,200,reply.text)
+        self.assertEqual(reply.json()['record']['case_snapshot_sha256'],order['case_snapshot_sha256'])
+        self.assertEqual(reply.json()['record']['start_review']['state'],'ready')
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET revision=revision+1 WHERE id=?',(case['id'],))
+        self.assertEqual(self.http.get(path).json()['record']['start_review']['state'],'source-case-changed')
+        with self.server.database() as db:db.execute("UPDATE operational_orders SET case_snapshot='{}' WHERE id=?",(order['id'],))
+        self.assertEqual(self.http.get(path).status_code,503)
+
     def test_review_export_hash_evidence_metadata_and_no_workflow_mutation(self):
         import hashlib
         from operational_workflow import canonical
