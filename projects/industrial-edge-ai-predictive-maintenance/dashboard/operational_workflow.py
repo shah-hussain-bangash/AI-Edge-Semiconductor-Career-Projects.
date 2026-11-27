@@ -75,6 +75,24 @@ def now(): return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 def canonical(value): return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
 
 
+def receipt_timing(reading,reference):
+    """Display-only receipt timing, never acquisition freshness or cable status."""
+    result=dict(state='no-readings' if reading is None else 'timing-unavailable',
+        server_age_seconds=None,gateway_delay_seconds=None,display_window_seconds=15,
+        acquisition_time_verified=False)
+    if reading is None:return result
+    try:
+        server=datetime.fromisoformat(reading['server_received_at'])
+        gateway=datetime.fromisoformat(reading['gateway_received_at'])
+        current=datetime.fromisoformat(reference)
+        if any(value.tzinfo is None for value in (server,gateway,current)):return result
+        age=(current-server).total_seconds();delay=(server-gateway).total_seconds()
+        result.update(server_age_seconds=round(age,3),gateway_delay_seconds=round(delay,3))
+        result['state']='clock-difference' if age < -5 or delay < -5 else 'stale-receipt' if age>15 else 'delayed-receipt' if delay>15 else 'recent-receipt'
+    except (KeyError,TypeError,ValueError):pass
+    return result
+
+
 def init_schema(db):
     schema='''CREATE TABLE IF NOT EXISTS operational_assets(
         id TEXT PRIMARY KEY,site_id TEXT NOT NULL,asset_id TEXT NOT NULL,label TEXT NOT NULL,
@@ -177,8 +195,13 @@ def consume(db,body,content_hash,received_at,audit):
                 event(db,'case',case,None,'threshold_observed','Observed threshold crossing requires human review; no fault diagnosis or equipment action.',audit)
             else:
                 case_id=case['id']
-                db.execute('UPDATE operational_cases SET matched_records=matched_records+1,last_frame=?,last_snapshot=?,updated_at=? WHERE id=?',
-                           (body.frame_index,snapshot,received_at,case_id))
+                # Network arrival order is not host frame order. Preserve the
+                # extrema instead of replacing the newest capture with a retry
+                # or delayed, lower-index frame from the same run/bucket.
+                captures=[(case['first_frame'],case['first_snapshot']),(case['last_frame'],case['last_snapshot']),(body.frame_index,snapshot)]
+                first=min(captures,key=lambda capture:capture[0]);last=max(captures,key=lambda capture:capture[0])
+                db.execute('UPDATE operational_cases SET matched_records=matched_records+1,first_frame=?,first_snapshot=?,last_frame=?,last_snapshot=?,updated_at=? WHERE id=?',
+                           (first[0],first[1],last[0],last[1],received_at,case_id))
             decision='threshold-observed'
         db.execute('INSERT INTO operational_evaluations VALUES(?,?,?,?,?,?)',(policy['id'],body.run_id,body.frame_index,content_hash,decision,case_id))
 
@@ -194,7 +217,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
     def summary(request:Request,response:Response):
         response.headers['Cache-Control']='no-store'
         with database() as db:
-            db.execute('BEGIN');actor=actor_for(db,request)
+            db.execute('BEGIN');actor=actor_for(db,request);generated_at=now()
             assets=[]
             import bench_ingress
             for row in db.execute('SELECT * FROM operational_assets ORDER BY created_at DESC LIMIT 100'):
@@ -202,6 +225,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 latest=db.execute('''SELECT s.* FROM bench_samples s JOIN bench_runs r ON r.id=s.run_id
                     WHERE r.device_id=? AND r.source_type=? ORDER BY s.received_at DESC,s.frame_index DESC LIMIT 1''',(row['device_id'],row['source_type'])).fetchone()
                 asset['latest']=bench_ingress.present(latest) if latest else None
+                asset['receipt']=receipt_timing(asset['latest'],generated_at)
                 assets.append(asset)
             cases=[dict(row) for row in db.execute('SELECT * FROM operational_cases'+(' WHERE assignee_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],) if actor['role']=='operator' else ())]
             orders=[dict(row) for row in db.execute('SELECT * FROM operational_orders'+(' WHERE creator_id=? OR technician_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],actor['id']) if actor['role']=='operator' else ())]
@@ -210,7 +234,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 row['first_snapshot']=json.loads(row['first_snapshot']);row['last_snapshot']=json.loads(row['last_snapshot'])
             rules=[dict(row) for row in db.execute('SELECT * FROM operational_rules ORDER BY created_at DESC LIMIT 100')]
             assignees=[dict(row) for row in db.execute("SELECT id,email,role FROM users WHERE disabled=0 AND role IN ('admin','operator') ORDER BY email,id LIMIT 100")] if actor['role'] in WRITE_ROLES else []
-            return dict(assets=assets,rules=rules,cases=cases,orders=orders,assignees=assignees,role=actor['role'],user_id=actor['id'],**BOUNDARY)
+            return dict(assets=assets,rules=rules,cases=cases,orders=orders,assignees=assignees,generated_at=generated_at,role=actor['role'],user_id=actor['id'],**BOUNDARY)
 
     @app.post('/api/operational/assets')
     def create_asset(body:Asset,request:Request,response:Response):

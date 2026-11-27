@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import unittest
 import json
 import httpx
@@ -162,3 +162,50 @@ class OperationalTests(unittest.TestCase):
             response=self.http.get('/app?view='+value,follow_redirects=False)
             self.assertEqual(response.headers['location'],'/signin')
         self.assertEqual(self.http.get('/app?next=https://example.invalid',follow_redirects=False).headers['location'],'/signin')
+
+    def test_out_of_order_matches_preserve_frame_extrema_and_frozen_work_context(self):
+        self.rule()
+        for index,value in [(30,50),(10,40),(20,45)]:self.assertEqual(self.ingest(index,temp_c=value).status_code,201)
+        case=self.summary()['cases'][0]
+        self.assertEqual((case['first_frame'],case['last_frame'],case['matched_records']),(10,30,3))
+        self.assertEqual(case['first_snapshot']['value'],40);self.assertEqual(case['last_snapshot']['value'],50)
+        saved=self.order(case);self.assertEqual(saved.status_code,201,saved.text);context_hash=saved.json()['record']['case_snapshot_sha256']
+        for index,value in [(50,70),(40,60)]:self.assertEqual(self.ingest(index,temp_c=value).status_code,201)
+        self.assertEqual(self.ingest(40,temp_c=60).status_code,200)
+        data=self.summary();case=data['cases'][0]
+        self.assertEqual((case['first_frame'],case['last_frame'],case['matched_records']),(10,50,5))
+        self.assertEqual(case['last_snapshot']['value'],70)
+        self.assertEqual(case['first_snapshot']['frame_index'],10);self.assertEqual(case['last_snapshot']['frame_index'],50)
+        self.assertEqual(data['orders'][0]['case_snapshot_sha256'],context_hash)
+        self.assertEqual(data['orders'][0]['case_snapshot']['last_frame'],30)
+
+    def test_receipt_display_boundaries_and_unknown_clocks(self):
+        from operational_workflow import receipt_timing
+        reference=datetime(2026,11,27,tzinfo=timezone.utc)
+        for age,delay,expected in [(0,0,'recent-receipt'),(15,15,'recent-receipt'),(15.001,0,'stale-receipt'),(0,15.001,'delayed-receipt'),(-6,0,'clock-difference'),(0,-6,'clock-difference')]:
+            server=reference-timedelta(seconds=age)
+            reading=dict(server_received_at=server.isoformat(),gateway_received_at=(server-timedelta(seconds=delay)).isoformat())
+            with self.subTest(age=age,delay=delay):
+                result=receipt_timing(reading,reference.isoformat());self.assertEqual(result['state'],expected);self.assertFalse(result['acquisition_time_verified'])
+        self.assertEqual(receipt_timing(None,reference.isoformat())['state'],'no-readings')
+        self.assertEqual(receipt_timing(dict(server_received_at='invalid',gateway_received_at='invalid'),reference.isoformat())['state'],'timing-unavailable')
+        self.assertEqual(receipt_timing(dict(server_received_at='2026-11-27T00:00:00',gateway_received_at=reference.isoformat()),reference.isoformat())['state'],'timing-unavailable')
+
+    def test_server_referenced_receipt_age_never_promotes_unavailable_channels(self):
+        from unittest.mock import patch
+        self.assertEqual(self.summary()['assets'][0]['receipt']['state'],'no-readings')
+        self.assertEqual(self.ingest(temp_c=0,ds18b20_valid=False,valid=False).status_code,201)
+        asset=self.summary()['assets'][0];self.assertEqual(asset['receipt']['state'],'recent-receipt')
+        self.assertIsNone(asset['latest']['values']['temperature_c']);self.assertEqual(asset['latest']['values']['current_a'],0)
+        received=datetime.fromisoformat(asset['latest']['server_received_at'])
+        with patch('operational_workflow.now',return_value=(received+timedelta(seconds=16)).isoformat()):
+            stale=self.summary()['assets'][0];self.assertEqual(stale['receipt']['state'],'stale-receipt');self.assertIsNone(stale['latest']['values']['temperature_c'])
+        with patch('operational_workflow.now',return_value=(received-timedelta(seconds=6)).isoformat()):
+            self.assertEqual(self.summary()['assets'][0]['receipt']['state'],'clock-difference')
+
+    def test_recent_server_receipt_can_still_be_delayed_gateway_data(self):
+        self.timestamp=(datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat()
+        self.assertEqual(self.ingest(temp_c=0).status_code,201)
+        asset=self.summary()['assets'][0];self.assertEqual(asset['receipt']['state'],'delayed-receipt')
+        self.assertEqual(asset['latest']['values']['temperature_c'],0);self.assertEqual(asset['source_type'],'software-fixture')
+        self.assertFalse(asset['receipt']['acquisition_time_verified'])

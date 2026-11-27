@@ -102,6 +102,16 @@ Restore revokes browser/service/bench credentials and disables active review pol
 
 Choose a service separately; do not enter SMTP passwords into dashboard forms. Configure `EDGEOPS_SMTP_HOST`, `EDGEOPS_SMTP_PORT`, `EDGEOPS_SMTP_TLS` (`starttls` or `ssl`), `EDGEOPS_SMTP_USERNAME`, `EDGEOPS_SMTP_PASSWORD` and `EDGEOPS_SMTP_FROM` through the private process environment. The server must see configuration to enable the policy; the worker needs it to send. TLS certificate validation and authentication are required. Delivery sends a minimal notice ID, source and recorded event time, not private evidence files or raw notes. Delayed delivery is labelled. Review recipients and queued records before enabling an external route. No provider delivery is certified by software mocks.
 
+## Receipt timing and historical case evidence
+
+Assets shows receipt timing calculated against the server's observation timestamp at the last refresh, rather than the browser's wall clock. The 15-second window is a display convention, not an accepted sampling rate, alarm target or production service level. A recent server receipt can still be labelled delayed when the gateway-declared receipt time is more than 15 seconds earlier. Future-dated times beyond a five-second tolerance, invalid timing and absent data are labelled separately. Gateway and sensor acquisition clocks remain unverified.
+
+Refresh operational records, or enable the visible 5-second refresh option, to obtain a new snapshot. A static page does not prove ongoing freshness. Valid numeric zero remains zero; channels marked invalid remain unavailable even if the server receipt is recent. No receipt label establishes cable connectivity, calibration or equipment health.
+
+Alerts labels captured threshold crossings as historical evidence and shows the run, saved host-frame endpoints and capture receipt timestamp. **Review retained telemetry** switches to registered data and selects the associated available mapping; it clears the selection if that mapping is unavailable. New matched updates keep first/last captures in host-frame order even when HTTP arrivals are out of order. Duplicate retries still do not increment matched-record counts. Host-frame order is not a verified device clock or sampling frequency.
+
+This forward-processing fix does not replay or bulk-repair older case histories. Retained raw readings remain available for a separate historical review. Existing work records retain their original captured case context and hash. New readings neither automatically resolve cases nor verify physical work.
+
 ## Evidence, studies, retention and release procedure
 
 Evidence is stored inside SQLite: at most 2 MiB per supported file, 256 files and 32 MiB total. Type/signature/text validation does not establish safety. Downloads are forced attachments with `nosniff`; do not open untrusted files without a separate scanning procedure. Upload retries with the same record, name, media type and content are deduplicated. Resolution or work completion freezes additional uploads; retained files remain available to currently authorized users. No public file links are issued.
