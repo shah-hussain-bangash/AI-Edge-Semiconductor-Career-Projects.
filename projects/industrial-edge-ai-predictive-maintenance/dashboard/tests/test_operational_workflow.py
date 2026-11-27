@@ -40,6 +40,7 @@ class OperationalTests(unittest.TestCase):
     def action(self,kind,row,action,**changes):
         body=dict(expected_revision=row['revision'],action=action,note='Explicit isolated review decision for software testing.',evidence_refs='')
         if kind=='cases':body['expected_last_frame']=row['last_frame']
+        if kind=='orders' and action=='approve':body['expected_last_frame']=row.get('source_review',{}).get('last_frame',row['case_snapshot']['last_frame'])
         body.update(changes);return self.post('/api/operational/'+kind+'/'+row['id']+'/action',body)
 
     def order(self,case):
@@ -54,6 +55,54 @@ class OperationalTests(unittest.TestCase):
         if stage=='in-progress':
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
+
+    def test_approval_requires_latest_displayed_source_and_retains_review_context(self):
+        case,order=self.prepared_order('submitted');frozen=order['case_snapshot_sha256'];self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.login('reviewer')
+        self.assertEqual(self.action('orders',order,'approve').status_code,409);current=self.summary()['orders'][0]
+        self.assertEqual(current['state'],'submitted');self.assertEqual(current['source_review']['last_frame'],1);self.assertEqual(current['source_review']['value'],60)
+        self.assertEqual(current['case_snapshot']['last_frame'],0);self.assertEqual(current['case_snapshot_sha256'],frozen)
+        reply=self.action('orders',current,'approve');self.assertEqual(reply.status_code,200,reply.text)
+        event=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events'][0]
+        self.assertEqual(event['approval_review']['last_frame'],1);self.assertEqual(event['approval_review']['value'],60)
+        self.assertEqual(self.ingest(2,temp_c=70).status_code,201)
+        retained=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events'][0]
+        self.assertEqual(retained,event);self.assertEqual(self.summary()['orders'][0]['case_snapshot_sha256'],frozen)
+        report=self.http.get('/api/operational/order/'+order['id']+'/review-export').json()['report'];self.assertEqual(report['history']['events'][0]['approval_review']['last_frame'],1)
+
+    def test_live_source_preview_respects_current_case_scope(self):
+        case,order=self.prepared_order('submitted');self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.login('operator')
+        self.assertEqual(self.summary()['orders'][0]['source_review'],{'available':False})
+        self.assertEqual(self.http.get('/api/operational/order/'+order['id']+'/record').json()['record']['source_review'],{'available':False})
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=? WHERE id=?',(self.technician,case['id']))
+        self.assertEqual(self.summary()['orders'][0]['source_review']['value'],60)
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=NULL WHERE id=?',(case['id'],))
+        self.assertEqual(self.summary()['orders'][0]['source_review'],{'available':False})
+        self.login('auditor');self.assertEqual(self.summary()['orders'][0]['source_review']['last_frame'],1)
+
+    def test_approval_requires_valid_frame_without_affecting_other_actions(self):
+        case,order=self.prepared_order('submitted');self.login('reviewer')
+        self.assertEqual(self.action('orders',order,'approve',expected_last_frame=None).status_code,422)
+        self.assertEqual(self.action('orders',order,'approve',expected_last_frame=True).status_code,422)
+        self.assertEqual(self.summary()['orders'][0]['state'],'submitted')
+        self.assertEqual(self.action('orders',order,'reject').status_code,200)
+
+    def test_concurrent_approval_and_new_frame_never_records_unseen_source(self):
+        case,order=self.prepared_order('submitted');self.login('reviewer')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            incoming=pool.submit(lambda:self.ingest(1,temp_c=60).status_code);decision=pool.submit(lambda:self.action('orders',order,'approve'))
+            self.assertEqual(incoming.result(),201);reply=decision.result();self.assertIn(reply.status_code,(200,409))
+        if reply.status_code==200:
+            event=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events'][0];self.assertEqual(event['approval_review']['last_frame'],0)
+        else:self.assertEqual(self.summary()['orders'][0]['state'],'submitted')
+
+    def test_legacy_approval_history_does_not_invent_reviewed_source(self):
+        case,order=self.prepared_order('approved')
+        with self.server.database() as db:
+            saved=db.execute("SELECT * FROM operational_events WHERE kind='order' AND record_id=? AND action='approve'",(order['id'],)).fetchone()
+            snapshot=json.loads(saved['snapshot_json']);snapshot.pop('approval_review')
+            db.execute('UPDATE operational_events SET snapshot_json=? WHERE id=?',(json.dumps(snapshot),saved['id']))
+        history=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events']
+        self.assertNotIn('approval_review',history[0]);self.assertEqual(history[0]['action'],'approve')
 
     def test_saved_case_search_reaches_older_records_and_pages_without_duplicates(self):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]

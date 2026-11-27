@@ -154,6 +154,16 @@ def present_order(row):
     return value
 
 
+def source_review(db,row,actor):
+    case=db.execute('SELECT * FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
+    if not case or not (actor['role'] in ('admin','auditor') or case['assignee_id']==actor['id']):return dict(available=False)
+    try:
+        observation=json.loads(case['last_snapshot'])
+        return dict(available=True,case_revision=case['revision'],case_state=case['state'],last_frame=case['last_frame'],
+            channel=observation['channel'],value=observation['value'],source_type=case['source_type'],server_received_at=observation['server_received_at'])
+    except (KeyError,TypeError,ValueError):raise HTTPException(503,'Current source context unavailable; no review is inferred') from None
+
+
 def start_review(db,row):
     """Current local execution eligibility; never equipment authorization."""
     state='not-approved';message='This record is not awaiting execution under a current approval.'
@@ -184,6 +194,11 @@ def review_events(db,kind,identity,limit=200,before_event=None):
                 entry.update(captured_state=captured['state'],captured_last_frame=captured['last_frame'],
                     captured_channel=observation['channel'],captured_value=observation['value'],captured_source_type=captured['source_type'])
             except (KeyError,TypeError,ValueError):raise HTTPException(503,'Saved review context unavailable; no history is inferred') from None
+        elif saved['action']=='approve':
+            try:
+                captured=json.loads(saved['snapshot_json'])
+                if 'approval_review' in captured:entry['approval_review']=captured['approval_review']
+            except (TypeError,ValueError):raise HTTPException(503,'Saved approval context unavailable') from None
         entries.append(entry)
     return entries
 
@@ -271,7 +286,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 assets.append(asset)
             cases=[dict(row) for row in db.execute('SELECT * FROM operational_cases'+(' WHERE assignee_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],) if actor['role']=='operator' else ())]
             orders=[dict(row) for row in db.execute('SELECT * FROM operational_orders'+(' WHERE creator_id=? OR technician_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],actor['id']) if actor['role']=='operator' else ())]
-            orders=[dict(present_order(row),start_review=start_review(db,row)) for row in orders]
+            orders=[dict(present_order(row),start_review=start_review(db,row),source_review=source_review(db,row,actor)) for row in orders]
             for row in cases:
                 row['first_snapshot']=json.loads(row['first_snapshot']);row['last_snapshot']=json.loads(row['last_snapshot'])
             rules=[dict(row) for row in db.execute('SELECT * FROM operational_rules ORDER BY created_at DESC LIMIT 100')]
@@ -409,8 +424,11 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             if body.action in ('approve','reject','verify'):
                 if actor['role']!='admin' or actor['id'] in (row['creator_id'],row['executor_id']):raise HTTPException(403,'Independent active administrator required')
                 case=db.execute('SELECT * FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
-                if body.action=='approve' and (case['revision']!=row['case_revision'] or case['state']=='resolved'):raise HTTPException(409,'Source case changed; prepare a new draft from its current revision')
-                if body.action=='approve':eligible(db,row['technician_id'])
+                if body.action=='approve' and (not case or case['revision']!=row['case_revision'] or case['state']=='resolved'):raise HTTPException(409,'Source case changed; prepare a new draft from its current revision')
+                if body.action=='approve':
+                    eligible(db,row['technician_id'])
+                    if body.expected_last_frame is None:raise HTTPException(422,'Approval requires the displayed current source host frame')
+                    if body.expected_last_frame!=case['last_frame']:raise HTTPException(409,'New matching source observation arrived; review the latest crossing before approval')
             if body.action in ('start','complete') and actor['id']!=row['technician_id']:raise HTTPException(403,'Only the assigned technician records execution')
             if body.action=='start':
                 review=start_review(db,row)
@@ -422,7 +440,10 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 executor_id=CASE WHEN ?='start' THEN ? ELSE executor_id END,
                 evidence_refs=CASE WHEN ?!='' THEN ? ELSE evidence_refs END WHERE id=?''',
                 (transitions[body.action][1],now(),body.action,actor['id'],body.action,local_notifications.account_revision(db,actor['id']),body.action,actor['id'],body.evidence_refs,body.evidence_refs,identity))
-            row=db.execute('SELECT * FROM operational_orders WHERE id=?',(identity,)).fetchone();event(db,'order',row,actor,body.action,body.note,audit)
+            row=db.execute('SELECT * FROM operational_orders WHERE id=?',(identity,)).fetchone()
+            saved_event=dict(row)
+            if body.action=='approve':saved_event['approval_review']=source_review(db,row,actor)
+            event(db,'order',saved_event,actor,body.action,body.note,audit)
             return dict(record=present_order(row),**BOUNDARY)
 
     @app.get('/api/operational/{kind}/records')
@@ -468,7 +489,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
         with database() as db:
             db.execute('BEGIN');actor=actor_for(db,request)
             row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
-            if kind=='order':record=dict(present_order(row),start_review=start_review(db,row))
+            if kind=='order':record=dict(present_order(row),start_review=start_review(db,row),source_review=source_review(db,row,actor))
             else:
                 record=dict(row)
                 try:

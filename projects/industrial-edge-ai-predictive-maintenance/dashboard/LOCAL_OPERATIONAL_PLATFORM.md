@@ -188,3 +188,12 @@ The saved-request check runs before the new-source check: the identical request 
 Alerts and Maintenance include **Find saved cases/work records**. Case search matches case ID or asset label; work search matches work ID or title. State and source-lane filters apply before pagination. The API accepts 1-100 rows per page; the dashboard uses 50. Results include identifiers, labels, state, revision and timestamps, with the source lane preserved. Searching does not expose procedures, private notes or attachment payloads.
 
 Each request checks the current account and restricts operators to assigned cases and created/assigned work before filtering/counting. Opening a result uses the existing exact lookup and checks access again. Results use immutable creation-time/ID ordering with bounded continuation pages; this is a live search, not a frozen historical snapshot. Changed filters, operational refreshes, failures and unavailable operational records clear old results and continuation controls. Saved states and notification read flags remain unchanged. This is field-specific local search, not a full-text or enterprise search service.
+
+
+## Reviewing current crossings at work approval
+
+Maintenance shows a separate **Current accessible case** preview beside the immutable captured work context. Current channel/value, last matching frame, source lane and case revision appear only when the signed-in account can currently read the source case. Having access to a work record alone does not expose live observations from an unassigned case.
+
+Approval now requires `expected_last_frame` for that current preview, as well as the work revision and existing independent-administrator checks. Missing expectations fail with HTTP 422; a newer matching frame causes HTTP 409 and requires refreshed review. A reviewer may explicitly approve after reviewing the refreshed current crossing while the original work context/hash remains unchanged. A changed human case revision or resolved case still requires a new draft.
+
+New approval events retain the reviewed current source context in history and JSON review reports. Later readings do not overwrite it. Older approval events remain as originally recorded without invented source context. Rejection, execution and closure retain their existing checks; this feature does not authorize equipment or imply that an approved observation remains physically current.
