@@ -67,6 +67,7 @@ class WorkOrder(BaseModel):
     request_key: str = Field(strict=True, pattern=r'^[a-f0-9]{32}$')
     case_id: str = Field(strict=True, pattern=r'^[a-f0-9]{32}$')
     expected_case_revision: int = Field(strict=True, ge=1)
+    expected_last_frame: int|None = Field(default=None,strict=True,ge=0,le=9223372036854775807)
     title: str = Field(strict=True, min_length=5, max_length=120)
     procedure: str = Field(strict=True, min_length=20, max_length=2000)
     technician_id: int = Field(strict=True, ge=1)
@@ -373,13 +374,17 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
     def create_order(body:WorkOrder,request:Request,response:Response):
         with database() as db:
             db.execute('BEGIN IMMEDIATE');actor=actor_for(db,request,True)
-            request_hash=hashlib.sha256(canonical(body.model_dump()).encode()).hexdigest()
+            request_content=body.model_dump()
+            if body.expected_last_frame is None:request_content.pop('expected_last_frame')
+            request_hash=hashlib.sha256(canonical(request_content).encode()).hexdigest()
             old=db.execute('SELECT * FROM operational_orders WHERE creator_id=? AND request_key=?',(actor['id'],body.request_key)).fetchone()
             if old:
                 if old['request_hash']!=request_hash:raise HTTPException(409,'Request key reused with different content')
                 visible(db,'operational_cases',old['case_id'],actor);return dict(record=present_order(old),created=False,**BOUNDARY)
             case=visible(db,'operational_cases',body.case_id,actor);eligible(db,body.technician_id)
             if case['state']=='resolved' or case['revision']!=body.expected_case_revision:raise HTTPException(409,'Select a current unresolved case')
+            if body.expected_last_frame is None:raise HTTPException(422,'New work requires the displayed last matching host frame')
+            if case['last_frame']!=body.expected_last_frame:raise HTTPException(409,'Source crossing changed; review the latest displayed frame before creating work')
             if db.execute('SELECT count(*) FROM operational_orders').fetchone()[0]>=2000:raise HTTPException(429,'Work record capacity reached')
             identity=secrets.token_hex(16);stamp=now()
             snapshot=canonical(dict(case))

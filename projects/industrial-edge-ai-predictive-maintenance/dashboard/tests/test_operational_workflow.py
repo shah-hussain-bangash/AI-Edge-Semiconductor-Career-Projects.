@@ -43,7 +43,7 @@ class OperationalTests(unittest.TestCase):
         body.update(changes);return self.post('/api/operational/'+kind+'/'+row['id']+'/action',body)
 
     def order(self,case):
-        return self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],request_key='d'*32,title='Inspect fixture evidence',procedure='Review the captured software evidence without any equipment action.',technician_id=self.technician))
+        return self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],expected_last_frame=case['last_frame'],request_key='d'*32,title='Inspect fixture evidence',procedure='Review the captured software evidence without any equipment action.',technician_id=self.technician))
 
     def prepared_order(self, stage='draft'):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201)
@@ -54,6 +54,37 @@ class OperationalTests(unittest.TestCase):
         if stage=='in-progress':
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
+
+    def test_new_work_refuses_unseen_matching_frame_and_accepts_reviewed_frame(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.assertEqual(self.order(case).status_code,409);self.assertEqual(self.summary()['orders'],[])
+        reply=self.order(self.summary()['cases'][0]);self.assertEqual(reply.status_code,201,reply.text);self.assertEqual(reply.json()['record']['case_snapshot']['last_frame'],1)
+
+    def test_saved_work_retry_retains_original_context_after_new_frame(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        original=self.order(case).json()['record'];self.assertEqual(self.ingest(1,temp_c=60).status_code,201)
+        reply=self.order(case);self.assertEqual(reply.status_code,200,reply.text);self.assertFalse(reply.json()['created'])
+        self.assertEqual(reply.json()['record']['id'],original['id']);self.assertEqual(reply.json()['record']['case_snapshot_sha256'],original['case_snapshot_sha256']);self.assertEqual(reply.json()['record']['case_snapshot']['last_frame'],0)
+        self.assertEqual(self.order(self.summary()['cases'][0]).status_code,409,'A saved request key cannot silently capture newer content')
+
+    def test_legacy_saved_request_replay_remains_valid_but_new_legacy_create_fails(self):
+        import hashlib
+        from operational_workflow import canonical
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0];original=self.order(case).json()['record']
+        legacy=dict(case_id=case['id'],expected_case_revision=case['revision'],request_key='d'*32,title='Inspect fixture evidence',procedure='Review the captured software evidence without any equipment action.',technician_id=self.technician)
+        # A prior-version record used the same body hash without a frame expectation.
+        with self.server.database() as db:db.execute('UPDATE operational_orders SET request_hash=? WHERE id=?',(hashlib.sha256(canonical(legacy).encode()).hexdigest(),original['id']))
+        self.assertEqual(self.ingest(1,temp_c=60).status_code,201)
+        reply=self.post('/api/operational/orders',legacy);self.assertEqual(reply.status_code,200,reply.text);self.assertEqual(reply.json()['record']['id'],original['id'])
+        legacy['request_key']='e'*32;self.assertEqual(self.post('/api/operational/orders',legacy).status_code,422)
+
+    def test_concurrent_work_creation_never_captures_an_unseen_new_frame(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            incoming=pool.submit(lambda:self.ingest(1,temp_c=60).status_code);draft=pool.submit(lambda:self.order(case))
+            self.assertEqual(incoming.result(),201);reply=draft.result();self.assertIn(reply.status_code,(201,409))
+        if reply.status_code==201:self.assertEqual(reply.json()['record']['case_snapshot']['last_frame'],0)
+        else:self.assertEqual(self.summary()['orders'],[])
 
     def test_new_matching_frame_blocks_stale_acknowledgement(self):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
@@ -287,7 +318,7 @@ class OperationalTests(unittest.TestCase):
         self.assertEqual(self.action('orders',order,'cancel').status_code,200)
         # A separate request key keeps the first cancelled record immutable.
         self.login('admin')
-        created=self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],request_key='e'*32,title='Separate started fixture',procedure='Record an independent software-only workflow for cancellation boundaries.',technician_id=self.technician))
+        created=self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],expected_last_frame=case['last_frame'],request_key='e'*32,title='Separate started fixture',procedure='Record an independent software-only workflow for cancellation boundaries.',technician_id=self.technician))
         order=created.json()['record'];order=self.action('orders',order,'submit').json()['record']
         self.login('reviewer');order=self.action('orders',order,'approve').json()['record']
         self.login('operator');order=self.action('orders',order,'start').json()['record']
