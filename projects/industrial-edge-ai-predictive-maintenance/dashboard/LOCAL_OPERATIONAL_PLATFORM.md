@@ -160,3 +160,10 @@ Opening is read-only: it does not mark a notification read, acknowledge a case, 
 Settings offers **Unread only** and **Load older notifications**. The dashboard requests 50 records per page; the API accepts 1-100. Each page and its unread count filters by the signed-in recipient and current source-record access before applying the limit. Removed assignments, missing records and disabled accounts cannot be used to retrieve notifications through a saved cursor.
 
 Pages use a descending server-created-time and notification-ID cursor, so equal timestamps remain deterministic and newer arrivals do not shift older pages. Refresh or changing the unread filter starts again at the newest page. This is a live list: permission, read-status and retention changes can remove entries between pages; it is not a frozen historical snapshot. Existing read actions remain explicit and do not acknowledge cases. Opening a record leaves the notification unread. A failed page request clears shown messages, the continuation cursor and delivery controls; refresh retries from the first page. No external email service is enabled by this feature.
+
+
+## Earlier case and work history
+
+Alerts and Maintenance load history in pages of 50 entries with a visible displayed/total count and **Load earlier history**. The API permits 1-200 entries per page and uses the earlier event ID as its cursor; equal event timestamps do not affect ordering. Each page rechecks current account and record access. Browsing history changes no case, work, evidence or notification state.
+
+Selecting another record or refreshing discards earlier in-flight history responses. If the server reports a changed record revision, displayed history is cleared and a refresh is required before continuing. A failed page also clears previously displayed history and disables continuation. This is live authorized history, not a frozen multi-page snapshot. Downloadable review reports retain their separate newest-200 limit and explicit completeness flag; loading more history in the dashboard does not silently change that report format.

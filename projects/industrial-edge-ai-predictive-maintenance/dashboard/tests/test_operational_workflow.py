@@ -54,6 +54,50 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def seeded_history(self,count=226):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with self.server.database() as db:
+            event=dict(db.execute("SELECT * FROM operational_events WHERE kind='case' AND record_id=?",(case['id'],)).fetchone())
+            for _ in range(count-1):db.execute('INSERT INTO operational_events(kind,record_id,revision,actor_id,action,note,snapshot_json,time_utc) VALUES(?,?,?,?,?,?,?,?)',tuple(event[k] for k in ('kind','record_id','revision','actor_id','action','note','snapshot_json','time_utc')))
+        return case
+
+    def test_history_pages_reach_earlier_decisions_beyond_200(self):
+        case=self.seeded_history();path='/api/operational/case/'+case['id']+'/history';seen=[];before=None
+        while True:
+            params={'limit':61}
+            if before:params['before_event']=before
+            reply=self.http.get(path,params=params);self.assertEqual(reply.status_code,200,reply.text);self.assertEqual(reply.headers['cache-control'],'no-store')
+            data=reply.json();self.assertEqual(data['history_total'],226);self.assertLessEqual(len(data['events']),61)
+            seen += [x['id'] for x in data['events']];before=data['page']['next_before_event']
+            for event in data['events']:self.assertEqual(event['captured_value'],40)
+            if not before:break
+        self.assertEqual(len(seen),226);self.assertEqual(len(set(seen)),226);self.assertEqual(seen,sorted(seen,reverse=True))
+        report=self.http.get('/api/operational/case/'+case['id']+'/review-export').json()['report'];self.assertEqual(report['history']['returned'],200);self.assertFalse(report['history']['complete'])
+
+    def test_history_page_rechecks_access_after_assignment_revoked(self):
+        case=self.seeded_history(4)
+        case=self.post('/api/operational/cases/'+case['id']+'/assign',dict(expected_revision=case['revision'],assignee_id=self.technician,**self.authorization)).json()['record']
+        self.login('operator');path='/api/operational/case/'+case['id']+'/history';reply=self.http.get(path,params={'limit':1});self.assertEqual(reply.status_code,200);cursor=reply.json()['page']['next_before_event']
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=NULL WHERE id=?',(case['id'],))
+        self.assertEqual(self.http.get(path,params={'before_event':cursor}).status_code,404)
+        self.login('auditor');self.assertEqual(self.http.get(path,params={'before_event':cursor}).status_code,200)
+        self.http.cookies.clear();self.assertEqual(self.http.get(path,params={'before_event':cursor}).status_code,401)
+
+    def test_history_page_reports_current_revision_after_new_decision(self):
+        case=self.seeded_history(4);path='/api/operational/case/'+case['id']+'/history';first=self.http.get(path,params={'limit':1}).json()
+        changed=self.action('cases',case,'acknowledge');self.assertEqual(changed.status_code,200)
+        second=self.http.get(path,params={'before_event':first['page']['next_before_event']}).json()
+        self.assertEqual(second['record']['revision'],case['revision']+1);self.assertEqual(second['record']['state'],'acknowledged')
+        self.assertTrue(all(e['id']<first['events'][-1]['id'] for e in second['events']))
+        self.assertEqual(second['history_total'],5)
+
+    def test_history_page_bounds_and_frozen_order_integrity(self):
+        case,order=self.prepared_order('approved');path='/api/operational/order/'+order['id']+'/history'
+        for params in [{'limit':0},{'limit':201},{'before_event':0},{'before_event':-1},{'before_event':2**64}]:self.assertEqual(self.http.get(path,params=params).status_code,422)
+        self.login('operator');reply=self.http.get(path,params={'limit':1});self.assertEqual(reply.status_code,200)
+        with self.server.database() as db:db.execute("UPDATE operational_orders SET case_snapshot='{}' WHERE id=?",(order['id'],))
+        self.assertEqual(self.http.get(path,params={'before_event':reply.json()['page']['next_before_event']}).status_code,503)
+
     def test_exact_lookup_opens_case_outside_recent_summary_without_mutation(self):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
         with self.server.database() as db:

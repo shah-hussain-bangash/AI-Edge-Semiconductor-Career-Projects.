@@ -170,9 +170,11 @@ def start_review(db,row):
     return dict(state=state,message=message,equipment_authorized=False)
 
 
-def review_events(db,kind,identity):
+def review_events(db,kind,identity,limit=200,before_event=None):
     entries=[]
-    for saved in db.execute('SELECT id,revision,actor_id,action,note,time_utc,snapshot_json FROM operational_events WHERE kind=? AND record_id=? ORDER BY id DESC LIMIT 200',(kind,identity)):
+    where='kind=? AND record_id=?';params=[kind,identity]
+    if before_event is not None:where+=' AND id<?';params.append(before_event)
+    for saved in db.execute('SELECT id,revision,actor_id,action,note,time_utc,snapshot_json FROM operational_events WHERE '+where+' ORDER BY id DESC LIMIT ?',params+[limit]):
         entry={key:saved[key] for key in ('id','revision','actor_id','action','note','time_utc')}
         if kind=='case':
             try:
@@ -430,12 +432,16 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             return dict(record=record,role=actor['role'],user_id=actor['id'],**BOUNDARY)
 
     @app.get('/api/operational/{kind}/{identity}/history')
-    def history(kind:Literal['case','order'],identity:str,request:Request):
+    def history(kind:Literal['case','order'],identity:str,request:Request,response:Response,
+                limit:int=Query(default=200,ge=1,le=200),before_event:int|None=Query(default=None,ge=1,le=9223372036854775807)):
+        response.headers['Cache-Control']='no-store'
         with database() as db:
             db.execute('BEGIN');actor=actor_for(db,request)
             row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
-            events=review_events(db,kind,identity)
-            return dict(record=present_order(row) if kind=='order' else dict(row),events=events,**BOUNDARY)
+            events=review_events(db,kind,identity,limit+1,before_event);has_more=len(events)>limit;events=events[:limit]
+            total=db.execute('SELECT count(*) FROM operational_events WHERE kind=? AND record_id=?',(kind,identity)).fetchone()[0]
+            return dict(record=present_order(row) if kind=='order' else dict(row),events=events,
+                history_total=total,page=dict(limit=limit,has_more=has_more,next_before_event=events[-1]['id'] if has_more else None),**BOUNDARY)
 
     @app.get('/api/operational/{kind}/{identity}/review-export')
     def review_export(kind:Literal['case','order'],identity:str,request:Request):
