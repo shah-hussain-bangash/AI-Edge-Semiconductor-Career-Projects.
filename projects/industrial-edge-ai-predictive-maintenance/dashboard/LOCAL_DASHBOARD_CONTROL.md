@@ -2,6 +2,8 @@
 
 `local_dashboard.py` gives the full dashboard its own local process controls. It can request a graceful shutdown, allowing existing HTTP requests to finish and database transactions to commit. It never kills a PID, stops unrelated Python processes, flashes hardware or configures hosting. The lightweight home application keeps its existing separate controls.
 
+The backend uses [FastAPI's application lifespan handler](https://fastapi.tiangolo.com/advanced/events/) for startup and shutdown. Storage initialization completes before its local notification worker starts. A failed worker startup still attempts resource cleanup, and shutdown stops the worker after requests finish. Importing the server module starts no worker or database initialization.
+
 Install the [pinned full-dashboard dependencies](LOCAL_OPERATIONAL_PLATFORM.md#full-dashboard-setup-and-update) first, using Python 3.12–3.14. From `dashboard`, use that environment's Python for every command below. Examples show Windows PowerShell; on macOS replace `.\.venv-operations\Scripts\python.exe` with `./.venv-operations/bin/python`.
 
 ## New managed instance

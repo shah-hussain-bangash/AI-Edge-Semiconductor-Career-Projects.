@@ -103,7 +103,7 @@ class ManagerTests(unittest.TestCase):
             for changes,body,expected in [({'Authorization':'Bearer wrong'},b'',403),({'Origin':'http://example.invalid'},b'',403),({'X-Edgeops-Instance':'0'*32},b'',403),({},b'not empty',400)]:
                 with self.subTest(changes=tuple(changes),expected=expected),self.assertRaises(HTTPError) as refused:
                     HTTP.open(Request(base+'/stop',data=body,headers={**headers,**changes},method='POST'))
-                self.assertEqual(refused.exception.code,expected);self.assertFalse(server.should_exit)
+                self.assertEqual(refused.exception.code,expected);refused.exception.close();self.assertFalse(server.should_exit)
             self.assertEqual(manager.control(self.runtime,'status')['state'],'ready')
             self.assertEqual(manager.control(self.runtime,'stop')['state'],'stopping');self.assertTrue(server.should_exit)
         finally:controller.shutdown();thread.join(3);controller.server_close();manager.state_path(self.runtime).unlink(missing_ok=True)

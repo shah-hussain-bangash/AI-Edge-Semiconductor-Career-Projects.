@@ -12,7 +12,7 @@ import os
 import secrets
 import sqlite3
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -63,7 +63,19 @@ BOOTSTRAP_EMAIL = os.environ.get("EDGEOPS_ADMIN_EMAIL", "").strip().lower()
 BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
-app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    worker = notification_delivery_worker
+    try:
+        worker.start()
+        yield
+    finally:
+        # Also release resources if worker.start() fails after partial setup.
+        worker.stop()
+
+
+app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 PUBLIC_ASSETS = {"local-readiness-ui.js", "evidence-files-ui.js", "platform-operations-ui.js", "registered-workspace.js", "operational-workspace.css", "account-protection-ui.js", "baseline-models-ui.js", "workflow-notifications-ui.js", "guidance-ui.js", "operational-ui.js", "bench-ui.js", "offline-capture-ui.js", "receipt-worksheet-ui.js", "persisted-observation-comparison.js", "persisted-observation-inspector.js", "planning-revision-comparison.js", "planning-workbench-ui.js", "planning-draft-guard.js", "planning-source-context.js", "incident-saved-check.js", "incident-handover-ui.js", "incident-draft-guard.js", "incident-capture-comparison.js", "incident-workbench-ui.js", "incident-triage-ui.js", "incident-observations-ui.js", "styles.css", "app.js", "dashboard-auth.js", "comparison-ui.js", "workspace.js", "workspace.css", "production.js", "production.css", "visual.css", "hardware-workspace.js", "hardware-workspace.css", "maintenance-ui.js", "maintenance-ui.css", "theme.css", "readiness-ui.js", "readiness-ui.css", "experience.js", "experience.css", "operations-ui.js", "operations-ui.css", "registry-ui.js", "delivery-ui.js", "persisted-telemetry.js", "physical-build-ui.js", "team-ui.js", "maintenance-exercises-ui.js", "incidents-ui.js", "incidents-ui.css", "edgeops-bench-concept.webp", "edgeops-facility-concept.webp", "architecture.js", "signin.css", "signin.js", "industrial-motor.svg", "industrial-plant.svg", "edgeops-motor-photo.jpg", "edgeops-factory-backdrop.jpg"}
 
 @app.middleware("http")
@@ -192,17 +204,6 @@ def record_audit(db: sqlite3.Connection, actor: str, action: str, detail: str):
 
 
 notification_delivery_worker = notification_worker.Worker(database, record_audit)
-
-@app.on_event("startup")
-def startup():
-    init_db()
-    notification_delivery_worker.start()
-
-
-@app.on_event("shutdown")
-def shutdown_notification_worker():
-    notification_delivery_worker.stop()
-
 
 def auth_context(request: Request) -> dict | None:
     token = request.cookies.get(COOKIE, "")
