@@ -116,7 +116,9 @@ class Worker:
 
     def stop(self):
         self.stop_event.set()
-        if self.thread:self.thread.join(timeout=12)
+        # Thread.start() can fail after the object is assigned. Joining an
+        # unstarted thread would mask that startup failure during cleanup.
+        if self.thread and self.thread.ident is not None:self.thread.join(timeout=12)
         if self.thread and self.thread.is_alive():return
         with self.database() as db:
             db.execute('BEGIN IMMEDIATE')

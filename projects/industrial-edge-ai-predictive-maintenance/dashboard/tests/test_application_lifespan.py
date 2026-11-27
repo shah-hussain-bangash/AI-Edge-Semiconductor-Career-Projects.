@@ -65,3 +65,13 @@ class ApplicationLifespanTests(unittest.TestCase):
                 self.assertTrue(worker.thread.is_alive())
                 raise RuntimeError('Fixture context failure')
         self.assertFalse(worker.thread.is_alive());self.assertTrue(worker.stop_event.is_set())
+
+    def test_failure_before_thread_start_preserves_the_original_error(self):
+        worker=self.server.notification_delivery_worker
+        def cannot_start():
+            worker.thread=threading.Thread(name='fixture-unstarted')
+            raise RuntimeError('Fixture thread creation unavailable')
+        with patch.object(worker,'start',side_effect=cannot_start):
+            with self.assertRaisesRegex(RuntimeError,'Fixture thread creation unavailable'):
+                with TestClient(self.server.app):pass
+        self.assertIsNone(worker.thread.ident);self.assertFalse(worker.thread.is_alive());self.assertTrue(worker.stop_event.is_set())
