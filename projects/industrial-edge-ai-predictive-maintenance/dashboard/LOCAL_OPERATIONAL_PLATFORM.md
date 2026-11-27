@@ -197,3 +197,10 @@ Maintenance shows a separate **Current accessible case** preview beside the immu
 Approval now requires `expected_last_frame` for that current preview, as well as the work revision and existing independent-administrator checks. Missing expectations fail with HTTP 422; a newer matching frame causes HTTP 409 and requires refreshed review. A reviewer may explicitly approve after reviewing the refreshed current crossing while the original work context/hash remains unchanged. A changed human case revision or resolved case still requires a new draft.
 
 New approval events retain the reviewed current source context in history and JSON review reports. Later readings do not overwrite it. Older approval events remain as originally recorded without invented source context. Rejection, execution and closure retain their existing checks; this feature does not authorize equipment or imply that an approved observation remains physically current.
+
+
+## Append-only review clarifications
+
+Alerts and Maintenance offer **Add a review clarification** for the selected accessible record, including resolved, closed and cancelled records. Active operators/administrators can append a note; auditors remain read-only. The event retains its author, timestamp, selected revision and captured context. A clarification does not edit earlier notes, change the record state/revision, renew an approval, reopen a case, alter the frozen work hash or unlock evidence uploads.
+
+Each save requires current record access, CSRF protection and the displayed revision; case notes also require the displayed matching frame. Changed context refuses the new note. Retry uses the original request key/body and returns its saved receipt without appending twice, even after later record changes; reusing a saved key with different content is refused. Pending note text is retained per selected record in the current page. **Review another note** preserves text while explicitly releasing the earlier attempt after checking saved history. Notes and their notifications commit together or roll back together. No external email provider is configured or enabled by this feature.

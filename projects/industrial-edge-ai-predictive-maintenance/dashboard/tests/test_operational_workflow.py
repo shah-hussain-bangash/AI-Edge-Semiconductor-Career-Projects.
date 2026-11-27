@@ -56,6 +56,67 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def note(self,kind,row,text='Append an isolated fixture clarification without a state change.',key='1'*32,**changes):
+        body=dict(request_key=key,expected_revision=row['revision'],note=text)
+        if kind=='case':body['expected_last_frame']=row['last_frame']
+        body.update(changes);return self.post('/api/operational/'+kind+'/'+row['id']+'/notes',body)
+
+    def test_review_note_concurrent_retries_append_once_without_changing_case(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with ThreadPoolExecutor(max_workers=2) as pool:replies=list(pool.map(lambda _:self.note('case',case),range(2)))
+        self.assertEqual(sorted(r.status_code for r in replies),[200,201]);self.assertEqual(len({r.json()['note_id'] for r in replies}),1)
+        self.assertEqual(self.summary()['cases'][0],case)
+        events=self.http.get('/api/operational/case/'+case['id']+'/history').json()['events'];self.assertEqual(sum(e['action']=='review_note_added' for e in events),1)
+        notices=self.http.get('/api/operational/notifications').json()['items'];self.assertEqual(sum('review note added' in n['subject'] for n in notices),1)
+        self.assertFalse(replies[0].json()['physical_work_verified'])
+
+    def test_clarifications_preserve_terminal_states_and_upload_freeze(self):
+        case,order=self.prepared_order('approved');self.login('admin');order=self.action('orders',order,'cancel').json()['record'];frozen=order['case_snapshot_sha256']
+        reply=self.note('order',order);self.assertEqual(reply.status_code,201,reply.text);current=self.summary()['orders'][0]
+        self.assertEqual((current['state'],current['revision'],current['case_snapshot_sha256']),('cancelled',order['revision'],frozen))
+        path='/api/operational/evidence/order/'+order['id'];self.assertEqual(self.http.post(path,params={'filename':'blocked.txt'},content=b'No upload unlock',headers={'content-type':'text/plain','x-edgeops-csrf':self.http.cookies.get('edgeops_csrf')}).status_code,409)
+        case=self.action('cases',case,'acknowledge').json()['record'];case=self.action('cases',case,'resolve',evidence_refs='Fixture resolution evidence').json()['record']
+        self.assertEqual(self.note('case',case).status_code,201);current=self.summary()['cases'][0];self.assertEqual((current['state'],current['revision']),('resolved',case['revision']))
+        report=self.http.get('/api/operational/order/'+order['id']+'/review-export').json()['report'];self.assertEqual(report['history']['events'][0]['action'],'review_note_added')
+
+    def test_review_notes_recheck_write_access_csrf_and_context(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        body=dict(request_key='1'*32,expected_revision=case['revision'],expected_last_frame=case['last_frame'],note='A case clarification requires current write access.')
+        self.assertEqual(self.post('/api/operational/case/'+case['id']+'/notes',body,False).status_code,403)
+        self.login('auditor');self.assertEqual(self.note('case',case).status_code,403)
+        self.login('operator');self.assertEqual(self.note('case',case).status_code,404)
+        self.login('admin');self.assertEqual(self.note('case',case,expected_revision=99).status_code,409)
+        self.assertEqual(self.note('case',case,expected_last_frame=None).status_code,422)
+        self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.assertEqual(self.note('case',case).status_code,409)
+        current=self.summary()['cases'][0];self.assertEqual(self.note('case',current).status_code,201)
+        self.assertEqual(self.note('case',current,text='Different content with the same saved key must fail.').status_code,409)
+
+    def test_saved_note_retry_remains_idempotent_after_record_changes(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        original=self.note('case',case);self.assertEqual(original.status_code,201)
+        self.assertEqual(self.action('cases',case,'acknowledge').status_code,200)
+        self.assertEqual(self.ingest(1,temp_c=60).status_code,201)
+        reply=self.note('case',case);self.assertEqual(reply.status_code,200,reply.text);self.assertEqual(reply.json()['note_id'],original.json()['note_id'])
+        self.assertEqual(self.summary()['cases'][0]['state'],'acknowledged')
+
+    def test_corrupt_saved_note_receipt_refuses_duplicate_inference(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        reply=self.note('case',case);self.assertEqual(reply.status_code,201)
+        with self.server.database() as db:
+            saved=db.execute('SELECT snapshot_json FROM operational_events WHERE id=?',(reply.json()['note_id'],)).fetchone()
+            snapshot=json.loads(saved['snapshot_json']);snapshot.pop('note_request')
+            db.execute('UPDATE operational_events SET snapshot_json=? WHERE id=?',(json.dumps(snapshot),reply.json()['note_id']))
+        self.assertEqual(self.note('case',case).status_code,503)
+        events=self.http.get('/api/operational/case/'+case['id']+'/history').json()['events'];self.assertEqual(sum(e['action']=='review_note_added' for e in events),1)
+
+    def test_review_note_notification_failure_rolls_back_event_for_retry(self):
+        from unittest.mock import patch
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        with patch('operational_notifications.enqueue',side_effect=RuntimeError('Fixture inbox unavailable')):
+            with self.assertRaises(RuntimeError):self.note('case',case)
+        events=self.http.get('/api/operational/case/'+case['id']+'/history').json()['events'];self.assertFalse(any(e['action']=='review_note_added' for e in events))
+        self.assertEqual(self.note('case',case).status_code,201)
+
     def test_approval_requires_latest_displayed_source_and_retains_review_context(self):
         case,order=self.prepared_order('submitted');frozen=order['case_snapshot_sha256'];self.assertEqual(self.ingest(1,temp_c=60).status_code,201);self.login('reviewer')
         self.assertEqual(self.action('orders',order,'approve').status_code,409);current=self.summary()['orders'][0]

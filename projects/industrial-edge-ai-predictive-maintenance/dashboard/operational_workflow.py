@@ -58,6 +58,14 @@ class Action(BaseModel):
     expected_last_frame: int|None = Field(default=None,strict=True,ge=0,le=9223372036854775807)
 
 
+class ReviewNote(BaseModel):
+    model_config = ConfigDict(extra='forbid',str_strip_whitespace=True)
+    request_key: str = Field(strict=True,pattern=r'^[a-f0-9]{32}$')
+    expected_revision: int = Field(strict=True,ge=1)
+    expected_last_frame: int|None = Field(default=None,strict=True,ge=0,le=9223372036854775807)
+    note: str = Field(strict=True,min_length=10,max_length=1500)
+
+
 class Assignment(Revision):
     assignee_id: int = Field(strict=True, ge=1)
 
@@ -139,6 +147,7 @@ def event(db,kind,row,actor,action,note,audit):
     import operational_notifications
     operational_notifications.enqueue(db,inserted.lastrowid,kind,row,action)
     audit(db,actor['email'] if actor else 'observation-rule', 'operational_'+action,row['id'])
+    return inserted.lastrowid
 
 
 def eligible(db,identifier):
@@ -445,6 +454,30 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             if body.action=='approve':saved_event['approval_review']=source_review(db,row,actor)
             event(db,'order',saved_event,actor,body.action,body.note,audit)
             return dict(record=present_order(row),**BOUNDARY)
+
+    @app.post('/api/operational/{kind}/{identity}/notes')
+    def add_review_note(kind:Literal['case','order'],identity:str,body:ReviewNote,request:Request,response:Response):
+        with database() as db:
+            db.execute('BEGIN IMMEDIATE');actor=actor_for(db,request,True)
+            row=visible(db,'operational_cases' if kind=='case' else 'operational_orders',identity,actor)
+            if kind=='order':present_order(row)
+            digest=hashlib.sha256(canonical(body.model_dump()).encode()).hexdigest()
+            for saved in db.execute("SELECT id,snapshot_json FROM operational_events WHERE kind=? AND record_id=? AND actor_id=? AND action='review_note_added'",(kind,identity,actor['id'])):
+                try:
+                    previous=json.loads(saved['snapshot_json']).get('note_request',{})
+                    if not isinstance(previous,dict) or set(previous)!={'key','hash'}:raise ValueError()
+                except (TypeError,ValueError,AttributeError):raise HTTPException(503,'Saved note receipt unavailable; no duplicate is inferred') from None
+                if previous.get('key')==body.request_key:
+                    if previous.get('hash')!=digest:raise HTTPException(409,'Note request key reused with different content')
+                    return dict(note_id=saved['id'],created=False,record_revision=row['revision'],record_state=row['state'],**BOUNDARY)
+            if row['revision']!=body.expected_revision:raise HTTPException(409,'Record changed; review it before adding a clarification')
+            if kind=='case':
+                if body.expected_last_frame is None:raise HTTPException(422,'A case note requires the displayed matching host frame')
+                if body.expected_last_frame!=row['last_frame']:raise HTTPException(409,'Matching source frame changed; review it before adding a clarification')
+            saved=dict(row);saved['note_request']=dict(key=body.request_key,hash=digest)
+            note_id=event(db,kind,saved,actor,'review_note_added',body.note,audit)
+            response.status_code=201
+            return dict(note_id=note_id,created=True,record_revision=row['revision'],record_state=row['state'],**BOUNDARY)
 
     @app.get('/api/operational/{kind}/records')
     def search_records(kind:Literal['case','order'],request:Request,response:Response,
