@@ -39,6 +39,7 @@ class OperationalTests(unittest.TestCase):
 
     def action(self,kind,row,action,**changes):
         body=dict(expected_revision=row['revision'],action=action,note='Explicit isolated review decision for software testing.',evidence_refs='')
+        if kind=='cases':body['expected_last_frame']=row['last_frame']
         body.update(changes);return self.post('/api/operational/'+kind+'/'+row['id']+'/action',body)
 
     def order(self,case):
@@ -53,6 +54,45 @@ class OperationalTests(unittest.TestCase):
         if stage=='in-progress':
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
+
+    def test_new_matching_frame_blocks_stale_acknowledgement(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        self.assertEqual(self.ingest(1,temp_c=50).status_code,201)
+        self.assertEqual(self.action('cases',case,'acknowledge').status_code,409)
+        current=self.summary()['cases'][0];self.assertEqual(current['state'],'open');self.assertEqual(current['revision'],case['revision'])
+        self.assertEqual(self.action('cases',current,'acknowledge').status_code,200)
+
+    def test_new_matching_frame_blocks_stale_resolution_and_retains_ack_context(self):
+        self.rule();self.assertEqual(self.ingest(10,temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        case=self.action('cases',case,'acknowledge').json()['record'];self.assertEqual(self.ingest(11,temp_c=60).status_code,201)
+        self.assertEqual(self.action('cases',case,'resolve',evidence_refs='Outdated fixture review').status_code,409)
+        current=self.summary()['cases'][0];self.assertEqual(current['state'],'acknowledged');self.assertEqual(current['revision'],case['revision'])
+        self.assertEqual(self.action('cases',current,'resolve',evidence_refs='Reviewed latest fixture crossing').status_code,200)
+        events=self.http.get('/api/operational/case/'+case['id']+'/history').json()['events']
+        self.assertEqual(events[0]['captured_last_frame'],11);self.assertEqual(events[1]['captured_last_frame'],10)
+
+    def test_retries_and_older_frames_do_not_invalidate_latest_frame_decision(self):
+        self.rule();self.assertEqual(self.ingest(10,temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        case=self.action('cases',case,'acknowledge').json()['record']
+        self.assertEqual(self.ingest(10,temp_c=40).status_code,200);self.assertEqual(self.ingest(5,temp_c=50).status_code,201)
+        reply=self.action('cases',case,'resolve',evidence_refs='Review of unchanged latest matched frame');self.assertEqual(reply.status_code,200,reply.text)
+        self.assertEqual(reply.json()['record']['last_frame'],10);self.assertEqual(reply.json()['record']['first_frame'],5)
+
+    def test_concurrent_new_reading_and_resolution_cannot_leave_case_resolved(self):
+        self.rule();self.assertEqual(self.ingest(10,temp_c=40).status_code,201);case=self.summary()['cases'][0];case=self.action('cases',case,'acknowledge').json()['record']
+        def resolve():return self.action('cases',case,'resolve',evidence_refs='Concurrent fixture decision review').status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            incoming=pool.submit(lambda:self.ingest(11,temp_c=60).status_code);decision=pool.submit(resolve)
+            self.assertEqual(incoming.result(),201);self.assertIn(decision.result(),(200,409))
+        current=self.summary()['cases'][0];self.assertIn(current['state'],('open','acknowledged'));self.assertEqual(current['last_frame'],11)
+
+    def test_case_decisions_require_a_valid_displayed_frame(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        for value in (None,True,-1,2**64):
+            self.assertEqual(self.action('cases',case,'acknowledge',expected_last_frame=value).status_code,422)
+        body=dict(expected_revision=case['revision'],action='acknowledge',note='A legacy client missing its displayed frame must refresh.')
+        self.assertEqual(self.post('/api/operational/cases/'+case['id']+'/action',body).status_code,422)
+        self.assertEqual(self.summary()['cases'][0]['state'],'open')
 
     def seeded_history(self,count=226):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]

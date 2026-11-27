@@ -55,6 +55,7 @@ class Action(BaseModel):
     note: str = Field(strict=True, min_length=10, max_length=1500)
     action: Literal['acknowledge','resolve','submit','approve','reject','start','complete','verify','cancel']
     evidence_refs: str = Field(strict=True, default='', max_length=1500)
+    expected_last_frame: int|None = Field(default=None,strict=True,ge=0,le=9223372036854775807)
 
 
 class Assignment(Revision):
@@ -361,6 +362,8 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             db.execute('BEGIN IMMEDIATE');actor=actor_for(db,request,True);row=visible(db,'operational_cases',identity,actor)
             transitions={'acknowledge':('open','acknowledged'),'resolve':('acknowledged','resolved')}
             if body.action not in transitions or row['state']!=transitions[body.action][0] or row['revision']!=body.expected_revision:raise HTTPException(409,'Case state or revision changed')
+            if body.expected_last_frame is None:raise HTTPException(422,'The displayed last matching host frame is required for case decisions')
+            if body.expected_last_frame!=row['last_frame']:raise HTTPException(409,'New matching observation arrived; refresh and review the latest crossing before deciding')
             if body.action=='resolve' and not body.evidence_refs.strip():raise HTTPException(422,'Resolution needs evidence references; not physical verification')
             db.execute('UPDATE operational_cases SET state=?,revision=revision+1,updated_at=? WHERE id=?',(transitions[body.action][1],now(),identity))
             row=visible(db,'operational_cases',identity,actor);event(db,'case',row,actor,body.action,body.note+' | '+body.evidence_refs,audit)
