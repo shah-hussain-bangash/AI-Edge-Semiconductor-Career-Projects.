@@ -44,6 +44,83 @@ class OperationalTests(unittest.TestCase):
     def order(self,case):
         return self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],request_key='d'*32,title='Inspect fixture evidence',procedure='Review the captured software evidence without any equipment action.',technician_id=self.technician))
 
+    def prepared_order(self, stage='draft'):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201)
+        case=self.summary()['cases'][0];order=self.order(case).json()['record']
+        if stage!='draft':order=self.action('orders',order,'submit').json()['record']
+        if stage in ('approved','in-progress'):
+            self.login('reviewer');order=self.action('orders',order,'approve').json()['record']
+        if stage=='in-progress':
+            self.login('operator');order=self.action('orders',order,'start').json()['record']
+        return case,order
+
+    def test_cancel_unstarted_work_preserves_source_context_and_is_terminal(self):
+        case,order=self.prepared_order('approved');context=order['case_snapshot_sha256']
+        self.login('admin');reply=self.action('orders',order,'cancel')
+        self.assertEqual(reply.status_code,200,reply.text);cancelled=reply.json()['record']
+        self.assertEqual(cancelled['state'],'cancelled');self.assertEqual(cancelled['revision'],order['revision']+1)
+        self.assertEqual(cancelled['case_snapshot_sha256'],context);self.assertEqual(cancelled['approver_id'],order['approver_id'])
+        self.assertEqual(self.summary()['cases'][0]['revision'],case['revision'])
+        self.assertEqual(self.summary()['cases'][0]['state'],case['state']);self.assertFalse(reply.json()['physical_work_verified'])
+        self.assertEqual(self.action('orders',cancelled,'cancel').status_code,409)
+        self.login('operator');self.assertEqual(self.action('orders',cancelled,'start').status_code,409)
+        self.login('admin');history=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events']
+        self.assertEqual([x['action'] for x in history],['cancel','approve','submit','order_created'])
+        self.assertIn('Explicit isolated review decision',history[0]['note'])
+
+    def test_cancel_requires_reason_csrf_current_revision_and_authorized_actor(self):
+        case,order=self.prepared_order()
+        self.assertEqual(self.action('orders',order,'cancel',note='').status_code,422)
+        self.assertEqual(self.action('orders',order,'cancel',expected_revision=99).status_code,409)
+        body=dict(expected_revision=order['revision'],action='cancel',note='Cancellation must require the existing CSRF protection.')
+        self.assertEqual(self.post('/api/operational/orders/'+order['id']+'/action',body,False).status_code,403)
+        self.login('operator');self.assertEqual(self.action('orders',order,'cancel').status_code,403)
+        self.login('auditor');self.assertEqual(self.action('orders',order,'cancel').status_code,403)
+        self.login('reviewer');self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+
+    def test_creator_can_cancel_submitted_work_but_started_work_cannot_be_cancelled(self):
+        case,order=self.prepared_order('submitted')
+        self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+        # A separate request key keeps the first cancelled record immutable.
+        self.login('admin')
+        created=self.post('/api/operational/orders',dict(case_id=case['id'],expected_case_revision=case['revision'],request_key='e'*32,title='Separate started fixture',procedure='Record an independent software-only workflow for cancellation boundaries.',technician_id=self.technician))
+        order=created.json()['record'];order=self.action('orders',order,'submit').json()['record']
+        self.login('reviewer');order=self.action('orders',order,'approve').json()['record']
+        self.login('operator');order=self.action('orders',order,'start').json()['record']
+        self.login('admin');self.assertEqual(self.action('orders',order,'cancel').status_code,409)
+        self.assertEqual(self.summary()['orders'][0]['state'],'in-progress')
+
+    def test_cancel_freezes_evidence_and_keeps_retained_file_downloadable(self):
+        case,order=self.prepared_order();path='/api/operational/evidence/order/'+order['id']
+        reply=self.http.post(path,params={'filename':'retained.txt'},content=b'Fixture cancellation evidence',headers={'content-type':'text/plain','x-edgeops-csrf':self.http.cookies.get('edgeops_csrf')})
+        self.assertEqual(reply.status_code,201,reply.text);file=reply.json()['file']
+        self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+        reply=self.http.post(path,params={'filename':'later.txt'},content=b'New fixture upload',headers={'content-type':'text/plain','x-edgeops-csrf':self.http.cookies.get('edgeops_csrf')})
+        self.assertEqual(reply.status_code,409)
+        self.assertEqual(self.http.get('/api/operational/evidence/files/'+file['id']+'/download').content,b'Fixture cancellation evidence')
+        self.assertEqual(len(self.http.get(path).json()['files']),1)
+
+    def test_concurrent_start_and_cancel_only_one_revision_wins(self):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201);case=self.summary()['cases'][0]
+        case=self.post('/api/operational/cases/'+case['id']+'/assign',dict(expected_revision=case['revision'],assignee_id=self.technician,**self.authorization)).json()['record']
+        self.login('operator');order=self.order(case).json()['record'];order=self.action('orders',order,'submit').json()['record']
+        self.login('reviewer');order=self.action('orders',order,'approve').json()['record'];self.login('operator')
+        with ThreadPoolExecutor(max_workers=2) as pool:codes=list(pool.map(lambda action:self.action('orders',order,action).status_code,['start','cancel']))
+        self.assertEqual(sorted(codes),[200,409]);current=self.summary()['orders'][0]
+        self.assertIn(current['state'],('in-progress','cancelled'));self.assertEqual(current['revision'],order['revision']+1)
+        events=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events']
+        self.assertEqual(sum(e['action'] in ('start','cancel') for e in events),1)
+
+    def test_cancel_event_failure_rolls_back_state_and_notification(self):
+        from unittest.mock import patch
+        import operational_workflow
+        case,order=self.prepared_order();before=self.http.get('/api/operational/order/'+order['id']+'/history').json()['events']
+        with patch.object(operational_workflow,'event',side_effect=RuntimeError('fixture history unavailable')):
+            with self.assertRaises(RuntimeError):self.action('orders',order,'cancel')
+        current=self.summary()['orders'][0];self.assertEqual(current['state'],'draft');self.assertEqual(current['revision'],order['revision'])
+        self.assertEqual(self.http.get('/api/operational/order/'+order['id']+'/history').json()['events'],before)
+        self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+
     def test_opt_in_atomic_dedup_conflict_and_source_isolation(self):
         self.assertEqual(self.ingest(temp_c=40).status_code,201);self.assertEqual(self.summary()['cases'],[])
         self.rule()

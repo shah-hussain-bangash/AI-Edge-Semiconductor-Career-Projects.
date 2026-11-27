@@ -59,7 +59,7 @@ def install_routes(app,database,require_user,require_csrf,audit):
         with database() as db:
             db.execute('BEGIN IMMEDIATE')
             actor=fresh_actor(db,current);require_role(actor,WRITE_ROLES);row=record(db,kind,identifier,actor)
-            if row['state'] in ('resolved','rejected','verification-pending','closed'):raise HTTPException(409,'Evidence is frozen at this review stage')
+            if row['state'] in ('resolved','rejected','cancelled','verification-pending','closed'):raise HTTPException(409,'Evidence is frozen at this review stage')
             digest=hashlib.sha256(data).hexdigest()
             existing=db.execute('SELECT * FROM operational_evidence WHERE kind=? AND record_id=? AND sha256=? AND filename=? AND content_type=?',(kind,identifier,digest,filename,media)).fetchone()
             if existing:return dict(file=metadata(existing),duplicate=True,malware_scanned=False)

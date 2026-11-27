@@ -53,7 +53,7 @@ class Action(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     expected_revision: int = Field(strict=True, ge=1)
     note: str = Field(strict=True, min_length=10, max_length=1500)
-    action: Literal['acknowledge','resolve','submit','approve','reject','start','complete','verify']
+    action: Literal['acknowledge','resolve','submit','approve','reject','start','complete','verify','cancel']
     evidence_refs: str = Field(strict=True, default='', max_length=1500)
 
 
@@ -358,6 +358,10 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
             present_order(row)
             transitions={'submit':('draft','submitted'),'approve':('submitted','approved'),'reject':('submitted','rejected'),
                          'start':('approved','in-progress'),'complete':('in-progress','verification-pending'),'verify':('verification-pending','closed')}
+            if body.action=='cancel':
+                if actor['role']!='admin' and actor['id']!=row['creator_id']:raise HTTPException(403,'Only the creator or an active administrator cancels unstarted work')
+                if row['state'] not in ('draft','submitted','approved'):raise HTTPException(409,'Only unstarted work can be cancelled')
+                transitions['cancel']=(row['state'],'cancelled')
             if row['revision']!=body.expected_revision or body.action not in transitions or row['state']!=transitions[body.action][0]:raise HTTPException(409,'Work record state or revision changed')
             if body.action=='submit' and actor['id']!=row['creator_id']:raise HTTPException(403,'Only the creator submits a draft')
             if body.action in ('approve','reject','verify'):
