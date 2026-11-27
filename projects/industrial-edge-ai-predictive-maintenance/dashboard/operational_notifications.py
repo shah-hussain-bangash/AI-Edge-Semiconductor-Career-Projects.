@@ -6,12 +6,14 @@ at-least-once; stable Message-ID is not a provider deduplication guarantee.
 from datetime import datetime, timezone
 from email.message import EmailMessage
 import os
+import base64
+import json
 import re
 import secrets
 import smtplib
 import ssl
 import time
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response, Query
 from pydantic import Field
 from maintenance_requests import fresh_actor, require_role, READ_ROLES
 from team_accounts import StrictModel, reauthenticate
@@ -144,12 +146,34 @@ def deliver(database,limit=5):
 
 def install_routes(app,database,require_user,require_csrf,matches,audit):
     @app.get('/api/operational/notifications')
-    def inbox(request:Request):
-        current=require_user(request)
+    def inbox(request:Request,response:Response,limit:int=Query(default=100,ge=1,le=100),
+              unread_only:bool=False,cursor:str|None=Query(default=None,max_length=300)):
+        response.headers['Cache-Control']='no-store'
+        before=None
+        if cursor is not None:
+            try:
+                decoded=json.loads(base64.b64decode(cursor.encode('ascii'),altchars=b'-_',validate=True))
+                if set(decoded)!= {'time','id'} or not isinstance(decoded['time'],str) or len(decoded['time'])>64 or not isinstance(decoded['id'],str) or not re.fullmatch('[a-f0-9]{32}',decoded['id']):raise ValueError()
+                stamp=datetime.fromisoformat(decoded['time'])
+                if stamp.tzinfo is None or stamp.utcoffset().total_seconds()!=0:raise ValueError()
+                before=decoded
+            except (ValueError,TypeError,KeyError,UnicodeError):raise HTTPException(422,'Invalid inbox cursor; refresh the first page') from None
         with database() as db:
-            db.execute('BEGIN');actor=fresh_actor(db,current);require_role(actor,READ_ROLES)
-            rows=[{key:row[key] for key in ('id','kind','record_id','source_type','subject','read_at','email_state','attempts','created_at','delivered_at','last_error')} for row in db.execute('SELECT * FROM operational_notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 100',(actor['id'],)) if eligible(db,actor['id'],row['kind'],row['record_id'])]
-            return dict(items=rows,email=config(db),role=actor['role'],**BOUNDARY)
+            db.execute('BEGIN');actor=fresh_actor(db,require_user(request));require_role(actor,READ_ROLES)
+            # Filter current access BEFORE the page limit, including missing records.
+            scope="""n.user_id=? AND (
+                (n.kind='case' AND EXISTS(SELECT 1 FROM operational_cases c WHERE c.id=n.record_id AND (? OR c.assignee_id=?))) OR
+                (n.kind='order' AND EXISTS(SELECT 1 FROM operational_orders o WHERE o.id=n.record_id AND (? OR o.creator_id=? OR o.technician_id=?))))"""
+            broad=actor['role'] in ('admin','auditor');params=[actor['id'],broad,actor['id'],broad,actor['id'],actor['id']]
+            unread=db.execute('SELECT count(*) FROM operational_notifications n WHERE '+scope+' AND n.read_at IS NULL',params).fetchone()[0]
+            where=scope+(' AND n.read_at IS NULL' if unread_only else '')
+            if before:
+                where+=' AND (n.created_at<? OR (n.created_at=? AND n.id<?))';params+=[before['time'],before['time'],before['id']]
+            rows=db.execute('SELECT n.* FROM operational_notifications n WHERE '+where+' ORDER BY n.created_at DESC,n.id DESC LIMIT ?',params+[limit+1]).fetchall()
+            has_more=len(rows)>limit;rows=rows[:limit]
+            items=[{key:row[key] for key in ('id','kind','record_id','source_type','subject','read_at','email_state','attempts','created_at','delivered_at','last_error')} for row in rows]
+            next_cursor=base64.urlsafe_b64encode(json.dumps(dict(time=rows[-1]['created_at'],id=rows[-1]['id']),separators=(',',':')).encode()).decode() if has_more else None
+            return dict(items=items,unread_count=unread,page=dict(limit=limit,has_more=has_more,next_cursor=next_cursor,unread_only=unread_only),email=config(db),role=actor['role'],**BOUNDARY)
 
     @app.post('/api/operational/notifications/{identity}/read')
     def read(identity:str,request:Request):

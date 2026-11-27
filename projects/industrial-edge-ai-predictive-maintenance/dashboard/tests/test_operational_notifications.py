@@ -27,6 +27,67 @@ class NotificationTests(unittest.TestCase):
         data=self.http.get('/api/operational/summary').json();asset=next(a for a in data['assets'] if a['source_type']=='measured-unverified')
         self.asset=asset;self.rule();self.assertEqual(self.ingest(source='measured-unverified',temp_c=40).status_code,201)
 
+    def seeded_inbox(self,count=151):
+        self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201)
+        with self.server.database() as db:
+            base=dict(db.execute('SELECT * FROM operational_notifications LIMIT 1').fetchone())
+            event=dict(db.execute('SELECT * FROM operational_events WHERE id=?',(base['event_id'],)).fetchone())
+            columns=[x[1] for x in db.execute('PRAGMA table_info(operational_notifications)')]
+            db.execute('UPDATE operational_notifications SET id=?',('f'*32,));base['id']='f'*32
+            for index in range(count-1):
+                inserted=db.execute('INSERT INTO operational_events(kind,record_id,revision,actor_id,action,note,snapshot_json,time_utc) VALUES(?,?,?,?,?,?,?,?)',tuple(event[k] for k in ('kind','record_id','revision','actor_id','action','note','snapshot_json','time_utc')))
+                copy=dict(base,id=format(index+1,'032x'),event_id=inserted.lastrowid)
+                db.execute('INSERT INTO operational_notifications VALUES('+','.join('?' for _ in columns)+')',tuple(copy[k] for k in columns))
+        return base
+
+    def test_inbox_pages_equal_timestamps_without_duplicates_beyond_old_limit(self):
+        self.seeded_inbox();seen=[];cursor=None
+        while True:
+            params={'limit':37}
+            if cursor:params['cursor']=cursor
+            reply=self.http.get('/api/operational/notifications',params=params);self.assertEqual(reply.status_code,200,reply.text)
+            self.assertEqual(reply.headers['cache-control'],'no-store');data=reply.json();seen += [x['id'] for x in data['items']]
+            self.assertEqual(data['unread_count'],151);self.assertLessEqual(len(data['items']),37)
+            cursor=data['page']['next_cursor']
+            if not cursor:break
+        self.assertEqual(len(seen),151);self.assertEqual(len(set(seen)),151);self.assertEqual(seen,sorted(seen,reverse=True))
+
+    def test_unread_filter_runs_before_limit_and_read_remains_explicit(self):
+        base=self.seeded_inbox(121)
+        with self.server.database() as db:db.execute('UPDATE operational_notifications SET read_at=? WHERE id!=?',(self.timestamp,format(1,'032x')))
+        reply=self.http.get('/api/operational/notifications',params={'unread_only':True,'limit':1});data=reply.json()
+        self.assertEqual(len(data['items']),1);self.assertEqual(data['items'][0]['id'],format(1,'032x'));self.assertEqual(data['unread_count'],1);self.assertFalse(data['page']['has_more'])
+        self.assertIsNone(data['items'][0]['read_at']);self.assertEqual(self.post('/api/operational/notifications/'+data['items'][0]['id']+'/read',{}).status_code,200)
+        data=self.http.get('/api/operational/notifications',params={'unread_only':True}).json();self.assertEqual(data['items'],[]);self.assertEqual(data['unread_count'],0)
+        with self.server.database() as db:self.assertEqual(db.execute('SELECT state FROM operational_cases WHERE id=?',(base['record_id'],)).fetchone()[0],'open')
+
+    def test_cursor_rechecks_current_recipient_access_and_role(self):
+        base=self.seeded_inbox(5)
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=? WHERE id=?',(self.technician,base['record_id']));db.execute('UPDATE operational_notifications SET user_id=?',(self.technician,))
+        self.login('operator');data=self.http.get('/api/operational/notifications',params={'limit':1}).json();cursor=data['page']['next_cursor'];self.assertTrue(cursor)
+        with self.server.database() as db:db.execute('UPDATE operational_cases SET assignee_id=NULL WHERE id=?',(base['record_id'],))
+        data=self.http.get('/api/operational/notifications',params={'cursor':cursor}).json();self.assertEqual(data['items'],[]);self.assertEqual(data['unread_count'],0)
+        self.login('admin');data=self.http.get('/api/operational/notifications',params={'cursor':cursor}).json();self.assertEqual(data['items'],[],'Cursor is never a recipient credential')
+        self.login('operator')
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=1 WHERE id=?',(self.technician,))
+        self.assertIn(self.http.get('/api/operational/notifications',params={'cursor':cursor}).status_code,(401,403))
+
+    def test_current_access_is_filtered_before_page_limit(self):
+        base=self.seeded_inbox(121)
+        with self.server.database() as db:
+            db.execute('UPDATE operational_cases SET assignee_id=? WHERE id=?',(self.technician,base['record_id']))
+            db.execute('UPDATE operational_notifications SET user_id=?',(self.technician,))
+            db.execute('UPDATE operational_notifications SET record_id=? WHERE id!=?',('e'*32,format(1,'032x')))
+        self.login('operator');data=self.http.get('/api/operational/notifications',params={'limit':1}).json()
+        self.assertEqual([x['id'] for x in data['items']],[format(1,'032x')]);self.assertEqual(data['unread_count'],1);self.assertFalse(data['page']['has_more'])
+
+    def test_inbox_rejects_invalid_cursors_and_page_bounds(self):
+        import base64,json
+        def encode(data):return base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+        for cursor in ['not-base64!',encode({}),encode({'time':'not-time','id':'a'*32}),encode({'time':'2026-11-27T00:00:00','id':'a'*32}),encode({'time':'2026-11-27T00:00:00+00:00','id':'bad'})]:
+            self.assertEqual(self.http.get('/api/operational/notifications',params={'cursor':cursor}).status_code,422)
+        for limit in [0,101]:self.assertEqual(self.http.get('/api/operational/notifications',params={'limit':limit}).status_code,422)
+
     def test_no_configuration_no_send_fixture_lane_local_only_and_read_is_not_ack(self):
         self.rule();self.assertEqual(self.ingest(temp_c=40).status_code,201)
         data=self.http.get('/api/operational/notifications').json();self.assertEqual(len(data['items']),1)
