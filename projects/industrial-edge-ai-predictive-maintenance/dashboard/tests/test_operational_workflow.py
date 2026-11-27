@@ -54,6 +54,44 @@ class OperationalTests(unittest.TestCase):
             self.login('operator');order=self.action('orders',order,'start').json()['record']
         return case,order
 
+    def test_start_review_reports_current_approval_without_authorizing_equipment(self):
+        case,order=self.prepared_order('approved');review=self.summary()['orders'][0]['start_review']
+        self.assertEqual(review['state'],'ready');self.assertFalse(review['equipment_authorized'])
+        self.login('operator');self.assertEqual(self.summary()['orders'][0]['start_review']['state'],'ready')
+        current=self.action('orders',order,'start').json()['record']
+        self.assertEqual(current['state'],'in-progress');self.assertEqual(self.summary()['orders'][0]['start_review']['state'],'not-approved')
+
+    def test_start_review_detects_changed_approval_authority_and_blocks_start(self):
+        case,order=self.prepared_order('approved')
+        with self.server.database() as db:
+            db.execute('INSERT INTO account_controls VALUES(?,2,?) ON CONFLICT(user_id) DO UPDATE SET revision=2',(order['approver_id'],self.timestamp))
+        self.login('operator');review=self.summary()['orders'][0]['start_review']
+        self.assertEqual(review['state'],'approval-authority-changed');self.assertNotIn('approver_revision',review)
+        self.assertEqual(self.action('orders',order,'start').status_code,409)
+        self.assertEqual(self.summary()['orders'][0]['state'],'approved')
+
+    def test_start_review_detects_unavailable_technician(self):
+        case,order=self.prepared_order('approved');self.login('admin')
+        with self.server.database() as db:db.execute('UPDATE users SET disabled=1 WHERE id=?',(self.technician,))
+        self.assertEqual(self.summary()['orders'][0]['start_review']['state'],'technician-unavailable')
+        self.assertEqual(self.action('orders',order,'cancel').status_code,200)
+
+    def test_approval_requires_assignee_to_remain_eligible(self):
+        case,order=self.prepared_order('submitted');self.login('reviewer')
+        for role,disabled in [('operator',1),('auditor',0)]:
+            with self.server.database() as db:db.execute('UPDATE users SET role=?,disabled=? WHERE id=?',(role,disabled,self.technician))
+            self.assertEqual(self.action('orders',order,'approve').status_code,422)
+            self.assertEqual(self.summary()['orders'][0]['state'],'submitted')
+        with self.server.database() as db:db.execute("UPDATE users SET role='operator',disabled=0 WHERE id=?",(self.technician,))
+        self.assertEqual(self.action('orders',order,'approve').status_code,200)
+
+    def test_start_review_detects_source_change_without_exposing_hidden_case(self):
+        case,order=self.prepared_order('approved');self.login('admin')
+        self.assertEqual(self.action('cases',case,'acknowledge').status_code,200)
+        self.login('operator');summary=self.summary();self.assertEqual(summary['cases'],[])
+        self.assertEqual(summary['orders'][0]['start_review']['state'],'source-case-changed')
+        self.assertEqual(self.action('orders',order,'start').status_code,409)
+
     def test_cancel_unstarted_work_preserves_source_context_and_is_terminal(self):
         case,order=self.prepared_order('approved');context=order['case_snapshot_sha256']
         self.login('admin');reply=self.action('orders',order,'cancel')

@@ -152,6 +152,24 @@ def present_order(row):
     return value
 
 
+def start_review(db,row):
+    """Current local execution eligibility; never equipment authorization."""
+    state='not-approved';message='This record is not awaiting execution under a current approval.'
+    if row['state']=='approved':
+        case=db.execute('SELECT revision,state FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
+        technician=db.execute('SELECT role,disabled FROM users WHERE id=?',(row['technician_id'],)).fetchone()
+        approver=db.execute('SELECT role,disabled FROM users WHERE id=?',(row['approver_id'],)).fetchone()
+        if not case or case['revision']!=row['case_revision'] or case['state']=='resolved':
+            state='source-case-changed';message='Source case changed after approval; prepare a new independently reviewed draft.'
+        elif not technician or technician['disabled'] or technician['role'] not in WRITE_ROLES:
+            state='technician-unavailable';message='Assigned account is no longer an active operator or administrator; cancel unstarted work and prepare a new reviewed draft.'
+        elif not approver or approver['disabled'] or approver['role']!='admin' or row['approver_revision']!=local_notifications.account_revision(db,row['approver_id']):
+            state='approval-authority-changed';message='Approval authority changed; prepare a new independently reviewed draft.'
+        else:
+            state='ready';message='Local workflow checks passed at this refresh. Only the assigned team member can record Start; equipment authorization remains separate.'
+    return dict(state=state,message=message,equipment_authorized=False)
+
+
 def visible(db,table,identifier,actor):
     row=db.execute('SELECT * FROM '+table+' WHERE id=?',(identifier,)).fetchone()
     if not row:raise HTTPException(404,'Operational review record not found')
@@ -235,7 +253,7 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 assets.append(asset)
             cases=[dict(row) for row in db.execute('SELECT * FROM operational_cases'+(' WHERE assignee_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],) if actor['role']=='operator' else ())]
             orders=[dict(row) for row in db.execute('SELECT * FROM operational_orders'+(' WHERE creator_id=? OR technician_id=?' if actor['role']=='operator' else '')+' ORDER BY updated_at DESC LIMIT 200',(actor['id'],actor['id']) if actor['role']=='operator' else ())]
-            orders=[present_order(row) for row in orders]
+            orders=[dict(present_order(row),start_review=start_review(db,row)) for row in orders]
             for row in cases:
                 row['first_snapshot']=json.loads(row['first_snapshot']);row['last_snapshot']=json.loads(row['last_snapshot'])
             rules=[dict(row) for row in db.execute('SELECT * FROM operational_rules ORDER BY created_at DESC LIMIT 100')]
@@ -368,12 +386,11 @@ def install_routes(app,database,require_user,require_csrf,matches,audit):
                 if actor['role']!='admin' or actor['id'] in (row['creator_id'],row['executor_id']):raise HTTPException(403,'Independent active administrator required')
                 case=db.execute('SELECT * FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
                 if body.action=='approve' and (case['revision']!=row['case_revision'] or case['state']=='resolved'):raise HTTPException(409,'Source case changed; prepare a new draft from its current revision')
+                if body.action=='approve':eligible(db,row['technician_id'])
             if body.action in ('start','complete') and actor['id']!=row['technician_id']:raise HTTPException(403,'Only the assigned technician records execution')
             if body.action=='start':
-                case=db.execute('SELECT * FROM operational_cases WHERE id=?',(row['case_id'],)).fetchone()
-                if not case or case['revision']!=row['case_revision'] or case['state']=='resolved':raise HTTPException(409,'Source case changed after approval; prepare a new independently reviewed draft')
-                approver=db.execute('SELECT * FROM users WHERE id=?',(row['approver_id'],)).fetchone()
-                if not approver or approver['disabled'] or approver['role']!='admin' or row['approver_revision']!=local_notifications.account_revision(db,approver['id']):raise HTTPException(409,'Approval authority changed; prepare a new independently reviewed draft')
+                review=start_review(db,row)
+                if review['state']!='ready':raise HTTPException(409,review['message'])
             if body.action in ('complete','verify') and not body.evidence_refs.strip():raise HTTPException(422,'Completion/review requires evidence references')
             db.execute('''UPDATE operational_orders SET state=?,revision=revision+1,updated_at=?,
                 approver_id=CASE WHEN ?='approve' THEN ? ELSE approver_id END,
