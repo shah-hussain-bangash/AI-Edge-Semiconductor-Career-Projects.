@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 <script src="/static/dashboard-auth.js" defer></script>
+<script src="/static/usb-status.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to main content</a>
@@ -39,8 +40,13 @@
 
       <main id="main">
         <div class="page-heading"><div><div class="eyebrow">EDGE INTELLIGENCE / OPERATIONS</div><h1 id="page-title">Industrial overview</h1><p id="page-subtitle">Monitor equipment health, telemetry signals and maintenance risk in one place.</p></div><div class="heading-actions"><span class="pill warning">● SYNTHETIC DATA</span><button class="primary-btn" id="export-btn">↓ Export demo snapshot</button></div></div>
-        <div class="notice" role="status"><span class="notice-icon">ℹ</span><span><strong>Simulation-only preview.</strong> Values are generated fixtures; no real devices, production monitoring, deployed predictive models or safety approvals are represented.</span></div>
+        <div class="notice" role="status"><span class="notice-icon">ℹ</span><span><strong>Simulation-only preview.</strong> Chart values are generated fixtures; no real devices are represented in these charts. The separate USB panel observes only a heartbeat. Production monitoring, deployed predictive models and safety approvals are not represented.</span></div>
 
+        <article class="panel" aria-label="ESP32 USB connection" style="padding:16px;margin-bottom:18px">
+          <h2>ESP32 USB connection</h2>
+          <p id="usb-status" role="status" aria-live="polite">USB status unknown</p>
+          <p id="usb-detail">Sensor telemetry is not verified. Charts below remain synthetic.</p>
+        </article>
         <section class="page-section active" id="page-overview" aria-label="Overview">
           <div class="metrics">
             <article class="metric"><div class="metric-label">Monitored assets <span class="metric-icon">▤</span></div><div class="metric-number">12<span class="metric-unit">assets</span></div><div class="metric-foot"><span class="soft-teal">8 nominal</span> · 3 watch · 1 critical</div></article>
@@ -78,3 +84,4 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
+

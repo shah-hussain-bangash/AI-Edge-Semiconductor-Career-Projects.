@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
+from usb_heartbeat import UsbHeartbeat
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("EDGEOPS_DASHBOARD_DB", str(ROOT / ".local" / "dashboard.sqlite3"))).resolve()
@@ -32,7 +33,8 @@ BOOTSTRAP_PASSWORD = os.environ.get("EDGEOPS_ADMIN_PASSWORD", "")
 MAX_BODY_BYTES = 8192
 
 app = FastAPI(title="EDGEOPS Industrial Console", docs_url=None, redoc_url=None, openapi_url=None)
-PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js"}
+PUBLIC_ASSETS = {"styles.css", "app.js", "dashboard-auth.js", "signin.css", "signin.js", "usb-status.js"}
+usb_reader = UsbHeartbeat(os.environ.get("EDGEOPS_SERIAL_PORT", ""))
 
 @app.get("/static/{asset}")
 def public_asset(asset: str):
@@ -132,6 +134,18 @@ def record_audit(db: sqlite3.Connection, actor: str, action: str, detail: str):
 @app.on_event("startup")
 def startup():
     init_db()
+    usb_reader.start()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    usb_reader.stop()
+
+
+@app.get("/api/usb/status")
+def usb_status(request: Request):
+    require_user(request)
+    return usb_reader.snapshot()
 
 
 def auth_context(request: Request) -> dict | None:
@@ -318,3 +332,4 @@ def acknowledge(request: Request, body: AlertAction):
     with database() as db:
         record_audit(db, current["email"], "demo_alert_ack", body.alert_id)
     return {"ok": True, "mode": "demo-audit-only", "persistent_alarm_state": False}
+

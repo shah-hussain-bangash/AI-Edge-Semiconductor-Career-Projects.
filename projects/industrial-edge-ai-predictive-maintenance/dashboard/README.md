@@ -4,6 +4,10 @@
 
 **Previous verification:** The enterprise-architecture laboratory phases EA-23 through EA-31 have 132 tests reported passed on the user's Windows computer. Dashboard backend tests and visual browser tests are **new and have not yet been executed in that environment**.
 
+## Connect the existing ESP32 USB test
+
+The optional [USB heartbeat connection](USB_CONNECTION.md) displays the board's existing `ESP32 is working!` message in a separate authenticated panel. It does not flash firmware or populate the simulated sensor charts. Close Arduino Serial Monitor before enabling the reader.
+
 ## High-level system
 
 - Frontend: HTML5, responsive custom CSS, vanilla JavaScript, SVG telemetry charts.
@@ -120,3 +124,4 @@ This is a convenience workflow, not CI. Stop with Ctrl+C. It refuses unrelated s
 - `server.py`: local API, session storage, auth and audit.
 - `tests/test_server.py`: authored security/API tests; local execution pending.
 - `sync-dashboard.ps1`: opt-in Git sync for dedicated development branch.
+
