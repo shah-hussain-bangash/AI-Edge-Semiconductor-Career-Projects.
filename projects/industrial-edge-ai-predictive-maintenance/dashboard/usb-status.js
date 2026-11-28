@@ -11,8 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let generation = 0;
   let expiry;
   let ended = false;
+  const publishConnection = connected => document.dispatchEvent(new CustomEvent("edgeops:usb-status", {detail:{connected}}));
   const clear = (message) => {
     clearTimeout(expiry);
+    publishConnection(false);
     status.textContent = message;
     detail.textContent = "No fresh heartbeat verified. Sensor telemetry is not verified.";
   };
@@ -39,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
       detail.textContent = data.heartbeat_fresh
         ? `${data.message} · ${data.port} · ${data.baud} baud · ${data.heartbeat_count} heartbeats. Sensor telemetry is not verified.`
         : "No fresh heartbeat verified. Sensor telemetry is not verified.";
+      publishConnection(data.heartbeat_fresh);
       if (data.heartbeat_fresh) expiry = setTimeout(() => clear("Heartbeat observation expired"), Math.max(0, 5000 - age * 1000));
     } catch (_) { if (current === generation) clear("USB status unavailable"); }
     finally { clearTimeout(timeout); }
