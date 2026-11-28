@@ -14,13 +14,32 @@ function csrfToken(){
   const field=document.cookie.split("; ").find(x=>x.startsWith("edgeops_csrf="));
   return field?decodeURIComponent(field.slice("edgeops_csrf=".length)):"";
 }
+let esp32UsbConnected = false;
+function renderUsbInventoryStatus(){
+  const badge=edg("esp32-connection");
+  if(badge){
+    badge.textContent=esp32UsbConnected?"Connected · USB heartbeat":"No fresh USB heartbeat";
+    badge.className="status-tag "+(esp32UsbConnected?"nominal":"watch");
+  }
+  const count=edg("usb-connected-count");
+  if(count)count.textContent=esp32UsbConnected?"1":"0";
+}
+document.addEventListener("edgeops:usb-status",event=>{
+  esp32UsbConnected=event.detail?.connected===true;
+  renderUsbInventoryStatus();
+});
 async function initializeHardware(){
   const result=await edgFetch("/api/hardware");
   const metrics=edg("hardware-metrics"), table=edg("hardware-table");
   if(metrics) metrics.innerHTML=[
-    ["30","Planned catalog slots"],[String(result.confirmed_hardware_count),"Named components"],["16","Unconfirmed slots"],["0","Verified connected devices"]
+    ["30","Planned catalog slots"],[String(result.confirmed_hardware_count),"Named components"],["16","Unconfirmed slots"],["0","USB heartbeat connections"]
   ].map(([value,title])=>'<article class="metric"><div class="metric-label">'+safeText(title)+'</div><div class="metric-number">'+safeText(value)+'</div><div class="metric-foot">Planning inventory only</div></article>').join("");
-  if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span class="status-tag watch">Not connected</span></td></tr>').join("");
+  if(metrics){
+    const count=metrics.querySelectorAll(".metric-number")[3];
+    if(count)count.id="usb-connected-count";
+  }
+  if(table)table.innerHTML=result.devices.map(device=>'<tr><td><strong>'+safeText(device.id)+'</strong></td><td><strong>'+safeText(device.name)+'</strong></td><td>'+safeText(device.purpose)+'</td><td>'+safeText(device.category)+'</td><td><span '+(device.id==="HW-02"?'id="esp32-connection" ':'')+'class="status-tag watch">'+(device.id==="HW-02"?'No fresh USB heartbeat':'Not connected')+'</span></td></tr>').join("");
+  renderUsbInventoryStatus();
 }
 document.addEventListener("DOMContentLoaded",async()=>{
   try{
@@ -42,3 +61,4 @@ document.addEventListener("DOMContentLoaded",async()=>{
     }catch(error){logout.disabled=false;alert("Could not sign out: "+error.message);}
   });
 });
+
